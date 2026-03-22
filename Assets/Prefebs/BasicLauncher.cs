@@ -10,11 +10,23 @@ public class BasicLauncher : MonoBehaviour
     {
         if (_runner == null)
         {
-            if (GUI.Button(new Rect(0, 0, 200, 40), "Host (방만들기)"))
+            // 1. 버튼의 크기 설정
+            float buttonWidth = 250f;
+            float buttonHeight = 60f;
+            float spacing = 20f; // 버튼 사이의 간격
+
+            // 2. 화면 중앙 좌표 계산 (버튼 크기의 절반을 빼야 정확히 중앙에 옵니다)
+            float centerX = (Screen.width - buttonWidth) / 2f;
+            float centerY = (Screen.height - (buttonHeight * 2 + spacing)) / 2f;
+
+            // 3. Host 버튼 배치
+            if (GUI.Button(new Rect(centerX, centerY, buttonWidth, buttonHeight), "Host (방만들기)"))
             {
                 StartGame(GameMode.Host);
             }
-            if (GUI.Button(new Rect(0, 50, 200, 40), "Join (참여하기)"))
+
+            // 4. Join 버튼 배치 (Host 버튼 아래에 배치)
+            if (GUI.Button(new Rect(centerX, centerY + buttonHeight + spacing, buttonWidth, buttonHeight), "Join (참여하기)"))
             {
                 StartGame(GameMode.Client);
             }
