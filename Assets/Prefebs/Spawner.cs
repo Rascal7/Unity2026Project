@@ -95,8 +95,8 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     {
         var data = new NetworkInputData();
         // 로컬의 빠른 업데이트 속도로 입력을 읽어 전송합니다.
-        data.direction.x = Input.GetAxisRaw("Horizontal");
-        data.direction.y = Input.GetAxisRaw("Vertical");
+        data.direction = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        data.isJumpPressed = Input.GetButton("Jump");
 
         data.isJumpPressed = Input.GetButton("Jump") || Input.GetKey(KeyCode.Space);
 
