@@ -9,6 +9,7 @@ MemoryCaptures/
 
 .vscode/
 .idea/
+.vs/
 
 *.csproj
 *.unityproj
