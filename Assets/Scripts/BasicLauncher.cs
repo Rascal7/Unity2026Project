@@ -7,7 +7,23 @@ public class BasicLauncher : MonoBehaviour
     private NetworkRunner _runner;
     private string _roomCode = ""; // 사용자가 입력할 방 코드
     private bool _isStarting = false;
-
+    private string _playerName = "";
+    private bool _isMenuOpen = false;
+    private void Start()
+    {
+        // 이전에 썼던 이름 불러오기
+        _playerName = PlayerPrefs.GetString("PlayerName", "Player" + Random.Range(100, 999));
+    }
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            _isMenuOpen = !_isMenuOpen;
+            // 마우스 커서 상태 조절
+            Cursor.lockState = _isMenuOpen ? CursorLockMode.None : CursorLockMode.Locked;
+            Cursor.visible = _isMenuOpen;
+        }
+    }
     private void OnGUI()
     {
         if (_runner == null)
@@ -21,7 +37,9 @@ public class BasicLauncher : MonoBehaviour
             // 1. 방 코드 입력창 (텍스트 필드)
             GUI.Label(new Rect(centerX, centerY - 25, buttonWidth, 20), "방 코드 입력 (Join 시 필요):");
             _roomCode = GUI.TextField(new Rect(centerX, centerY, buttonWidth, buttonHeight), _roomCode);
-
+            GUI.Label(new Rect(centerX, centerY - 80, buttonWidth, 20), "닉네임:");
+            _playerName = GUI.TextField(new Rect(centerX, centerY - 60, buttonWidth, 30), _playerName);
+            PlayerPrefs.SetString("PlayerName", _playerName); // 입력할 때마다 저장
             // 2. Host 버튼 (랜덤 코드 생성)
             if (GUI.Button(new Rect(centerX, centerY + buttonHeight + spacing, buttonWidth, buttonHeight), "Host (방 만들기)"))
             {
@@ -66,6 +84,21 @@ public class BasicLauncher : MonoBehaviour
 
             // (선택) 하단에 현재 상태 표시
             GUI.Label(new Rect(10, Screen.height - 30, 200, 25), $"Status: {(_runner.IsServer ? "Host" : "Client")}");
+        }
+        if (_isMenuOpen)
+        {
+            float w = 200; float h = 150;
+            Rect menuRect = new Rect(Screen.width / 2 - w / 2, Screen.height / 2 - h / 2, w, h);
+            GUI.Box(menuRect, "Menu");
+
+            if (GUI.Button(new Rect(menuRect.x + 50, menuRect.y + 40, 100, 30), "계속하기"))
+                _isMenuOpen = false;
+            if (GUI.Button(new Rect(menuRect.x + 50, menuRect.y + 80, 100, 30), "방 나가기"))
+            {
+                ExitGame();
+            }
+
+         
         }
     }
 
@@ -119,5 +152,21 @@ public class BasicLauncher : MonoBehaviour
             _isStarting = false;
             Debug.LogError($"[Launcher] 시작 실패: {result.ShutdownReason}");
         }
+    }
+    private async void ExitGame()
+    {
+        if (_runner != null)
+        {
+            // 1. 네트워크 연결을 완전히 종료 (매우 중요!)
+            await _runner.Shutdown();
+        }
+
+        // 2. 마우스 커서 다시 활성화 (로비에서 클릭해야 하니까요)
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        // 3. 로비 씬으로 이동
+        // 주의: Build Settings에 등록된 로비 씬 이름과 똑같아야 합니다!
+        SceneManager.LoadScene("Lobby");
     }
 }
