@@ -348,9 +348,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b2ffc823368b0f847b767aa331cee816, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
+  climbSpeed: 4
+  ladderJumpHorizontalForce: 5
   speed: 5
   jumpForce: 10
-  climbSpeed: 4
   groundCheck: {fileID: 165237684612126761}
   groundCheckRadius: 0.15
   groundLayer:

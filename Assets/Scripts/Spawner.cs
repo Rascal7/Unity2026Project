@@ -3,6 +3,7 @@ using Fusion.Sockets;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 {
@@ -18,15 +19,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             _runner.AddCallbacks(this);
             Debug.Log("<color=yellow>[Spawner]</color> 등록 완료!");
 
-            // [핵심] 이미 서버가 가동 중이고 플레이어(호스트)가 있다면 즉시 스폰
-            if (_runner.IsServer)
-            {
-                foreach (var player in _runner.ActivePlayers)
-                {
-                    Debug.Log($"<color=orange>[Spawner]</color> 이미 접속 중인 {player} 발견, 스폰 시도!");
-                    SpawnPlayer(_runner, player);
-                }
-            }
+            
         }
         else
         {
@@ -38,6 +31,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     // 캐릭터 생성 로직 분리
     private void SpawnPlayer(NetworkRunner runner, PlayerRef player)
     {
+        Debug.Log($"<color=white>[Spawner]</color> runner.Spawn 실행 직전! 플레이어: {player}</color>");
         // [중요] 이미 이 플레이어의 캐릭터가 딕셔너리에 있다면 생성을 취소합니다.
         if (_spawnedCharacters.ContainsKey(player))
         {
@@ -51,11 +45,18 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             Debug.LogError("Spawner에 Player Prefab이 할당되지 않았습니다! 인스펙터를 확인하세요.");
             return;
         }
-        Vector3 spawnPosition = new Vector3(-20, -7, 0);
         Quaternion spawnRotation = Quaternion.identity;
 
-        NetworkObject networkPlayerObject = runner.Spawn(playerPrefab, spawnPosition, spawnRotation, player);
+        if (_spawnedCharacters.ContainsKey(player)) return;
+
+        // 씬별로 스폰 위치를 다르게 하고 싶다면 여기서 씬 이름을 체크할 수 있습니다.
+        // string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        Vector3 spawnPosition = new Vector3(-20, -7, 0);
+
+        NetworkObject networkPlayerObject = runner.Spawn(playerPrefab, spawnPosition, Quaternion.identity, player);
         _spawnedCharacters.Add(player, networkPlayerObject);
+
+
     }
     public void OnConnectedToServer(NetworkRunner runner)
     {
@@ -67,13 +68,18 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     }
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        Debug.Log($"<color=yellow>OnPlayerJoined 호출됨! 서버여부: {runner.IsServer}</color>");
-        if (runner.IsServer)
+        Debug.Log($"<color=cyan>[Spawner]</color> 플레이어 {player} 접속 확인!");
+
+        // 호스트(서버)이고, 현재 로비가 아닌 게임 스테이지라면 즉시 스폰 시도
+        if (runner.IsServer && SceneManager.GetActiveScene().name != "Lobby")
         {
+            // 이미 딕셔너리에 있다면 중복 생성 방지
+            if (_spawnedCharacters.ContainsKey(player)) return;
+
+            Debug.Log($"<color=white>[Spawner]</color> 씬 로딩 전 접속한 {player}를 위해 즉시 스폰합니다.");
             SpawnPlayer(runner, player);
         }
     }
-
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
         if (runner.IsServer)
@@ -102,6 +108,42 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
         input.Set(data);
     }
+    public void OnSceneLoadDone(NetworkRunner runner)
+    {
+        string currentScene = SceneManager.GetActiveScene().name;
+        if (currentScene == "Lobby") return;
+
+        if (runner.IsServer)
+        {
+            // [진단용 로그 추가] 현재 접속자 수를 확인합니다.
+            int playerCount = 0;
+            foreach (var p in runner.ActivePlayers) playerCount++;
+
+            Debug.Log($"<color=orange>[Spawner]</color> 현재 감지된 ActivePlayers 수: {playerCount}");
+
+            // 1. 만약 ActivePlayers가 비어있다면, 로컬 플레이어라도 강제로 소환 시도
+            if (playerCount == 0)
+            {
+                Debug.LogWarning("[Spawner] ActivePlayers가 비어있어 LocalPlayer로 소환을 시도합니다.");
+                SpawnPlayer(runner, runner.LocalPlayer);
+                return;
+            }
+
+            // 2. 정상적인 루프 처리
+            foreach (var player in runner.ActivePlayers)
+            {
+                Debug.Log($"<color=white>[Spawner]</color> 루프 내부 - 현재 플레이어: {player}</color>");
+
+                if (_spawnedCharacters.ContainsKey(player))
+                {
+                    Debug.LogWarning($"[Spawner] {player}는 이미 딕셔너리에 존재하여 스킵합니다.");
+                    continue;
+                }
+
+                SpawnPlayer(runner, player);
+            }
+        }
+    }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
     public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
@@ -113,8 +155,13 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
-    public void OnSceneLoadDone(NetworkRunner runner) { }
-    public void OnSceneLoadStart(NetworkRunner runner) { }
+
+    public void OnSceneLoadStart(NetworkRunner runner)
+    {
+        // 씬 이동이 시작되면 기존 스폰 정보를 초기화합니다.
+        _spawnedCharacters.Clear();
+        Debug.Log("<color=white>[Spawner]</color> 씬 이동 시작 - 딕셔너리 초기화 완료");
+    }
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
 }
