@@ -32,13 +32,13 @@ public class BasicLauncher : MonoBehaviour
             float buttonHeight = 40f;
             float spacing = 15f;
             float centerX = (Screen.width - buttonWidth) / 2f;
-            float centerY = (Screen.height - 200) / 2f;
+            float centerY = (Screen.height - 200) -30/ 2f;
 
             // 1. 방 코드 입력창 (텍스트 필드)
             GUI.Label(new Rect(centerX, centerY - 25, buttonWidth, 20), "방 코드 입력 (Join 시 필요):");
             _roomCode = GUI.TextField(new Rect(centerX, centerY, buttonWidth, buttonHeight), _roomCode);
-            GUI.Label(new Rect(centerX, centerY - 80, buttonWidth, 20), "닉네임:");
-            _playerName = GUI.TextField(new Rect(centerX, centerY - 60, buttonWidth, 30), _playerName);
+            GUI.Label(new Rect(centerX, centerY - 80 , buttonWidth, 20), "닉네임:");
+            _playerName = GUI.TextField(new Rect(centerX, centerY - 60 , buttonWidth, 30), _playerName);
             PlayerPrefs.SetString("PlayerName", _playerName); // 입력할 때마다 저장
             // 2. Host 버튼 (랜덤 코드 생성)
             if (GUI.Button(new Rect(centerX, centerY + buttonHeight + spacing, buttonWidth, buttonHeight), "Host (방 만들기)"))
@@ -51,7 +51,7 @@ public class BasicLauncher : MonoBehaviour
             }
 
             // 3. Join 버튼 (입력한 코드로 접속)
-            if (GUI.Button(new Rect(centerX, centerY + (buttonHeight + spacing) * 2, buttonWidth, buttonHeight), "Join (참여하기)"))
+            if (GUI.Button(new Rect(centerX, centerY + (buttonHeight + spacing) * 2 - 20, buttonWidth, buttonHeight), "Join (참여하기)"))
             {
                 if (!string.IsNullOrEmpty(_roomCode))
                 {
