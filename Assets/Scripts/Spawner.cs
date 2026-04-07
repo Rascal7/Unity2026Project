@@ -100,7 +100,10 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         var data = new NetworkInputData();
 
         // 2. 키보드 입력 받기
-        data.direction = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
+        data.direction.x = Input.GetAxisRaw("Horizontal"); // A, D 키
+        data.direction.y = Input.GetAxisRaw("Vertical");
+
+        data.isJumpPressed = Input.GetButton("Jump");
 
         // 3. Fusion에 입력값 전달
         input.Set(data);
