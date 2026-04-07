@@ -41,7 +41,6 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
         string currentScene = SceneManager.GetActiveScene().name;
 
-        // --- 기존 로직: 캐릭터 선택 씬 ---
         if (currentScene == "CharacterSelect")
         {
             var oldItems = FindObjectsOfType<SessionPlayerItem>();
@@ -55,12 +54,11 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
                 runner.Spawn(sessionItemPrefab, Vector3.zero, Quaternion.identity, p);
             }
         }
-
-        // --- 추가된 로직: 테스트 스테이지 씬 캐릭터 소환 ---
         else if (currentScene == "TestStage")
         {
-            Debug.Log("<color=yellow>[Spawner]</color> TestStage 로드 완료. 플레이어 소환 시작!");
+            Debug.Log("<color=yellow>[Spawner]</color> 스테이지 로드 완료. 플레이어 소환 시작!");
 
+            // [수정] ActivePlayers를 기준으로 루프를 돌려야 모든 플레이어가 스폰됩니다.
             foreach (var p in runner.ActivePlayers)
             {
                 SpawnSelectedPlayer(runner, p);
@@ -68,27 +66,44 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
+    // 통합된 스폰 함수
     private void SpawnSelectedPlayer(NetworkRunner runner, PlayerRef player)
     {
-        // 1. 해당 플레이어의 SessionPlayerItem 찾기
         int selectedIndex = 0;
         var items = FindObjectsOfType<SessionPlayerItem>();
+        bool foundItem = false;
+
         foreach (var item in items)
         {
             if (item.Object.InputAuthority == player)
             {
                 selectedIndex = item.SelectedCharacterIndex;
+                foundItem = true;
                 break;
             }
         }
 
-        // 2. 선택 번호에 따라 프리팹 결정 (0번 -> 1번프리팹, 그외 -> 2번프리팹)
+        if (!foundItem)
+        {
+            // [안전장치] 만약 정보를 못 찾았다면 기본값 0으로 스폰하거나 로그를 남깁니다.
+            Debug.LogWarning($"<color=red>[Spawn]</color> 플레이어 {player}의 선택 정보를 찾지 못해 기본 캐릭터로 소환합니다.");
+        }
+
+        // 0번 -> 1번프리팹, 1번(혹은 그외) -> 2번프리팹
         NetworkObject prefabToSpawn = (selectedIndex == 0) ? player1Prefab : player2Prefab;
 
-        // 3. 소환 위치 (플레이어별로 조금 다르게)
-        Vector3 spawnPos = new Vector3(player.RawEncoded * 2, 1, 0);
+        Vector3 spawnPos;
+        // PlayerId는 1부터 시작하므로 1번이면 첫번째 좌표
+        if (player.PlayerId % 2 == 1)
+        {
+            spawnPos = new Vector3(-20f, -7f, 0f);
+        }
+        else
+        {
+            spawnPos = new Vector3(-20f, -5f, 0f);
+        }
 
-        Debug.Log($"<color=green>[Spawn]</color> 플레이어 {player} (선택:{selectedIndex}) 소환 완료!");
+        Debug.Log($"<color=green>[Spawn]</color> 플레이어 {player} (선택:{selectedIndex}) -> {spawnPos} 위치 소환");
         runner.Spawn(prefabToSpawn, spawnPos, Quaternion.identity, player);
     }
 

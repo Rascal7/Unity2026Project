@@ -4,19 +4,25 @@ using UnityEngine.SceneManagement;
 
 public class SessionPlayerItem : NetworkBehaviour
 {
-    [Networked] public int SelectedCharacterIndex { get; set; } = -1;
+    [Networked, OnChangedRender(nameof(OnIndexChanged))]
+    public int SelectedCharacterIndex { get; set; } 
     [Networked] public NetworkBool IsReady { get; set; }
 
     public override void Spawned()
     {
-        Debug.Log($"<color=yellow>[Item]</color> SessionPlayerItem 생성됨! 주인: {Object.InputAuthority}");
         DontDestroyOnLoad(gameObject);
+        if (Object.HasStateAuthority)
+        {
+            SelectedCharacterIndex = -1;
+            Debug.Log($"<color=yellow>[Item Spawned]</color> 초기값 -1 설정 완료");
+        }
+        Debug.Log($"<color=yellow>[Item]</color> SessionPlayerItem 생성됨! 주인: {Object.InputAuthority}");
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_SelectCharacter(int index)
     {
-        Debug.Log($"<color=cyan>[Server]</color> {Object.InputAuthority}가 {index}번 선택");
+        Debug.Log($"<color=cyan>[RPC 호출됨]</color> {Object.InputAuthority}가 요청한 인덱스: {index}");
         SelectedCharacterIndex = index;
     }
 
@@ -57,6 +63,15 @@ public class SessionPlayerItem : NetworkBehaviour
         {
             Debug.Log("<color=green>[성공]</color> 조건 충족! 씬 전환 시도.");
             Runner.LoadScene("TestStage");
+        }
+    }
+    public void OnIndexChanged()
+    {
+        Debug.Log($"<color=magenta>[변화 감지]</color> 주인:{Object.InputAuthority} | 현재 값:{SelectedCharacterIndex}");
+
+        if (SelectedCharacterIndex == 2)
+        {
+            Debug.LogError("<color=red>[범인 검거]</color> 인덱스가 2로 변했습니다! 호출 스택을 확인하세요.");
         }
     }
 }

@@ -7,33 +7,33 @@ public class CharacterSelectUI : MonoBehaviour
     public Button[] selectButtons;
     private void Start()
     {
-        // [진단 1] 스크립트가 깨어났는지 확인
-        Debug.Log("<color=red>[UI]</color> CharacterSelectUI Start 시작됨!");
+        Debug.Log("<color=red>[UI]</color> CharacterSelectUI 시작");
 
-        // 씬 내의 모든 버튼을 찾습니다. (비활성화된 것 포함)
+        // [수정] 모든 버튼을 자동으로 연결하는 루프를 삭제하거나, 
+        // 특정 버튼(레디 버튼 등)은 제외하도록 조건문을 걸어야 합니다.
+
+        // 가장 깔끔한 방법: 버튼의 이름을 확인하거나 수동으로 연결하기
         Button[] allButtons = GetComponentsInChildren<Button>(true);
-
-        if (allButtons.Length == 0)
-        {
-            Debug.LogError("<color=red>[UI]</color> 자식 오브젝트에서 버튼을 하나도 찾지 못했습니다!");
-            return;
-        }
 
         for (int i = 0; i < allButtons.Length; i++)
         {
-            int index = i;
             Button btn = allButtons[i];
+            int index = i;
 
-            // 기존 연결 싹 청소 (Missing 방지)
-            btn.onClick.RemoveAllListeners();
-
-            // 코드로 새 기능 주입 (인스펙터에는 안 보이지만 실제론 작동함)
-            btn.onClick.AddListener(() => {
-                Debug.LogWarning($"<color=yellow>[버튼 클릭 확인]</color> {index}번 버튼이 실제로 눌렸습니다!");
-                OnClickSelect(index);
-            });
-
-            Debug.Log($"<color=cyan>[UI 초기화]</color> {btn.name} 버튼 연결 성공!");
+            // 버튼 이름에 "Ready"가 포함되어 있다면 OnClickReady를 연결
+            if (btn.name.Contains("Ready"))
+            {
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => OnClickReady());
+                Debug.Log($"<color=cyan>[UI]</color> {btn.name}을 Ready 버튼으로 연결함");
+            }
+            // 그 외 버튼들은 선택 버튼으로 처리 (단, 인덱스 주의)
+            else
+            {
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => OnClickSelect(index));
+                Debug.Log($"<color=cyan>[UI]</color> {btn.name}을 {index}번 선택 버튼으로 연결함");
+            }
         }
     }
     public void OnClickSelect(int index)
