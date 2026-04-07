@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 710197890205322416}
   - component: {fileID: 7461716323109306568}
+  - component: {fileID: 3824845119428093022}
   m_Layer: 0
   m_Name: PlayerSessionItem
   m_TagString: Untagged
@@ -48,5 +49,21 @@ MonoBehaviour:
   ObjectInterest: 1
   Flags: 786433
   NestedObjects: []
-  NetworkedBehaviours: []
+  NetworkedBehaviours:
+  - {fileID: 3824845119428093022}
   ForceRemoteRenderTimeframe: 0
+--- !u!114 &3824845119428093022
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5871114844344796801}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7a93f2e27437ec48ad54ce3206082d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SessionPlayerItem
+  _SelectedCharacterIndex: -1
+  _IsReady:
+    _value: 0

@@ -1,12 +1,44 @@
 using Fusion;
 using UnityEngine;
-
+using UnityEngine.UI;
 public class CharacterSelectUI : MonoBehaviour
 {
     // CharacterSelectUI.cs
+    public Button[] selectButtons;
+    private void Start()
+    {
+        // [진단 1] 스크립트가 깨어났는지 확인
+        Debug.Log("<color=red>[UI]</color> CharacterSelectUI Start 시작됨!");
 
+        // 씬 내의 모든 버튼을 찾습니다. (비활성화된 것 포함)
+        Button[] allButtons = GetComponentsInChildren<Button>(true);
+
+        if (allButtons.Length == 0)
+        {
+            Debug.LogError("<color=red>[UI]</color> 자식 오브젝트에서 버튼을 하나도 찾지 못했습니다!");
+            return;
+        }
+
+        for (int i = 0; i < allButtons.Length; i++)
+        {
+            int index = i;
+            Button btn = allButtons[i];
+
+            // 기존 연결 싹 청소 (Missing 방지)
+            btn.onClick.RemoveAllListeners();
+
+            // 코드로 새 기능 주입 (인스펙터에는 안 보이지만 실제론 작동함)
+            btn.onClick.AddListener(() => {
+                Debug.LogWarning($"<color=yellow>[버튼 클릭 확인]</color> {index}번 버튼이 실제로 눌렸습니다!");
+                OnClickSelect(index);
+            });
+
+            Debug.Log($"<color=cyan>[UI 초기화]</color> {btn.name} 버튼 연결 성공!");
+        }
+    }
     public void OnClickSelect(int index)
     {
+        Debug.Log($"<color=cyan>[UI]</color> {index}번 버튼 클릭됨!");
         SessionPlayerItem myItem = FindLocalPlayerItem();
 
         if (myItem != null)
@@ -36,35 +68,23 @@ public class CharacterSelectUI : MonoBehaviour
 
     private SessionPlayerItem FindLocalPlayerItem()
     {
+        // 씬에 있는 모든 아이템을 다 긁어모읍니다.
         SessionPlayerItem[] allItems = FindObjectsOfType<SessionPlayerItem>();
-        NetworkRunner runner = FindObjectOfType<NetworkRunner>();
+        var runner = FindObjectOfType<NetworkRunner>();
 
-        // 내 로컬 플레이어의 번호 (예: 1)
-        int myPlayerID = runner.LocalPlayer.PlayerId;
-
+        if (runner == null) return null;
         foreach (var item in allItems)
         {
-            if (item.Object == null) continue;
-
-            // 아이템이 가진 권한의 번호 (예: 1)
-            int ownerID = item.Object.InputAuthority.PlayerId;
-
-            Debug.Log($"[비교] 아이템 주인 ID: {ownerID}, 내 로컬 ID: {myPlayerID}");
-
-            if (ownerID == myPlayerID)
+            // 핵심: Fusion이 이 객체의 권한이 '나'에게 있다고 명시한 것만 리턴!
+            if (item.Object != null && item.Object.HasInputAuthority)
             {
-                Debug.Log("<color=lime>[UI]</color> ID 일치! 내 아이템을 찾았습니다.");
+                Debug.Log("<color=lime>[UI]</color> 진짜 내 아이템(HasInputAuthority)을 찾았습니다!");
                 return item;
             }
         }
 
-        // 만약 1인 테스트 중이라면, 권한 체크를 무시하고 0번 인덱스를 강제 반환해서 테스트 진행
-        if (allItems.Length > 0)
-        {
-            Debug.LogWarning("[UI] 권한 체크 실패로 첫 번째 아이템을 강제 연결합니다.");
-            return allItems[0];
-        }
-
+        Debug.LogError("<color=red>[UI]</color> 씬에 아이템은 있으나, 내 권한(Input Authority)이 있는 것은 없습니다.");
         return null;
     }
+    
 }
