@@ -584,8 +584,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9a96c3b525e1314c9a2d05bb632525e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Spawner
-  playerPrefab:
-    RawGuidValue: 7b856d6c7e35ae5449d517343138ad5d
+  sessionItemPrefab: {fileID: 7461716323109306568, guid: d0b5007e0b8499e4dbb4e266be86a3cc, type: 3}
+  playerPrefab: {fileID: -5660461731030084370, guid: 7b856d6c7e35ae5449d517343138ad5d, type: 3}
 --- !u!4 &771729761
 Transform:
   m_ObjectHideFlags: 0
@@ -628,6 +628,10 @@ PrefabInstance:
     - target: {fileID: -121219037000085047, guid: 7b856d6c7e35ae5449d517343138ad5d, type: 3}
       propertyPath: m_Enabled
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1841361652320191767, guid: 7b856d6c7e35ae5449d517343138ad5d, type: 3}
+      propertyPath: nameText
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 1841361652320191767, guid: 7b856d6c7e35ae5449d517343138ad5d, type: 3}
       propertyPath: m_Enabled
@@ -708,6 +712,10 @@ PrefabInstance:
     - target: {fileID: 9110010373372443184, guid: 7b856d6c7e35ae5449d517343138ad5d, type: 3}
       propertyPath: m_Enabled
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9110010373372443184, guid: 7b856d6c7e35ae5449d517343138ad5d, type: 3}
+      propertyPath: groundCheck
+      value: 
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
@@ -836,6 +844,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1841361652320191767, guid: 7b856d6c7e35ae5449d517343138ad5d, type: 3}
+      propertyPath: nameText
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 1841361652320191767, guid: 7b856d6c7e35ae5449d517343138ad5d, type: 3}
       propertyPath: m_Enabled
       value: 0
       objectReference: {fileID: 0}
@@ -923,6 +935,10 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 9110010373372443184, guid: 7b856d6c7e35ae5449d517343138ad5d, type: 3}
+      propertyPath: groundCheck
+      value: 
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 5835780282187773954, guid: 7b856d6c7e35ae5449d517343138ad5d, type: 3}
@@ -941,6 +957,8 @@ GameObject:
   - component: {fileID: 1359046190}
   - component: {fileID: 1359046189}
   - component: {fileID: 1359046191}
+  - component: {fileID: 1359046193}
+  - component: {fileID: 1359046192}
   m_Layer: 0
   m_Name: Spawner
   m_TagString: Untagged
@@ -1002,7 +1020,58 @@ MonoBehaviour:
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: 1359046189}
+  - {fileID: 1359046192}
   ForceRemoteRenderTimeframe: 0
+--- !u!114 &1359046192
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1359046188}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5e690b5fb1084f5ab1c86457af401d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Fusion.Addons.Physics::Fusion.Addons.Physics.NetworkRigidbody2D
+  _stateAuthorityChangeErrorCorrectionDelta: 0
+  SyncScale: 0
+  SyncParent: 1
+  _interpolationTarget: {fileID: 0}
+  UsePreciseRotation: 0
+  UseRenderSleepThresholds: 1
+  RenderThresholds:
+    UseEnergy: 1
+    Position: 0.01
+    Rotation: 0.01
+    Scale: 0.01
+--- !u!50 &1359046193
+Rigidbody2D:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1359046188}
+  m_BodyType: 0
+  m_Simulated: 1
+  m_UseFullKinematicContacts: 0
+  m_UseAutoMass: 0
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_GravityScale: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_Interpolate: 0
+  m_SleepingMode: 1
+  m_CollisionDetection: 0
+  m_Constraints: 0
 --- !u!1 &1371952931
 GameObject:
   m_ObjectHideFlags: 0
@@ -1248,6 +1317,61 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 10.059}
+--- !u!1 &1613435454 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5588040551303872943, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
+  m_PrefabInstance: {fileID: 155845283156375587}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1613435459
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1613435454}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5e690b5fb1084f5ab1c86457af401d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Fusion.Addons.Physics::Fusion.Addons.Physics.NetworkRigidbody2D
+  _stateAuthorityChangeErrorCorrectionDelta: 0
+  SyncScale: 0
+  SyncParent: 1
+  _interpolationTarget: {fileID: 0}
+  UsePreciseRotation: 0
+  UseRenderSleepThresholds: 1
+  RenderThresholds:
+    UseEnergy: 1
+    Position: 0.01
+    Rotation: 0.01
+    Scale: 0.01
+--- !u!50 &1613435460
+Rigidbody2D:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1613435454}
+  m_BodyType: 0
+  m_Simulated: 1
+  m_UseFullKinematicContacts: 0
+  m_UseAutoMass: 0
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_GravityScale: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_Interpolate: 0
+  m_SleepingMode: 1
+  m_CollisionDetection: 0
+  m_Constraints: 0
 --- !u!1 &1804744473
 GameObject:
   m_ObjectHideFlags: 0
@@ -1737,6 +1861,14 @@ PrefabInstance:
       propertyPath: SortKey
       value: 3514568305
       objectReference: {fileID: 0}
+    - target: {fileID: 4529795762113344119, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
+      propertyPath: NetworkedBehaviours.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4529795762113344119, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[1]'
+      value: 
+      objectReference: {fileID: 1613435459}
     - target: {fileID: 5588040551303872943, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
       propertyPath: m_Name
       value: NetworkRunner
@@ -1748,7 +1880,13 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5588040551303872943, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1613435460}
+    - targetCorrespondingSourceObject: {fileID: 5588040551303872943, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1613435459}
   m_SourcePrefab: {fileID: 100100000, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

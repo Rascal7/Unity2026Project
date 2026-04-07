@@ -135,7 +135,10 @@ public class BasicLauncher : MonoBehaviour
         {
             GameMode = mode,
             SessionName = roomName,
+            // [수정] 현재 씬을 기준으로 시작하도록 설정
             Scene = SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex),
+
+            // [핵심] SceneManager가 없으면 에러가 납니다. 아래 코드로 확실히 추가/연결하세요.
             SceneManager = gameObject.GetComponent<NetworkSceneManagerDefault>() ?? gameObject.AddComponent<NetworkSceneManagerDefault>()
         });
 
@@ -143,8 +146,9 @@ public class BasicLauncher : MonoBehaviour
         {
             if (mode == GameMode.Host)
             {
-                Debug.Log("<color=orange>[Launcher]</color> 호스트: TestStage 이동 시작");
-                _runner.LoadScene("TestStage", LoadSceneMode.Single);
+                Debug.Log("호스트: CharacterSelect 이동");
+                // [주의] 위에서 SceneManager가 잘 초기화되었다면 이제 이 코드가 작동합니다.
+                _runner.LoadScene("CharacterSelect", LoadSceneMode.Single);
             }
         }
         else
