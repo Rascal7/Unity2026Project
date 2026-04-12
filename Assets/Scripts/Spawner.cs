@@ -19,6 +19,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             _runner.AddCallbacks(this);
             Debug.Log("<color=yellow>[Spawner]</color> 등록 완료!");
 
+<<<<<<< Updated upstream
             
         }
         else
@@ -91,6 +92,81 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
                 Debug.Log($"<color=red>[Spawner]</color> 플레이어 {player} 퇴장 및 오브젝트 제거");
             }
         }
+=======
+    public void OnSceneLoadDone(NetworkRunner runner)
+    {
+        RegisterCallbacks();
+        if (!runner.IsServer) return;
+
+        string currentScene = SceneManager.GetActiveScene().name;
+
+        if (currentScene == "CharacterSelect")
+        {
+            var oldItems = FindObjectsOfType<SessionPlayerItem>();
+            foreach (var old in oldItems)
+            {
+                if (old.Object != null) runner.Despawn(old.Object);
+            }
+
+            foreach (var p in runner.ActivePlayers)
+            {
+                runner.Spawn(sessionItemPrefab, Vector3.zero, Quaternion.identity, p);
+            }
+        }
+        else if (currentScene == "Test Stage")
+        {
+            Debug.Log("<color=yellow>[Spawner]</color> 스테이지 로드 완료. 플레이어 소환 시작!");
+
+            // [수정] ActivePlayers를 기준으로 루프를 돌려야 모든 플레이어가 스폰됩니다.
+            foreach (var p in runner.ActivePlayers)
+            {
+                SpawnSelectedPlayer(runner, p);
+            }
+        }
+    }
+
+    // 통합된 스폰 함수
+    private void SpawnSelectedPlayer(NetworkRunner runner, PlayerRef player)
+    {
+        int selectedIndex = 0;
+        var items = FindObjectsOfType<SessionPlayerItem>();
+        bool foundItem = false;
+
+        foreach (var item in items)
+        {
+            if (item.Object.InputAuthority == player)
+            {
+                selectedIndex = item.SelectedCharacterIndex;
+                foundItem = true;
+                break;
+            }
+        }
+        Vector3 spawnPos = Vector3.zero; // 기본값
+        GameObject startPoint = GameObject.Find("StartPoint"); // 이름으로 찾기
+
+        if (startPoint != null)
+        {
+            spawnPos = startPoint.transform.position;
+
+            // 두 명이 겹치지 않게 플레이어 아이디에 따라 약간의 간격을 줍니다.
+            if (player.PlayerId % 2 == 0)
+            {
+                spawnPos.x += 1.5f; // 2번 플레이어는 오른쪽으로 1.5만큼 이동
+            }
+        }
+        else
+        {
+            // StartPoint를 못 찾았을 때를 대비한 예외 처리
+            Debug.LogWarning("<color=red>[Spawn]</color> StartPoint 오브젝트를 찾을 수 없습니다! 기본 좌표를 사용합니다.");
+            spawnPos = new Vector3(-20f, -7f, 0f);
+        }
+
+        // 0번 -> 1번프리팹, 1번(혹은 그외) -> 2번프리팹
+        NetworkObject prefabToSpawn = (selectedIndex == 0) ? player1Prefab : player2Prefab;
+
+        Debug.Log($"<color=green>[Spawn]</color> 플레이어 {player} (선택:{selectedIndex}) -> {spawnPos} 위치 소환");
+        runner.Spawn(prefabToSpawn, spawnPos, Quaternion.identity, player);
+>>>>>>> Stashed changes
     }
 
     // --- 사용하지 않는 인터페이스 메서드들 (생략 가능하거나 기본 구현) ---
