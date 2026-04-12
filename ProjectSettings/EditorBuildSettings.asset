@@ -9,19 +9,10 @@ EditorBuildSettings:
     path: Assets/Scenes/Lobby.unity
     guid: 0fb9bd431e85a2a4891f260cc251ad88
   - enabled: 1
-    path: Assets/Scenes/TestStage.unity
-    guid: ac7c434978bb8144f9c5fa9c9b70085f
-<<<<<<< Updated upstream
-=======
-  - enabled: 1
-    path: Assets/Scenes/Lobby.unity
+    path: Assets/Scenes/CharacterSelect.unity
     guid: 0fb9bd431e85a2a4891f260cc251ad88
   - enabled: 1
-    path: Assets/Scenes/Test Stage.unity
-    guid: 7ca077ea783a22545971eec34d0bb2d0
-  - enabled: 1
-    path: Assets/Scenes/Main Stage1.unity
-    guid: bcfc527aa9a955e4aada6923bff0d439
->>>>>>> Stashed changes
+    path: Assets/Scenes/TestStage.unity
+    guid: ac7c434978bb8144f9c5fa9c9b70085f
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

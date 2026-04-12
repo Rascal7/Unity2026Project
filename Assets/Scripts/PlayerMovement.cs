@@ -34,8 +34,13 @@ public class PlayerMovement : NetworkBehaviour
         _anim = GetComponent<Animator>();
         _sr = GetComponent<SpriteRenderer>();
 
+        
+        if (_rb == null)
+        {
+            Debug.LogError($"[PlayerMovement] {gameObject.name}에 Rigidbody2D가 없습니다! 컴포넌트를 추가해주세요.");
+            return;
+        }
         _originalGravity = _rb.gravityScale;
-
         if (Object.HasInputAuthority)
         {
             CameraFollow cam = FindObjectOfType<CameraFollow>();

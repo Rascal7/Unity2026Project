@@ -584,8 +584,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9a96c3b525e1314c9a2d05bb632525e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Spawner
-  playerPrefab:
-    RawGuidValue: 7b856d6c7e35ae5449d517343138ad5d
+  sessionItemPrefab: {fileID: 7461716323109306568, guid: d0b5007e0b8499e4dbb4e266be86a3cc, type: 3}
+  player1Prefab: {fileID: -5660461731030084370, guid: 7b856d6c7e35ae5449d517343138ad5d, type: 3}
+  player2Prefab: {fileID: -5660461731030084370, guid: ffccbb55e16946e4990cfe4085b43ce7, type: 3}
 --- !u!4 &771729761
 Transform:
   m_ObjectHideFlags: 0

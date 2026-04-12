@@ -62,7 +62,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             }
         }
         // 2. 게임 스테이지 씬인 경우 (띄어쓰기 주의: TestStage)
-        else if (currentScene == "TestStage")
+        else if (currentScene == "Test Stage")
         {
             Debug.Log("<color=yellow>[Spawner]</color> 스테이지 로드 완료. 플레이어 소환!");
 
