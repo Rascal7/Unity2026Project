@@ -942,6 +942,7 @@ GameObject:
   - component: {fileID: 1359046190}
   - component: {fileID: 1359046189}
   - component: {fileID: 1359046191}
+  - component: {fileID: 1359046192}
   m_Layer: 0
   m_Name: Spawner
   m_TagString: Untagged
@@ -970,6 +971,7 @@ MonoBehaviour:
   groundLayer:
     serializedVersion: 2
     m_Bits: 0
+  fallDeathY: -10
 --- !u!4 &1359046190
 Transform:
   m_ObjectHideFlags: 0
@@ -1004,6 +1006,33 @@ MonoBehaviour:
   NetworkedBehaviours:
   - {fileID: 1359046189}
   ForceRemoteRenderTimeframe: 0
+--- !u!50 &1359046192
+Rigidbody2D:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1359046188}
+  m_BodyType: 0
+  m_Simulated: 1
+  m_UseFullKinematicContacts: 0
+  m_UseAutoMass: 0
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_GravityScale: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_Interpolate: 0
+  m_SleepingMode: 1
+  m_CollisionDetection: 0
+  m_Constraints: 0
 --- !u!1 &1371952931
 GameObject:
   m_ObjectHideFlags: 0
@@ -1249,6 +1278,38 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 10.059}
+--- !u!1 &1621773357 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5588040551303872943, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
+  m_PrefabInstance: {fileID: 155845283156375587}
+  m_PrefabAsset: {fileID: 0}
+--- !u!50 &1621773362
+Rigidbody2D:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1621773357}
+  m_BodyType: 0
+  m_Simulated: 1
+  m_UseFullKinematicContacts: 0
+  m_UseAutoMass: 0
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_GravityScale: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_Interpolate: 0
+  m_SleepingMode: 1
+  m_CollisionDetection: 0
+  m_Constraints: 0
 --- !u!1 &1804744473
 GameObject:
   m_ObjectHideFlags: 0
@@ -1749,7 +1810,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5588040551303872943, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1621773362}
   m_SourcePrefab: {fileID: 100100000, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

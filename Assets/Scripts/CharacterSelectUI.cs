@@ -5,6 +5,12 @@ public class CharacterSelectUI : MonoBehaviour
 {
     // CharacterSelectUI.cs
     public Button[] selectButtons;
+    public Button readyButton;
+
+    [Header("Highlight Settings")]
+    public Color normalColor = Color.white;
+    public Color selectedColor = Color.yellow; // 선택되었을 때 바뀔 색상
+    public Color readyColor = Color.green;
     private void Start()
     {
         Debug.Log("<color=red>[UI]</color> CharacterSelectUI 시작");
@@ -48,6 +54,8 @@ public class CharacterSelectUI : MonoBehaviour
             {
                 Debug.Log($"<color=lime>[UI]</color> {index}번 캐릭터 선택 요청 보냄!");
                 myItem.RPC_SelectCharacter(index);
+
+                UpdateCharacterSelectionUI(index);
             }
             else
             {
@@ -62,7 +70,9 @@ public class CharacterSelectUI : MonoBehaviour
         if (myItem != null)
         {
             Debug.Log($"<color=lime>[UI]</color> 레디 버튼 클릭! 현재 상태: {myItem.IsReady} -> {!myItem.IsReady}");
-            myItem.RPC_SetReady(!myItem.IsReady);
+            bool nextReadyState = !myItem.IsReady;
+            myItem.RPC_SetReady(nextReadyState);
+            UpdateReadyUI(nextReadyState);
         }
     }
 
@@ -86,5 +96,44 @@ public class CharacterSelectUI : MonoBehaviour
         Debug.LogError("<color=red>[UI]</color> 씬에 아이템은 있으나, 내 권한(Input Authority)이 있는 것은 없습니다.");
         return null;
     }
-    
+    private void UpdateCharacterSelectionUI(int selectedIndex)
+    {
+        for (int i = 0; i < selectButtons.Length; i++)
+        {
+            if (selectButtons[i] == null) continue;
+            Image btnImage = selectButtons[i].GetComponent<Image>();
+            if (btnImage != null)
+            {
+                // 캐릭터 버튼끼리만 배타적으로 하이라이트 (0번 선택 시 1번은 꺼짐)
+                btnImage.color = (i == selectedIndex) ? selectedColor : normalColor;
+            }
+        }
+    }
+    private void UpdateReadyUI(bool isReady)
+    {
+        if (readyButton == null)
+        {
+            // 만약 레디 버튼을 인스펙터에 안 넣었다면 이름으로 찾기
+            GameObject readyObj = GameObject.Find("ReadyButton");
+            if (readyObj != null) readyButton = readyObj.GetComponent<Button>();
+        }
+
+        if (readyButton != null)
+        {
+            Image btnImage = readyButton.GetComponent<Image>();
+            if (btnImage != null)
+            {
+                // 준비 상태에 따라 색상 토글
+                btnImage.color = isReady ? readyColor : normalColor;
+            }
+
+            // 텍스트도 바꾸고 싶다면?
+            Text btnText = readyButton.GetComponentInChildren<Text>();
+            if (btnText != null)
+            {
+                btnText.text = isReady ? "READY!" : "NOT READY";
+            }
+        }
+    }
+
 }
