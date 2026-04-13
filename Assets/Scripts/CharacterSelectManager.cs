@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 // 반드시 class 선언이 있어야 합니다!
 public class CharacterSelectManager : NetworkBehaviour
 {
-    [SerializeField] private string gameSceneName = "Test Stage";
+    [SerializeField] private string gameSceneName = "TutorialStage";
 
     public override void FixedUpdateNetwork()
     {

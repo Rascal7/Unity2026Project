@@ -62,7 +62,7 @@ public class SessionPlayerItem : NetworkBehaviour
         if (readyCount >= 1) // 테스트를 위해 1명만 돼도 넘어가게 설정
         {
             Debug.Log("<color=green>[성공]</color> 조건 충족! 씬 전환 시도.");
-            Runner.LoadScene("Test Stage");
+            Runner.LoadScene("TutorialStage");
         }
     }
     public void OnIndexChanged()
