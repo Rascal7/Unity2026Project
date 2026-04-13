@@ -21,6 +21,12 @@ public class PlayerMovement : NetworkBehaviour
     private SpriteRenderer _sr;
     private float _originalGravity;
 
+    // 클래스 상단에 변수 추가
+    [Header("Death Settings")]
+    public float fallDeathY = -10f;
+
+    private bool _isDead = false;
+
     // 네트워크 동기화 상태
     [Networked] private NetworkBool IsClimbing { get; set; }
     [Networked] private NetworkBool IsGrounded { get; set; }
@@ -54,6 +60,9 @@ public class PlayerMovement : NetworkBehaviour
         if (_rb == null) return;
 
         CheckGround();
+
+        CheckGround();
+        CheckFallDeath();
 
         if (transform.position.z != 0f)
         {
@@ -146,6 +155,41 @@ public class PlayerMovement : NetworkBehaviour
         ) != null;
     }
 
+    // 메서드 추가
+    private void CheckFallDeath()
+    {
+        if (_isDead) return;
+
+        if (transform.position.y < fallDeathY)
+        {
+            Die();
+        }
+    }
+
+    public void Die()
+    {
+        if (_isDead) return;
+        _isDead = true;
+
+        Debug.Log("플레이어 사망!");
+        Respawn();
+    }
+
+    private void Respawn()
+    {
+        if (CheckpointManager.hasCheckpoint)
+        {
+            transform.position = CheckpointManager.lastCheckpointPosition;
+        }
+        else
+        {
+            transform.position = Vector3.zero; // 기본 스폰 위치
+        }
+
+        _rb.linearVelocity = Vector2.zero;
+        _isDead = false;
+    }
+
     private void FlipSprite(NetworkInputData data)
     {
         if (_sr == null) return;
@@ -183,6 +227,12 @@ public class PlayerMovement : NetworkBehaviour
         if (other.CompareTag("Ladder"))
         {
             _isOnLadder = true;
+        }
+
+        // 이 부분 추가
+        if (other.CompareTag("Trap"))
+        {
+            Die();
         }
     }
 
