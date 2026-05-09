@@ -4,14 +4,14 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-
+// 맵에 소환된 캐릭터 관리(퇴장 시 삭제용)
 public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 {
     [Header("Prefabs")]
     public NetworkObject sessionItemPrefab;
     public NetworkObject player1Prefab;
     public NetworkObject player2Prefab;
-
+    private Dictionary<PlayerRef, NetworkObject> _spawnedCharacters = new Dictionary<PlayerRef, NetworkObject>();
     private void Awake()
     {
         // 중복 생성 방지 및 파괴 방지
@@ -75,6 +75,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
     private void SpawnSelectedPlayer(NetworkRunner runner, PlayerRef player)
     {
+        if (_spawnedCharacters.ContainsKey(player)) return;
         int selectedIndex = 0;
         var items = FindObjectsOfType<SessionPlayerItem>();
 
@@ -103,6 +104,13 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
         Debug.Log($"<color=green>[Spawn]</color> 플레이어 {player} (선택:{selectedIndex}) 소환 완료");
         runner.Spawn(prefabToSpawn, spawnPos, Quaternion.identity, player);
+        
+        // 플레이어가 소환될 때 타이머 시작
+        if (TimerManager.Instance != null && !TimerManager.Instance.isTimerRunning)
+        {
+            TimerManager.Instance.StartTimer();
+            Debug.Log("<color=orange>[Timer]</color> 플레이어 스폰 확인됨. 타이머를 시작합니다!");
+        }
     }
 
     // --- 입력 전달 (점프, 사다리 이동 핵심) ---
@@ -116,10 +124,23 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
         input.Set(data);
     }
+    // 플레이어가 나갔을 때 캐릭터 삭제
+    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
+    {
+        if (runner.IsServer)
+        {
+            if (_spawnedCharacters.TryGetValue(player, out NetworkObject networkObject))
+            {
+                if (networkObject != null) runner.Despawn(networkObject);
+                _spawnedCharacters.Remove(player);
+                Debug.Log($"<color=red>[Spawner]</color> 플레이어 {player} 퇴장으로 인한 캐릭터 제거");
+            }
+        }
+    }
 
     // --- 필수 인터페이스 구현 (비워둠) ---
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player) { }
-    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
+    // public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
     public void OnConnectedToServer(NetworkRunner runner) { }

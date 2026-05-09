@@ -14,4 +14,10 @@ public class CheckpointManager : MonoBehaviour
             lastCheckpointPosition = startPoint.position;
         }
     }
+
+    // 다음 맵 넘어갈 때 호출하여 체크 포인트 초기화
+    public static void ResetCheckpoint()
+    {
+        hasCheckpoint = false;
+    }
 }
