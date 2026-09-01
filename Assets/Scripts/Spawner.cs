@@ -66,6 +66,28 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         {
             Debug.Log("<color=yellow>[Spawner]</color> 스테이지 로드 완료. 플레이어 소환!");
 
+            // 네트워크 타이머 스폰 + 시작 (호스트 권위, 전 피어 동기화)
+            if (NetworkTimer.Instance == null)
+            {
+                var timerPrefab = Resources.Load<NetworkObject>("NetworkTimer");
+                if (timerPrefab != null)
+                {
+                    var timerObj = runner.Spawn(timerPrefab);
+                    var nt = timerObj != null ? timerObj.GetComponent<NetworkTimer>() : null;
+                    if (nt != null) nt.StartTimer();
+                    Debug.Log("<color=orange>[Timer]</color> NetworkTimer 스폰 및 시작!");
+                }
+                else
+                {
+                    Debug.LogError("<color=red>[Spawner]</color> Resources/NetworkTimer 프리팹을 찾을 수 없습니다! 로컬 타이머로 대체합니다.");
+                    if (TimerManager.Instance != null)
+                    {
+                        TimerManager.Instance.ResetTimer();
+                        TimerManager.Instance.StartTimer();
+                    }
+                }
+            }
+
             foreach (var p in runner.ActivePlayers)
             {
                 SpawnSelectedPlayer(runner, p);
@@ -104,13 +126,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
         Debug.Log($"<color=green>[Spawn]</color> 플레이어 {player} (선택:{selectedIndex}) 소환 완료");
         runner.Spawn(prefabToSpawn, spawnPos, Quaternion.identity, player);
-        
-        // 플레이어가 소환될 때 타이머 시작
-        if (TimerManager.Instance != null && !TimerManager.Instance.isTimerRunning)
-        {
-            TimerManager.Instance.StartTimer();
-            Debug.Log("<color=orange>[Timer]</color> 플레이어 스폰 확인됨. 타이머를 시작합니다!");
-        }
+        // 타이머 시작은 OnSceneLoadDone 의 NetworkTimer 스폰에서 처리한다.
     }
 
     // --- 입력 전달 (점프, 사다리 이동 핵심) ---

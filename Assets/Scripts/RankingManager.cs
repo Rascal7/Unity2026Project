@@ -7,21 +7,66 @@ using TMPro;
 public class RankingManager : MonoBehaviour
 {
     public static RankingManager Instance;
+    private bool _isAutoInstance = false;
+
     private void Awake()
+    {
+        // 이 컴포넌트는 씬 UI(UIManager)와 같은 GameObject 에 붙어 있다.
+        // 여기서 DontDestroyOnLoad/Destroy(gameObject) 를 하면, 로비로 돌아왔을 때
+        // 새로 로드된 UIManager 까지 파괴되어 랭킹보드 버튼이 죽는다.
+        // 따라서 항상 "현재 씬의 인스턴스"를 Instance 로 둔다.
+        Instance = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
+    // 씬에 RankingManager 가 없을 때(스테이지에서 바로 Play, 또는 로비 시작 후 스테이지 진입) 저장 요청만
+    // 처리할 임시 인스턴스를 만든다. UI(rankRows)는 없고, 저장이 끝나면 스스로 사라진다.
+    public static RankingManager GetOrCreate()
     {
         if (Instance == null)
         {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
+            var go = new GameObject("RankingManager (auto)");
+            DontDestroyOnLoad(go); // 씬 전환 중에도 저장 코루틴이 끝나도록 유지
+            var rm = go.AddComponent<RankingManager>();
+            rm._isAutoInstance = true;
         }
-        else
-            Destroy(gameObject);
+        return Instance;
     }
 
     public void SaveScore(float time)
     {
-        Debug.Log($"서버로 {time}초 기록 전송 시도");
-        StartCoroutine(PostRankingData("User1","User2",time));
+        var names = ResolvePlayerNames();
+        SaveScore(time, names.Item1, names.Item2);
+    }
+
+    // 실제 플레이어 닉네임을 직접 넘길 수 있는 오버로드
+    public void SaveScore(float time, string p1, string p2)
+    {
+        p1 = string.IsNullOrWhiteSpace(p1) ? "Player1" : p1.Trim();
+        p2 = string.IsNullOrWhiteSpace(p2) ? "Player2" : p2.Trim();
+        Debug.Log($"서버로 {time}초 기록 전송 시도 ({p1} & {p2})");
+        StartCoroutine(PostRankingData(p1, p2, time));
+    }
+
+    // 씬의 PlayerNameTag에서 닉네임을 수집 (순서는 정렬로 안정화 -> 중복 행 방지에 도움)
+    private System.Tuple<string, string> ResolvePlayerNames()
+    {
+        var tags = FindObjectsOfType<PlayerNameTag>();
+        var names = new List<string>();
+        foreach (var tag in tags)
+        {
+            if (tag != null && !string.IsNullOrWhiteSpace(tag.Nickname))
+                names.Add(tag.Nickname.Trim());
+        }
+        names.Sort(System.StringComparer.Ordinal);
+
+        string p1 = names.Count > 0 ? names[0] : PlayerPrefs.GetString("PlayerName", "Player1");
+        string p2 = names.Count > 1 ? names[1] : "Player2";
+        return System.Tuple.Create(p1, p2);
     }
 
     IEnumerator PostRankingData(string p1,string p2,float time)
@@ -56,6 +101,13 @@ public class RankingManager : MonoBehaviour
             {
                 Debug.LogError($"<color=red>[Error]</color> 기록 저장 실패: {request.error}");
             }
+        }
+
+        // 임시(auto) 인스턴스는 저장이 끝나면 스스로 정리
+        if (_isAutoInstance)
+        {
+            if (Instance == this) Instance = null;
+            Destroy(gameObject);
         }
     }
 
@@ -105,18 +157,32 @@ public class RankingManager : MonoBehaviour
                     if (i < ranks.items.Count)
                     {
                         var data = ranks.items[i];
-                        rankRows[i].rankText.text = $"{i + 1}st";
+                        rankRows[i].rankText.text = Ordinal(i + 1);
                         rankRows[i].namesText.text = $"{data.player1} & {data.player2}";
                         rankRows[i].timeText.text = FormatTime(data.clearTime);
                     }
                     else
                     {
-                        rankRows[i].rankText.text = $"{i + 1}st";
+                        rankRows[i].rankText.text = Ordinal(i + 1);
                         rankRows[i].namesText.text = "---";
                         rankRows[i].timeText.text = "--:--.--";
                     }
                 }
             }
+        }
+    }
+
+    // 1 -> "1st", 2 -> "2nd", 3 -> "3rd", 4 -> "4th" ... (11~13위는 th)
+    string Ordinal(int n)
+    {
+        int mod100 = n % 100;
+        if (mod100 >= 11 && mod100 <= 13) return n + "th";
+        switch (n % 10)
+        {
+            case 1: return n + "st";
+            case 2: return n + "nd";
+            case 3: return n + "rd";
+            default: return n + "th";
         }
     }
 

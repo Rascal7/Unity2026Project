@@ -24,25 +24,18 @@ public class GoalPoint : MonoBehaviour
 
     private void HandleGameClear()
     {
-        if (TimerManager.Instance != null && TimerManager.Instance.isTimerRunning)
-        {
-            // 3. 타이머 정지
-            TimerManager.Instance.StopTimer();
-            float finalTime = TimerManager.Instance.elapsedTime;
+        var nt = NetworkTimer.Instance;
+        if (nt == null || !nt.IsRunning) return;
 
-            Debug.Log($"<color=lime>[Success]</color> 튜토리얼 클리어! 최종 기록: {finalTime}초");
+        // 정지/저장은 호스트만. 엔딩 화면은 GameEndController 가 동기화 플래그를 보고 자동 표시.
+        var runner = FindObjectOfType<Fusion.NetworkRunner>();
+        if (runner != null && !runner.IsServer) return;
 
-            // 4. 서버(MySQL)로 데이터 전송
-            // 이전에 만든 RankingManager가 있다면 여기서 호출합니다.
-            if (RankingManager.Instance != null)
-            {
-                // 예: RankingManager.Instance.SaveScore(finalTime);
-                // 지금은 로그로 대체하여 확인합니다.
-                Debug.Log("<color=orange>[DB]</color> RankingManager를 통해 DB 저장을 요청합니다.");
-            }
+        float finalTime = nt.StopTimer();
+        Debug.Log($"<color=lime>[Success]</color> 클리어! 최종 기록: {finalTime}초");
 
-            // 5. 결과창을 띄우거나 로비로 이동 (필요시)
-            // SceneManager.LoadScene("Lobby");
-        }
+        var ranking = RankingManager.GetOrCreate();
+        if (ranking != null)
+            ranking.SaveScore(finalTime);
     }
 }
