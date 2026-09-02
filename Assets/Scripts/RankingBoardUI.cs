@@ -1,0 +1,274 @@
+using TMPro;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
+
+// 코드로 생성하는 랭킹 보드.
+//  - 밝은 슬레이트 톤 + 골드 액센트, 순위별 색상, TMP 폰트
+//  - 전체화면 모달 블로커로 뒤 배경 클릭/상호작용 차단
+public class RankingBoardUI : MonoBehaviour
+{
+    public static RankingBoardUI Instance { get; private set; }
+
+    public const int RowCount = 5;
+
+    public bool IsOpen { get; private set; }
+
+    private GameObject _root;
+    private readonly TextMeshProUGUI[] _rankText = new TextMeshProUGUI[RowCount];
+    private readonly TextMeshProUGUI[] _nameText = new TextMeshProUGUI[RowCount];
+    private readonly TextMeshProUGUI[] _timeText = new TextMeshProUGUI[RowCount];
+
+    private static readonly Color Gold   = new Color(1f, 0.85f, 0.42f);
+    private static readonly Color Silver = new Color(0.88f, 0.90f, 0.96f);
+    private static readonly Color Bronze = new Color(0.92f, 0.70f, 0.52f);
+    private static readonly Color Normal = new Color(1f, 1f, 1f, 0.94f);
+    private static readonly Color Dim    = new Color(1f, 1f, 1f, 0.45f);
+    private static readonly Color PanelColor = new Color(0.205f, 0.225f, 0.275f, 0.99f);
+
+    public static RankingBoardUI GetOrCreate()
+    {
+        if (Instance == null)
+        {
+            var go = new GameObject("RankingBoardUI");
+            Instance = go.AddComponent<RankingBoardUI>();
+        }
+        return Instance;
+    }
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
+        Build();
+        if (_root != null) _root.SetActive(false);
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
+    public void Show()
+    {
+        if (_root != null) _root.SetActive(true);
+        IsOpen = true;
+    }
+
+    public void Hide()
+    {
+        if (_root != null) _root.SetActive(false);
+        IsOpen = false;
+    }
+
+    public void Toggle()
+    {
+        if (IsOpen) Hide();
+        else Show();
+    }
+
+    public void SetEntry(int i, int rank, string players, string time)
+    {
+        if (i < 0 || i >= RowCount) return;
+        _rankText[i].text = Ordinal(rank);
+        _rankText[i].color = RankColor(rank);
+        _nameText[i].text = players;
+        _nameText[i].color = Normal;
+        _timeText[i].text = time;
+        _timeText[i].color = Normal;
+    }
+
+    public void SetEmpty(int i, int rank)
+    {
+        if (i < 0 || i >= RowCount) return;
+        _rankText[i].text = Ordinal(rank);
+        _rankText[i].color = Dim;
+        _nameText[i].text = "-";
+        _nameText[i].color = Dim;
+        _timeText[i].text = "--:--.--";
+        _timeText[i].color = Dim;
+    }
+
+    private static Color RankColor(int rank)
+    {
+        switch (rank)
+        {
+            case 1: return Gold;
+            case 2: return Silver;
+            case 3: return Bronze;
+            default: return Normal;
+        }
+    }
+
+    private static string Ordinal(int n)
+    {
+        int m = n % 100;
+        if (m >= 11 && m <= 13) return n + "th";
+        switch (n % 10)
+        {
+            case 1: return n + "st";
+            case 2: return n + "nd";
+            case 3: return n + "rd";
+            default: return n + "th";
+        }
+    }
+
+    // ---------------- UI 빌드 ----------------
+    private void Build()
+    {
+        if (FindObjectOfType<EventSystem>() == null)
+        {
+            var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            es.transform.SetParent(transform, false);
+        }
+
+        _root = new GameObject("RankingCanvas");
+        _root.transform.SetParent(transform, false);
+
+        var canvas = _root.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 30000;
+        var scaler = _root.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.matchWidthOrHeight = 0.5f;
+        _root.AddComponent<GraphicRaycaster>();
+
+        // 모달 블로커: 뒤 배경 클릭/상호작용 차단 (클릭해도 아무 동작 없음)
+        var blocker = NewChild("Blocker", _root.transform);
+        Stretch(blocker);
+        var bImg = blocker.AddComponent<Image>();
+        bImg.color = new Color(0.03f, 0.04f, 0.06f, 0.55f);
+        bImg.raycastTarget = true;
+
+        // 보드 패널
+        const float PW = 980f;
+        const float PH = 720f;
+        var panel = NewChild("Panel", _root.transform);
+        var pr = panel.GetComponent<RectTransform>();
+        pr.anchorMin = pr.anchorMax = new Vector2(0.5f, 0.5f);
+        pr.pivot = new Vector2(0.5f, 0.5f);
+        pr.sizeDelta = new Vector2(PW, PH);
+        panel.AddComponent<Image>().color = PanelColor;
+
+        // 상단 골드 액센트 바
+        var accent = NewChild("Accent", panel.transform);
+        var ar = accent.GetComponent<RectTransform>();
+        ar.anchorMin = new Vector2(0f, 1f);
+        ar.anchorMax = new Vector2(1f, 1f);
+        ar.pivot = new Vector2(0.5f, 1f);
+        ar.sizeDelta = new Vector2(0f, 6f);
+        ar.anchoredPosition = Vector2.zero;
+        accent.AddComponent<Image>().color = Gold;
+
+        // 타이틀
+        AddText(panel.transform, 56f, 30f, 520f, 60f, "RANKING", 46f, FontStyles.Bold, TextAlignmentOptions.Left, Color.white);
+
+        // 닫기 버튼 (X)
+        var close = NewChild("Close", panel.transform);
+        var cr = close.GetComponent<RectTransform>();
+        cr.anchorMin = cr.anchorMax = new Vector2(1f, 1f);
+        cr.pivot = new Vector2(1f, 1f);
+        cr.sizeDelta = new Vector2(54f, 54f);
+        cr.anchoredPosition = new Vector2(-26f, -26f);
+        close.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.14f);
+        close.AddComponent<Button>().onClick.AddListener(Hide);
+        AddTextStretch(close.transform, "X", 30f, new Color(1f, 1f, 1f, 0.9f));
+
+        // 헤더
+        const float headerY = 128f;
+        AddText(panel.transform, 56f,  headerY, 160f, 34f, "RANK",    20f, FontStyles.Bold, TextAlignmentOptions.Left,  Dim);
+        AddText(panel.transform, 236f, headerY, 460f, 34f, "PLAYERS", 20f, FontStyles.Bold, TextAlignmentOptions.Left,  Dim);
+        AddText(panel.transform, 700f, headerY, 224f, 34f, "TIME",    20f, FontStyles.Bold, TextAlignmentOptions.Right, Dim);
+
+        // 헤더 구분선
+        var div = NewChild("Divider", panel.transform);
+        var dr = div.GetComponent<RectTransform>();
+        dr.anchorMin = new Vector2(0f, 1f);
+        dr.anchorMax = new Vector2(1f, 1f);
+        dr.pivot = new Vector2(0.5f, 1f);
+        dr.sizeDelta = new Vector2(-104f, 2f);
+        dr.anchoredPosition = new Vector2(0f, -(headerY + 42f));
+        div.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.16f);
+
+        // 데이터 행
+        const float rowTop = headerY + 58f;
+        const float rowH = 98f;
+        for (int i = 0; i < RowCount; i++)
+        {
+            float y = rowTop + i * rowH;
+
+            var rowBg = NewChild("RowBg" + i, panel.transform);
+            var rr = rowBg.GetComponent<RectTransform>();
+            rr.anchorMin = new Vector2(0f, 1f);
+            rr.anchorMax = new Vector2(1f, 1f);
+            rr.pivot = new Vector2(0.5f, 1f);
+            rr.sizeDelta = new Vector2(-88f, rowH - 12f);
+            rr.anchoredPosition = new Vector2(0f, -y);
+            rowBg.AddComponent<Image>().color = (i % 2 == 0)
+                ? new Color(1f, 1f, 1f, 0.07f)
+                : new Color(1f, 1f, 1f, 0.02f);
+
+            _rankText[i] = AddText(panel.transform, 56f,  y + 14f, 160f, rowH - 28f, "", 32f, FontStyles.Bold,   TextAlignmentOptions.Left,  Normal);
+            _nameText[i] = AddText(panel.transform, 236f, y + 14f, 460f, rowH - 28f, "", 27f, FontStyles.Normal, TextAlignmentOptions.Left,  Normal);
+            _timeText[i] = AddText(panel.transform, 700f, y + 14f, 224f, rowH - 28f, "", 29f, FontStyles.Bold,   TextAlignmentOptions.Right, Normal);
+
+            SetEmpty(i, i + 1);
+        }
+    }
+
+    private static GameObject NewChild(string name, Transform parent)
+    {
+        var go = new GameObject(name, typeof(RectTransform));
+        go.transform.SetParent(parent, false);
+        return go;
+    }
+
+    private static void Stretch(GameObject go)
+    {
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+    }
+
+    private static void Apply(TextMeshProUGUI t)
+    {
+        if (TMP_Settings.defaultFontAsset != null) t.font = TMP_Settings.defaultFontAsset;
+        t.raycastTarget = false;
+    }
+
+    private TextMeshProUGUI AddText(Transform panel, float x, float y, float w, float h, string content,
+        float size, FontStyles style, TextAlignmentOptions align, Color color)
+    {
+        var go = NewChild("Txt", panel);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(0f, 1f);
+        rt.pivot = new Vector2(0f, 1f);
+        rt.sizeDelta = new Vector2(w, h);
+        rt.anchoredPosition = new Vector2(x, -y);
+        var t = go.AddComponent<TextMeshProUGUI>();
+        Apply(t);
+        t.fontSize = size;
+        t.fontStyle = style;
+        t.alignment = align;
+        t.color = color;
+        t.text = content;
+        return t;
+    }
+
+    private void AddTextStretch(Transform parent, string content, float size, Color color)
+    {
+        var go = NewChild("Txt", parent);
+        Stretch(go);
+        var t = go.AddComponent<TextMeshProUGUI>();
+        Apply(t);
+        t.fontSize = size;
+        t.fontStyle = FontStyles.Bold;
+        t.alignment = TextAlignmentOptions.Center;
+        t.color = color;
+        t.text = content;
+    }
+}

@@ -26,6 +26,9 @@ public class BasicLauncher : MonoBehaviour
     }
     private void OnGUI()
     {
+        // 랭킹 보드가 열려 있으면 IMGUI 메뉴/버튼도 막는다 (모달)
+        if (RankingManager.Instance != null && RankingManager.Instance.IsBoardOpen) return;
+
         if (_runner == null)
         {
             float buttonWidth = 250f;

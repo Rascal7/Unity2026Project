@@ -140,6 +140,37 @@ public class RankingManager : MonoBehaviour
         StartCoroutine(GetRankingData());
     }
 
+    // ---- 랭킹 보드(코드 생성 UI) 제어 ----
+    public bool IsBoardOpen
+    {
+        get { return RankingBoardUI.Instance != null && RankingBoardUI.Instance.IsOpen; }
+    }
+
+    public void ShowBoard()
+    {
+        RankingBoardUI.GetOrCreate().Show();
+        RequestRanking();
+    }
+
+    public void HideBoard()
+    {
+        if (RankingBoardUI.Instance != null) RankingBoardUI.Instance.Hide();
+    }
+
+    public void ToggleBoard()
+    {
+        var board = RankingBoardUI.GetOrCreate();
+        if (board.IsOpen)
+        {
+            board.Hide();
+        }
+        else
+        {
+            board.Show();
+            RequestRanking();
+        }
+    }
+
     IEnumerator GetRankingData()
     {
         string url = "http://localhost:8080/api/ranks/all";
@@ -152,22 +183,39 @@ public class RankingManager : MonoBehaviour
                 string json = "{\"items\":" + request.downloadHandler.text + "}";
                 RankList ranks = JsonUtility.FromJson<RankList>(json);
 
-                for (int i = 0; i < rankRows.Length; i++)
+                var board = RankingBoardUI.Instance;
+                int rowCount = board != null ? RankingBoardUI.RowCount
+                             : (rankRows != null ? rankRows.Length : 0);
+
+                for (int i = 0; i < rowCount; i++)
                 {
-                    if (i < ranks.items.Count)
+                    bool has = ranks != null && ranks.items != null && i < ranks.items.Count;
+                    string players = "-";
+                    string time = "--:--.--";
+                    if (has)
                     {
                         var data = ranks.items[i];
-                        rankRows[i].rankText.text = Ordinal(i + 1);
-                        rankRows[i].namesText.text = $"{data.player1} & {data.player2}";
-                        rankRows[i].timeText.text = FormatTime(data.clearTime);
+                        players = $"{data.player1} & {data.player2}";
+                        time = FormatTime(data.clearTime);
                     }
-                    else
+
+                    if (board != null)
                     {
-                        rankRows[i].rankText.text = Ordinal(i + 1);
-                        rankRows[i].namesText.text = "---";
-                        rankRows[i].timeText.text = "--:--.--";
+                        if (has) board.SetEntry(i, i + 1, players, time);
+                        else board.SetEmpty(i, i + 1);
+                    }
+
+                    if (rankRows != null && i < rankRows.Length && rankRows[i] != null)
+                    {
+                        if (rankRows[i].rankText != null) rankRows[i].rankText.text = Ordinal(i + 1);
+                        if (rankRows[i].namesText != null) rankRows[i].namesText.text = has ? players : "---";
+                        if (rankRows[i].timeText != null) rankRows[i].timeText.text = time;
                     }
                 }
+            }
+            else
+            {
+                Debug.LogError($"<color=red>[Ranking]</color> 랭킹 조회 실패: {request.error}");
             }
         }
     }
