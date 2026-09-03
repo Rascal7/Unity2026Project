@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-// ¸Ê¿¡ ¼ÒÈ¯µÈ Ä³¸¯ÅÍ °ü¸®(ÅğÀå ½Ã »èÁ¦¿ë)
+// Ê¿ È¯ Ä³ (  )
 public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 {
     [Header("Prefabs")]
@@ -14,7 +14,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     private Dictionary<PlayerRef, NetworkObject> _spawnedCharacters = new Dictionary<PlayerRef, NetworkObject>();
     private void Awake()
     {
-        // Áßº¹ »ı¼º ¹æÁö ¹× ÆÄ±« ¹æÁö
+        // ßº    Ä± 
         var objs = FindObjectsOfType<Spawner>();
         if (objs.Length > 1)
         {
@@ -36,7 +36,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         {
             runner.RemoveCallbacks(this);
             runner.AddCallbacks(this);
-            Debug.Log("<color=green>[Spawner]</color> Äİ¹é µî·Ï ¼º°ø!");
+            Debug.Log("<color=green>[Spawner]</color> İ¹  !");
         }
     }
 
@@ -47,7 +47,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
         string currentScene = SceneManager.GetActiveScene().name;
 
-        // 1. Ä³¸¯ÅÍ ¼±ÅÃ ¾ÀÀÎ °æ¿ì
+        // 1. Ä³   
         if (currentScene == "CharacterSelect")
         {
             var oldItems = FindObjectsOfType<SessionPlayerItem>();
@@ -61,12 +61,12 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
                 runner.Spawn(sessionItemPrefab, Vector3.zero, Quaternion.identity, p);
             }
         }
-        // 2. °ÔÀÓ ½ºÅ×ÀÌÁö ¾ÀÀÎ °æ¿ì (¶ç¾î¾²±â ÁÖÀÇ: TestStage)
+        // 2.     (î¾² : TestStage)
         else if (currentScene == "TutorialStage")
         {
-            Debug.Log("<color=yellow>[Spawner]</color> ½ºÅ×ÀÌÁö ·Îµå ¿Ï·á. ÇÃ·¹ÀÌ¾î ¼ÒÈ¯!");
+            Debug.Log("<color=yellow>[Spawner]</color>  Îµ Ï·. Ã·Ì¾ È¯!");
 
-            // ³×Æ®¿öÅ© Å¸ÀÌ¸Ó ½ºÆù + ½ÃÀÛ (È£½ºÆ® ±ÇÀ§, Àü ÇÇ¾î µ¿±âÈ­)
+            // Æ®Å© Å¸Ì¸  +  (È£Æ® ,  Ç¾ È­)
             if (NetworkTimer.Instance == null)
             {
                 var timerPrefab = Resources.Load<NetworkObject>("NetworkTimer");
@@ -75,11 +75,11 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
                     var timerObj = runner.Spawn(timerPrefab);
                     var nt = timerObj != null ? timerObj.GetComponent<NetworkTimer>() : null;
                     if (nt != null) nt.StartTimer();
-                    Debug.Log("<color=orange>[Timer]</color> NetworkTimer ½ºÆù ¹× ½ÃÀÛ!");
+                    Debug.Log("<color=orange>[Timer]</color> NetworkTimer   !");
                 }
                 else
                 {
-                    Debug.LogError("<color=red>[Spawner]</color> Resources/NetworkTimer ÇÁ¸®ÆÕÀ» Ã£À» ¼ö ¾ø½À´Ï´Ù! ·ÎÄÃ Å¸ÀÌ¸Ó·Î ´ëÃ¼ÇÕ´Ï´Ù.");
+                    Debug.LogError("<color=red>[Spawner]</color> Resources/NetworkTimer  Ã£  Ï´!  Å¸Ì¸Ó· Ã¼Õ´Ï´.");
                     if (TimerManager.Instance != null)
                     {
                         TimerManager.Instance.ResetTimer();
@@ -110,37 +110,37 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             }
         }
 
-        // StartPoint ¿ÀºêÁ§Æ® Ã£±â
-        Vector3 spawnPos = new Vector3(-20f, -7f, 0f); // ±âº»°ª
+        // StartPoint Æ® Ã£
+        Vector3 spawnPos = new Vector3(-20f, -7f, 0f); // âº»
         GameObject startPoint = GameObject.Find("StartPoint");
 
         if (startPoint != null)
         {
             spawnPos = startPoint.transform.position;
-            // ÇÃ·¹ÀÌ¾î³¢¸® °ãÄ¡Áö ¾Ê°Ô °£°İ Á¶Á¤
+            // Ã·Ì¾î³¢ Ä¡ Ê°  
             if (player.PlayerId % 2 == 0) spawnPos.x += 1.5f;
         }
 
-        // ¼±ÅÃÇÑ ÀÎµ¦½º¿¡ µû¶ó ÇÁ¸®ÆÕ °áÁ¤
+        //  Îµ   
         NetworkObject prefabToSpawn = (selectedIndex == 0) ? player1Prefab : player2Prefab;
 
-        Debug.Log($"<color=green>[Spawn]</color> ÇÃ·¹ÀÌ¾î {player} (¼±ÅÃ:{selectedIndex}) ¼ÒÈ¯ ¿Ï·á");
+        Debug.Log($"<color=green>[Spawn]</color> Ã·Ì¾ {player} (:{selectedIndex}) È¯ Ï·");
         runner.Spawn(prefabToSpawn, spawnPos, Quaternion.identity, player);
-        // Å¸ÀÌ¸Ó ½ÃÀÛÀº OnSceneLoadDone ÀÇ NetworkTimer ½ºÆù¿¡¼­ Ã³¸®ÇÑ´Ù.
+        // Å¸Ì¸  OnSceneLoadDone  NetworkTimer  Ã³Ñ´.
     }
 
-    // --- ÀÔ·Â Àü´Ş (Á¡ÇÁ, »ç´Ù¸® ÀÌµ¿ ÇÙ½É) ---
+    // --- Ô·  (, Ù¸ Ìµ Ù½) ---
     public void OnInput(NetworkRunner runner, NetworkInput input)
     {
         var data = new NetworkInputData();
 
         data.direction.x = Input.GetAxisRaw("Horizontal");
-        data.direction.y = Input.GetAxisRaw("Vertical"); // W, S Å° (»ç´Ù¸®)
+        data.direction.y = Input.GetAxisRaw("Vertical"); // W, S Å° (Ù¸)
         data.isJumpPressed = Input.GetButton("Jump") || Input.GetKey(KeyCode.Space);
 
         input.Set(data);
     }
-    // ÇÃ·¹ÀÌ¾î°¡ ³ª°¬À» ¶§ Ä³¸¯ÅÍ »èÁ¦
+    // Ã·Ì¾î°¡   Ä³ 
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
         if (runner.IsServer)
@@ -149,13 +149,48 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             {
                 if (networkObject != null) runner.Despawn(networkObject);
                 _spawnedCharacters.Remove(player);
-                Debug.Log($"<color=red>[Spawner]</color> ÇÃ·¹ÀÌ¾î {player} ÅğÀåÀ¸·Î ÀÎÇÑ Ä³¸¯ÅÍ Á¦°Å");
+                Debug.Log($"<color=red>[Spawner]</color> Ã·Ì¾ {player}   Ä³ ");
             }
         }
     }
 
-    // --- ÇÊ¼ö ÀÎÅÍÆäÀÌ½º ±¸Çö (ºñ¿öµÒ) ---
-    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player) { }
+    // --- Ê¼ Ì½  () ---
+    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+    {
+        if (!runner.IsServer) return;
+
+        string currentScene = SceneManager.GetActiveScene().name;
+        Debug.Log($"<color=cyan>[Spawner]</color> í”Œë ˆì´ì–´ {player} ì°¸ê°€! í˜„ì¬ ì”¬: {currentScene}");
+
+        // 1. ìºë¦­í„° ì„ íƒ ì”¬ì—ì„œ ìƒˆ í”Œë ˆì´ì–´ê°€ ë“¤ì–´ì˜¨ ê²½ìš°: SessionPlayerItem ì‹ ê·œ ìƒì„±
+        if (currentScene == "CharacterSelect")
+        {
+            bool alreadyExists = false;
+            var items = FindObjectsOfType<SessionPlayerItem>();
+            foreach (var item in items)
+            {
+                if (item.Object != null && item.Object.InputAuthority == player)
+                {
+                    alreadyExists = true;
+                    break;
+                }
+            }
+
+            if (!alreadyExists && sessionItemPrefab != null)
+            {
+                Debug.Log($"<color=lime>[Spawner]</color> ì°¸ê°€í•œ í”Œë ˆì´ì–´ {player}ë¥¼ ìœ„í•œ SessionPlayerItem ìƒì„± ì™„ë£Œ!");
+                runner.Spawn(sessionItemPrefab, Vector3.zero, Quaternion.identity, player);
+            }
+        }
+        // 2. ì¸ê²Œì„ ì”¬ì—ì„œ ì¤‘ê°„ ì°¸ê°€í•œ ê²½ìš°
+        else if (currentScene == "TutorialStage")
+        {
+            if (!_spawnedCharacters.ContainsKey(player))
+            {
+                SpawnSelectedPlayer(runner, player);
+            }
+        }
+    }
     // public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }

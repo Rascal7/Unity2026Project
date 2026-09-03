@@ -14,42 +14,42 @@ public class SessionPlayerItem : NetworkBehaviour
         if (Object.HasStateAuthority)
         {
             SelectedCharacterIndex = -1;
-            Debug.Log($"<color=yellow>[Item Spawned]</color> ÃÊ±â°ª -1 ¼³Á¤ ¿Ï·á");
+            Debug.Log($"<color=yellow>[Item Spawned]</color> Ê±â°ª -1  Ï·");
         }
-        Debug.Log($"<color=yellow>[Item]</color> SessionPlayerItem »ı¼ºµÊ! ÁÖÀÎ: {Object.InputAuthority}");
+        Debug.Log($"<color=yellow>[Item]</color> SessionPlayerItem ! : {Object.InputAuthority}");
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_SelectCharacter(int index)
     {
-        Debug.Log($"<color=cyan>[RPC È£ÃâµÊ]</color> {Object.InputAuthority}°¡ ¿äÃ»ÇÑ ÀÎµ¦½º: {index}");
+        Debug.Log($"<color=cyan>[RPC È£]</color> {Object.InputAuthority} Ã» Îµ: {index}");
         SelectedCharacterIndex = index;
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_SetReady(NetworkBool ready)
     {
-        // 1´Ü°è È®ÀÎ: ¼­¹ö°¡ ÀÌ ¸Ş½ÃÁö¸¦ ¹Ş¾Ò´Â°¡?
-        Debug.Log($"<color=orange>[RPC ¼ö½Å]</color> ÇÃ·¹ÀÌ¾î {Object.InputAuthority} ·¹µğ ¿äÃ»: {ready}");
+        // 1Ü° È®:   Ş½ Ş¾Ò´Â°?
+        Debug.Log($"<color=orange>[RPC ]</color> Ã·Ì¾ {Object.InputAuthority}  Ã»: {ready}");
 
         IsReady = ready;
 
-        // 2´Ü°è È®ÀÎ: ¼­¹ö ±ÇÇÑÀÌ ÀÖ´Â°¡?
+        // 2Ü° È®:   Ö´Â°?
         if (Runner.IsServer)
         {
-            Debug.Log("<color=white>[Server]</color> ¼­¹ö ±ÇÇÑ È®ÀÎµÊ. ÀÎ¿ø Ã¼Å© ½ÃÀÛ.");
+            Debug.Log("<color=white>[Server]</color>   È®Îµ. Î¿ Ã¼Å© .");
             CheckAllReady();
         }
         else
         {
-            Debug.LogError("<color=red>[¿¡·¯]</color> RPC¸¦ ¹Ş¾Ò´Âµ¥ ¼­¹ö ±ÇÇÑÀÌ ¾ø½À´Ï´Ù! (¸ğµå È®ÀÎ ÇÊ¿ä)");
+            Debug.LogError("<color=red>[]</color> RPC Ş¾Ò´Âµ   Ï´! ( È® Ê¿)");
         }
     }
 
     private void CheckAllReady()
     {
         var allItems = FindObjectsOfType<SessionPlayerItem>();
-        Debug.Log($"<color=white>[Ã¼Å©]</color> ÇöÀç °Ë»öµÈ SessionPlayerItem °³¼ö: {allItems.Length}");
+        Debug.Log($"<color=white>[Ã¼Å©]</color>  Ë» SessionPlayerItem : {allItems.Length}");
 
         int readyCount = 0;
         foreach (var item in allItems)
@@ -57,21 +57,22 @@ public class SessionPlayerItem : NetworkBehaviour
             if (item.IsReady) readyCount++;
         }
 
-        Debug.Log($"<color=white>[Ã¼Å©]</color> ÁØºñ ¿Ï·á ÀÎ¿ø: {readyCount} / ¸ñÇ¥: 1");
+        int targetCount = Mathf.Max(1, System.Linq.Enumerable.Count(Runner.ActivePlayers));
+        Debug.Log($"<color=white>[ì²´í¬]</color> ì¤€ë¹„ ì™„ë£Œ ì¸ì›: {readyCount} / ì ‘ì† ì¸ì›: {targetCount}");
 
-        if (readyCount >= 1) // Å×½ºÆ®¸¦ À§ÇØ 1¸í¸¸ µÅµµ ³Ñ¾î°¡°Ô ¼³Á¤
+        if (readyCount >= targetCount)
         {
-            Debug.Log("<color=green>[¼º°ø]</color> Á¶°Ç ÃæÁ·! ¾À ÀüÈ¯ ½Ãµµ.");
+            Debug.Log("<color=green>[ì¶œë°œ]</color> ì „ì› ì¤€ë¹„ ì™„ë£Œ! ìŠ¤í…Œì´ì§€ë¡œ ì´ë™í•©ë‹ˆë‹¤.");
             Runner.LoadScene("TutorialStage");
         }
     }
     public void OnIndexChanged()
     {
-        Debug.Log($"<color=magenta>[º¯È­ °¨Áö]</color> ÁÖÀÎ:{Object.InputAuthority} | ÇöÀç °ª:{SelectedCharacterIndex}");
+        Debug.Log($"<color=magenta>[È­ ]</color> :{Object.InputAuthority} |  :{SelectedCharacterIndex}");
 
         if (SelectedCharacterIndex == 2)
         {
-            Debug.LogError("<color=red>[¹üÀÎ °Ë°Å]</color> ÀÎµ¦½º°¡ 2·Î º¯Çß½À´Ï´Ù! È£Ãâ ½ºÅÃÀ» È®ÀÎÇÏ¼¼¿ä.");
+            Debug.LogError("<color=red>[ Ë°]</color> Îµ 2 ß½Ï´! È£  È®Ï¼.");
         }
     }
 }

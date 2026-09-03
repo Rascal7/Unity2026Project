@@ -1,24 +1,22 @@
 using Fusion;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
+
 public class CharacterSelectUI : MonoBehaviour
 {
-    // CharacterSelectUI.cs
     public Button[] selectButtons;
     public Button readyButton;
 
     [Header("Highlight Settings")]
     public Color normalColor = Color.white;
-    public Color selectedColor = Color.yellow; // ¼±ÅÃµÇ¾úÀ» ¶§ ¹Ù²ğ »ö»ó
+    public Color selectedColor = Color.yellow;
     public Color readyColor = Color.green;
+
     private void Start()
     {
-        Debug.Log("<color=red>[UI]</color> CharacterSelectUI ½ÃÀÛ");
+        Debug.Log("<color=cyan>[UI]</color> CharacterSelectUI ì´ˆê¸°í™” ì‹œì‘");
 
-        // [¼öÁ¤] ¸ğµç ¹öÆ°À» ÀÚµ¿À¸·Î ¿¬°áÇÏ´Â ·çÇÁ¸¦ »èÁ¦ÇÏ°Å³ª, 
-        // Æ¯Á¤ ¹öÆ°(·¹µğ ¹öÆ° µî)Àº Á¦¿ÜÇÏµµ·Ï Á¶°Ç¹®À» °É¾î¾ß ÇÕ´Ï´Ù.
-
-        // °¡Àå ±ò²ûÇÑ ¹æ¹ı: ¹öÆ°ÀÇ ÀÌ¸§À» È®ÀÎÇÏ°Å³ª ¼öµ¿À¸·Î ¿¬°áÇÏ±â
         Button[] allButtons = GetComponentsInChildren<Button>(true);
 
         for (int i = 0; i < allButtons.Length; i++)
@@ -26,41 +24,42 @@ public class CharacterSelectUI : MonoBehaviour
             Button btn = allButtons[i];
             int index = i;
 
-            // ¹öÆ° ÀÌ¸§¿¡ "Ready"°¡ Æ÷ÇÔµÇ¾î ÀÖ´Ù¸é OnClickReady¸¦ ¿¬°á
             if (btn.name.Contains("Ready"))
             {
                 btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(() => OnClickReady());
-                Debug.Log($"<color=cyan>[UI]</color> {btn.name}À» Ready ¹öÆ°À¸·Î ¿¬°áÇÔ");
+                Debug.Log($"<color=cyan>[UI]</color> {btn.name} -> Ready ë²„íŠ¼ ë“±ë¡");
             }
-            // ±× ¿Ü ¹öÆ°µéÀº ¼±ÅÃ ¹öÆ°À¸·Î Ã³¸® (´Ü, ÀÎµ¦½º ÁÖÀÇ)
             else
             {
                 btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(() => OnClickSelect(index));
-                Debug.Log($"<color=cyan>[UI]</color> {btn.name}À» {index}¹ø ¼±ÅÃ ¹öÆ°À¸·Î ¿¬°áÇÔ");
+                Debug.Log($"<color=cyan>[UI]</color> {btn.name} -> {index}ë²ˆ ì„ íƒ ë²„íŠ¼ ë“±ë¡");
             }
         }
     }
+
     public void OnClickSelect(int index)
     {
-        Debug.Log($"<color=cyan>[UI]</color> {index}¹ø ¹öÆ° Å¬¸¯µÊ!");
+        Debug.Log($"<color=cyan>[UI]</color> {index}ë²ˆ ë²„íŠ¼ í´ë¦­!");
         SessionPlayerItem myItem = FindLocalPlayerItem();
 
         if (myItem != null)
         {
-            // [Áß¿ä] RPC¸¦ ½î±â Àü¿¡ ³» ±ÇÇÑÀÌ È®½ÇÇÑÁö ÇÑ ¹ø ´õ Ã¼Å©ÇÕ´Ï´Ù.
-            if (myItem.HasInputAuthority)
+            if (myItem.HasInputAuthority || (myItem.Runner != null && myItem.Object.InputAuthority == myItem.Runner.LocalPlayer))
             {
-                Debug.Log($"<color=lime>[UI]</color> {index}¹ø Ä³¸¯ÅÍ ¼±ÅÃ ¿äÃ» º¸³¿!");
+                Debug.Log($"<color=lime>[UI]</color> {index}ë²ˆ ìºë¦­í„° ì„ íƒ ìš”ì²­ ì „ì†¡!");
                 myItem.RPC_SelectCharacter(index);
-
                 UpdateCharacterSelectionUI(index);
             }
             else
             {
-                Debug.LogError("<color=red>[UI]</color> Ã£Àº ¾ÆÀÌÅÛ¿¡ Input Authority°¡ ¾ø½À´Ï´Ù!");
+                Debug.LogError("<color=red>[UI]</color> ì°¾ì€ ì•„ì´í…œì— Input Authorityê°€ ì—†ìŠµë‹ˆë‹¤!");
             }
+        }
+        else
+        {
+            Debug.LogWarning("<color=yellow>[UI]</color> ë‚´ í”Œë ˆì´ì–´ ì„¸ì…˜ ì•„ì´í…œì„ ë™ê¸°í™” ì¤‘ì…ë‹ˆë‹¤. ì ì‹œ í›„ ë‹¤ì‹œ í´ë¦­í•´ ì£¼ì„¸ìš”.");
         }
     }
 
@@ -69,33 +68,65 @@ public class CharacterSelectUI : MonoBehaviour
         var myItem = FindLocalPlayerItem();
         if (myItem != null)
         {
-            Debug.Log($"<color=lime>[UI]</color> ·¹µğ ¹öÆ° Å¬¸¯! ÇöÀç »óÅÂ: {myItem.IsReady} -> {!myItem.IsReady}");
+            Debug.Log($"<color=lime>[UI]</color> ë ˆë”” ë²„íŠ¼ í´ë¦­! í˜„ì¬ ìƒíƒœ: {myItem.IsReady} -> {!myItem.IsReady}");
             bool nextReadyState = !myItem.IsReady;
             myItem.RPC_SetReady(nextReadyState);
             UpdateReadyUI(nextReadyState);
+        }
+        else
+        {
+            Debug.LogWarning("<color=yellow>[UI]</color> ë‚´ í”Œë ˆì´ì–´ ì„¸ì…˜ ì•„ì´í…œì„ ë™ê¸°í™” ì¤‘ì…ë‹ˆë‹¤. ì ì‹œ í›„ ë‹¤ì‹œ í´ë¦­í•´ ì£¼ì„¸ìš”.");
         }
     }
 
     private SessionPlayerItem FindLocalPlayerItem()
     {
-        // ¾À¿¡ ÀÖ´Â ¸ğµç ¾ÆÀÌÅÛÀ» ´Ù ±Ü¾î¸ğÀ¾´Ï´Ù.
-        SessionPlayerItem[] allItems = FindObjectsOfType<SessionPlayerItem>();
         var runner = FindObjectOfType<NetworkRunner>();
+        if (runner == null)
+        {
+            Debug.LogError("<color=red>[UI]</color> NetworkRunnerë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤.");
+            return null;
+        }
 
-        if (runner == null) return null;
+        SessionPlayerItem[] allItems = FindObjectsOfType<SessionPlayerItem>();
+
+        // 1ë‹¨ê³„: HasInputAuthority í™•ì¸
         foreach (var item in allItems)
         {
-            // ÇÙ½É: FusionÀÌ ÀÌ °´Ã¼ÀÇ ±ÇÇÑÀÌ '³ª'¿¡°Ô ÀÖ´Ù°í ¸í½ÃÇÑ °Í¸¸ ¸®ÅÏ!
             if (item.Object != null && item.Object.HasInputAuthority)
             {
-                Debug.Log("<color=lime>[UI]</color> ÁøÂ¥ ³» ¾ÆÀÌÅÛ(HasInputAuthority)À» Ã£¾Ò½À´Ï´Ù!");
                 return item;
             }
         }
 
-        Debug.LogError("<color=red>[UI]</color> ¾À¿¡ ¾ÆÀÌÅÛÀº ÀÖÀ¸³ª, ³» ±ÇÇÑ(Input Authority)ÀÌ ÀÖ´Â °ÍÀº ¾ø½À´Ï´Ù.");
+        // 2ë‹¨ê³„: InputAuthority == LocalPlayer í™•ì¸
+        foreach (var item in allItems)
+        {
+            if (item.Object != null && item.Object.InputAuthority == runner.LocalPlayer)
+            {
+                return item;
+            }
+        }
+
+        // 3ë‹¨ê³„: í˜¸ìŠ¤íŠ¸ì¸ë° ì•„ì´í…œì´ ì—†ëŠ” ê²½ìš° ì¦‰ì‹œ ìƒì„± (ì•ˆì „ì¥ì¹˜)
+        if (runner.IsServer)
+        {
+            var spawner = FindObjectOfType<Spawner>();
+            if (spawner != null && spawner.sessionItemPrefab != null)
+            {
+                Debug.LogWarning("<color=yellow>[UI]</color> í˜¸ìŠ¤íŠ¸ ì„¸ì…˜ ì•„ì´í…œì´ ì—†ì–´ ì§ì ‘ ìƒì„±í•©ë‹ˆë‹¤.");
+                var newObj = runner.Spawn(spawner.sessionItemPrefab, Vector3.zero, Quaternion.identity, runner.LocalPlayer);
+                if (newObj != null)
+                {
+                    return newObj.GetComponent<SessionPlayerItem>();
+                }
+            }
+        }
+
+        Debug.LogError("<color=red>[UI]</color> ì”¬ì— ì•„ì´í…œì€ ìˆìœ¼ë‚˜, ë‚´ ê¶Œí•œ(Input Authority)ì´ ìˆëŠ” ê²ƒì€ ì—†ìŠµë‹ˆë‹¤.");
         return null;
     }
+
     private void UpdateCharacterSelectionUI(int selectedIndex)
     {
         for (int i = 0; i < selectButtons.Length; i++)
@@ -104,16 +135,15 @@ public class CharacterSelectUI : MonoBehaviour
             Image btnImage = selectButtons[i].GetComponent<Image>();
             if (btnImage != null)
             {
-                // Ä³¸¯ÅÍ ¹öÆ°³¢¸®¸¸ ¹èÅ¸ÀûÀ¸·Î ÇÏÀÌ¶óÀÌÆ® (0¹ø ¼±ÅÃ ½Ã 1¹øÀº ²¨Áü)
                 btnImage.color = (i == selectedIndex) ? selectedColor : normalColor;
             }
         }
     }
+
     private void UpdateReadyUI(bool isReady)
     {
         if (readyButton == null)
         {
-            // ¸¸¾à ·¹µğ ¹öÆ°À» ÀÎ½ºÆåÅÍ¿¡ ¾È ³Ö¾ú´Ù¸é ÀÌ¸§À¸·Î Ã£±â
             GameObject readyObj = GameObject.Find("ReadyButton");
             if (readyObj != null) readyButton = readyObj.GetComponent<Button>();
         }
@@ -123,17 +153,20 @@ public class CharacterSelectUI : MonoBehaviour
             Image btnImage = readyButton.GetComponent<Image>();
             if (btnImage != null)
             {
-                // ÁØºñ »óÅÂ¿¡ µû¶ó »ö»ó Åä±Û
                 btnImage.color = isReady ? readyColor : normalColor;
             }
 
-            // ÅØ½ºÆ®µµ ¹Ù²Ù°í ½Í´Ù¸é?
             Text btnText = readyButton.GetComponentInChildren<Text>();
             if (btnText != null)
             {
                 btnText.text = isReady ? "READY!" : "NOT READY";
             }
+
+            TextMeshProUGUI tmpText = readyButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (tmpText != null)
+            {
+                tmpText.text = isReady ? "READY!" : "NOT READY";
+            }
         }
     }
-
 }

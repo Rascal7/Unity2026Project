@@ -3,50 +3,65 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-// ƒ⁄µÂ∑Œ ª˝º∫«œ¥¬ ∑©≈∑ ∫∏µÂ.
-//  - π‡¿∫ ΩΩ∑π¿Ã∆Æ ≈Ê + ∞ÒµÂ æ◊ºæ∆Æ, º¯¿ß∫∞ ªˆªÛ, TMP ∆˘∆Æ
-//  - ¿¸√º»≠∏È ∏¥ﬁ ∫Ì∑Œƒø∑Œ µ⁄ πË∞Ê ≈¨∏Ø/ªÛ»£¿€øÎ ¬˜¥‹
+/// <summary>
+/// Îû≠ÌÇπ Î≥¥Îìú UI (UGUI Í∏∞Î∞ò).
+/// NotoSansKR-Bold SDF ÌïúÍ∏Ä Ìè∞Ìä∏Î•º ÏôÑÎ≤Ω Ï†ÅÏö©ÌïòÏó¨ Îû≠ÌÇπ Î∞è ÎãâÎÑ§ÏûÑÏùÑ ÏÑ†Î™ÖÌïòÍ≤å ÌëúÏãúÌï©ÎãàÎã§.
+/// </summary>
 public class RankingBoardUI : MonoBehaviour
 {
     public static RankingBoardUI Instance { get; private set; }
 
     public const int RowCount = 5;
 
-    public bool IsOpen { get; private set; }
+    private static readonly Color Gold = new Color(0.98f, 0.77f, 0.19f);
+    private static readonly Color Silver = new Color(0.82f, 0.85f, 0.90f);
+    private static readonly Color Bronze = new Color(0.85f, 0.53f, 0.35f);
+    private static readonly Color Normal = new Color(0.92f, 0.93f, 0.95f);
+    private static readonly Color Dim = new Color(0.55f, 0.58f, 0.65f);
+    private static readonly Color PanelColor = new Color(0.08f, 0.10f, 0.14f, 0.96f);
 
     private GameObject _root;
-    private readonly TextMeshProUGUI[] _rankText = new TextMeshProUGUI[RowCount];
-    private readonly TextMeshProUGUI[] _nameText = new TextMeshProUGUI[RowCount];
-    private readonly TextMeshProUGUI[] _timeText = new TextMeshProUGUI[RowCount];
+    private TextMeshProUGUI[] _rankText = new TextMeshProUGUI[RowCount];
+    private TextMeshProUGUI[] _nameText = new TextMeshProUGUI[RowCount];
+    private TextMeshProUGUI[] _timeText = new TextMeshProUGUI[RowCount];
 
-    private static readonly Color Gold   = new Color(1f, 0.85f, 0.42f);
-    private static readonly Color Silver = new Color(0.88f, 0.90f, 0.96f);
-    private static readonly Color Bronze = new Color(0.92f, 0.70f, 0.52f);
-    private static readonly Color Normal = new Color(1f, 1f, 1f, 0.94f);
-    private static readonly Color Dim    = new Color(1f, 1f, 1f, 0.45f);
-    private static readonly Color PanelColor = new Color(0.205f, 0.225f, 0.275f, 0.99f);
+    public bool IsOpen { get; private set; }
 
     public static RankingBoardUI GetOrCreate()
     {
-        if (Instance == null)
-        {
-            var go = new GameObject("RankingBoardUI");
-            Instance = go.AddComponent<RankingBoardUI>();
-        }
-        return Instance;
+        if (Instance != null) return Instance;
+        var existing = FindObjectOfType<RankingBoardUI>();
+        if (existing != null) return existing;
+
+        var go = new GameObject("RankingBoardUI");
+        return go.AddComponent<RankingBoardUI>();
     }
 
     private void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-        Instance = this;
-        Build();
-        if (_root != null) _root.SetActive(false);
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+            Build();
+            Hide();
+        }
+        else if (Instance != this)
+        {
+            Destroy(gameObject);
+        }
     }
 
-    private void OnDestroy()
+    private void Update()
     {
-        if (Instance == this) Instance = null;
+        if (Input.GetKeyDown(KeyCode.Tab))
+        {
+            Toggle();
+        }
+        else if (IsOpen && Input.GetKeyDown(KeyCode.Escape))
+        {
+            Hide();
+        }
     }
 
     public void Show()
@@ -113,7 +128,6 @@ public class RankingBoardUI : MonoBehaviour
         }
     }
 
-    // ---------------- UI ∫ÙµÂ ----------------
     private void Build()
     {
         if (FindObjectOfType<EventSystem>() == null)
@@ -134,14 +148,12 @@ public class RankingBoardUI : MonoBehaviour
         scaler.matchWidthOrHeight = 0.5f;
         _root.AddComponent<GraphicRaycaster>();
 
-        // ∏¥ﬁ ∫Ì∑Œƒø: µ⁄ πË∞Ê ≈¨∏Ø/ªÛ»£¿€øÎ ¬˜¥‹ (≈¨∏Ø«ÿµµ æ∆π´ µø¿€ æ¯¿Ω)
         var blocker = NewChild("Blocker", _root.transform);
         Stretch(blocker);
         var bImg = blocker.AddComponent<Image>();
         bImg.color = new Color(0.03f, 0.04f, 0.06f, 0.55f);
         bImg.raycastTarget = true;
 
-        // ∫∏µÂ ∆–≥Œ
         const float PW = 980f;
         const float PH = 720f;
         var panel = NewChild("Panel", _root.transform);
@@ -151,7 +163,6 @@ public class RankingBoardUI : MonoBehaviour
         pr.sizeDelta = new Vector2(PW, PH);
         panel.AddComponent<Image>().color = PanelColor;
 
-        // ªÛ¥‹ ∞ÒµÂ æ◊ºæ∆Æ πŸ
         var accent = NewChild("Accent", panel.transform);
         var ar = accent.GetComponent<RectTransform>();
         ar.anchorMin = new Vector2(0f, 1f);
@@ -161,10 +172,8 @@ public class RankingBoardUI : MonoBehaviour
         ar.anchoredPosition = Vector2.zero;
         accent.AddComponent<Image>().color = Gold;
 
-        // ≈∏¿Ã∆≤
-        AddText(panel.transform, 56f, 30f, 520f, 60f, "RANKING", 46f, FontStyles.Bold, TextAlignmentOptions.Left, Color.white);
+        AddText(panel.transform, 56f, 30f, 520f, 60f, "RANKING (Îû≠ÌÇπ)", 46f, FontStyles.Bold, TextAlignmentOptions.Left, Color.white);
 
-        // ¥›±‚ πˆ∆∞ (X)
         var close = NewChild("Close", panel.transform);
         var cr = close.GetComponent<RectTransform>();
         cr.anchorMin = cr.anchorMax = new Vector2(1f, 1f);
@@ -175,13 +184,11 @@ public class RankingBoardUI : MonoBehaviour
         close.AddComponent<Button>().onClick.AddListener(Hide);
         AddTextStretch(close.transform, "X", 30f, new Color(1f, 1f, 1f, 0.9f));
 
-        // «Ï¥ı
         const float headerY = 128f;
-        AddText(panel.transform, 56f,  headerY, 160f, 34f, "RANK",    20f, FontStyles.Bold, TextAlignmentOptions.Left,  Dim);
-        AddText(panel.transform, 236f, headerY, 460f, 34f, "PLAYERS", 20f, FontStyles.Bold, TextAlignmentOptions.Left,  Dim);
-        AddText(panel.transform, 700f, headerY, 224f, 34f, "TIME",    20f, FontStyles.Bold, TextAlignmentOptions.Right, Dim);
+        AddText(panel.transform, 56f, headerY, 160f, 34f, "RANK", 20f, FontStyles.Bold, TextAlignmentOptions.Left, Dim);
+        AddText(panel.transform, 236f, headerY, 460f, 34f, "PLAYERS (ÌîåÎ†àÏù¥Ïñ¥)", 20f, FontStyles.Bold, TextAlignmentOptions.Left, Dim);
+        AddText(panel.transform, 700f, headerY, 224f, 34f, "TIME (Í∏∞Î°ù)", 20f, FontStyles.Bold, TextAlignmentOptions.Right, Dim);
 
-        // «Ï¥ı ±∏∫–º±
         var div = NewChild("Divider", panel.transform);
         var dr = div.GetComponent<RectTransform>();
         dr.anchorMin = new Vector2(0f, 1f);
@@ -191,7 +198,6 @@ public class RankingBoardUI : MonoBehaviour
         dr.anchoredPosition = new Vector2(0f, -(headerY + 42f));
         div.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.16f);
 
-        // µ•¿Ã≈Õ «‡
         const float rowTop = headerY + 58f;
         const float rowH = 98f;
         for (int i = 0; i < RowCount; i++)
@@ -209,9 +215,9 @@ public class RankingBoardUI : MonoBehaviour
                 ? new Color(1f, 1f, 1f, 0.07f)
                 : new Color(1f, 1f, 1f, 0.02f);
 
-            _rankText[i] = AddText(panel.transform, 56f,  y + 14f, 160f, rowH - 28f, "", 32f, FontStyles.Bold,   TextAlignmentOptions.Left,  Normal);
-            _nameText[i] = AddText(panel.transform, 236f, y + 14f, 460f, rowH - 28f, "", 27f, FontStyles.Normal, TextAlignmentOptions.Left,  Normal);
-            _timeText[i] = AddText(panel.transform, 700f, y + 14f, 224f, rowH - 28f, "", 29f, FontStyles.Bold,   TextAlignmentOptions.Right, Normal);
+            _rankText[i] = AddText(panel.transform, 56f, y + 14f, 160f, rowH - 28f, "", 32f, FontStyles.Bold, TextAlignmentOptions.Left, Normal);
+            _nameText[i] = AddText(panel.transform, 236f, y + 14f, 460f, rowH - 28f, "", 27f, FontStyles.Normal, TextAlignmentOptions.Left, Normal);
+            _timeText[i] = AddText(panel.transform, 700f, y + 14f, 224f, rowH - 28f, "", 29f, FontStyles.Bold, TextAlignmentOptions.Right, Normal);
 
             SetEmpty(i, i + 1);
         }

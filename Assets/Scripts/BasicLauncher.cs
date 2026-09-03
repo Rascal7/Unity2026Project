@@ -5,56 +5,57 @@ using UnityEngine.SceneManagement;
 public class BasicLauncher : MonoBehaviour
 {
     private NetworkRunner _runner;
-    private string _roomCode = ""; // »ç¿ëÀÚ°¡ ÀÔ·ÂÇÒ ¹æ ÄÚµå
+    private string _roomCode = ""; // ì‚¬ìš©ìê°€ ì…ë ¥í•  ë°© ì½”ë“œ
     private bool _isStarting = false;
     private string _playerName = "";
-    private bool _isMenuOpen = false;
+
     private void Start()
     {
-        // ÀÌÀü¿¡ ½è´ø ÀÌ¸§ ºÒ·¯¿À±â
         _playerName = PlayerPrefs.GetString("PlayerName", "Player" + Random.Range(100, 999));
     }
-    private void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            _isMenuOpen = !_isMenuOpen;
-            // ¸¶¿ì½º Ä¿¼­ »óÅÂ Á¶Àı
-            Cursor.lockState = _isMenuOpen ? CursorLockMode.None : CursorLockMode.Locked;
-            Cursor.visible = _isMenuOpen;
-        }
-    }
+
     private void OnGUI()
     {
-        // ·©Å· º¸µå°¡ ¿­·Á ÀÖÀ¸¸é IMGUI ¸Ş´º/¹öÆ°µµ ¸·´Â´Ù (¸ğ´Ş)
+        // ë­í‚¹ ë³´ë“œë‚˜ ESC ì„¤ì • ë©”ë‰´ê°€ ì—´ë ¤ìˆìœ¼ë©´ ë ˆê±°ì‹œ GUIë¥¼ ì¼ì²´ ê·¸ë¦¬ì§€ ì•ŠìŒ
         if (RankingManager.Instance != null && RankingManager.Instance.IsBoardOpen) return;
+        if (SettingsMenuUI.Instance != null && SettingsMenuUI.Instance.IsOpen) return;
 
+        // ì•„ì§ ë£¸ì— ì ‘ì†í•˜ì§€ ì•Šì€ ìƒíƒœ (ë¡œë¹„ í™”ë©´)
         if (_runner == null)
         {
-            float buttonWidth = 250f;
-            float buttonHeight = 40f;
-            float spacing = 15f;
+            float buttonWidth = 260f;
+            float buttonHeight = 44f;
+            float spacing = 12f;
             float centerX = (Screen.width - buttonWidth) / 2f;
-            float centerY = (Screen.height - 200) -30/ 2f;
+            
+            // íƒ€ì´í‹€ "ë³´ì´ìŠ¤ íˆì–´ë¡œ" ì•„ë˜ìª½ì˜ íŒ¨ë„ ì•ˆìœ¼ë¡œ ë“¤ì–´ê°€ë„ë¡ Yì¶• ìœ„ì¹˜ë¥¼ ì•„ë˜ë¡œ ì´ë™
+            float startY = Screen.height * 0.38f;
 
-            // 1. ¹æ ÄÚµå ÀÔ·ÂÃ¢ (ÅØ½ºÆ® ÇÊµå)
-            GUI.Label(new Rect(centerX, centerY - 25, buttonWidth, 20), "¹æ ÄÚµå ÀÔ·Â (Join ½Ã ÇÊ¿ä):");
-            _roomCode = GUI.TextField(new Rect(centerX, centerY, buttonWidth, buttonHeight), _roomCode);
-            GUI.Label(new Rect(centerX, centerY - 80 , buttonWidth, 20), "´Ğ³×ÀÓ:");
-            _playerName = GUI.TextField(new Rect(centerX, centerY - 60 , buttonWidth, 30), _playerName);
-            PlayerPrefs.SetString("PlayerName", _playerName); // ÀÔ·ÂÇÒ ¶§¸¶´Ù ÀúÀå
-            // 2. Host ¹öÆ° (·£´ı ÄÚµå »ı¼º)
-            if (GUI.Button(new Rect(centerX, centerY + buttonHeight + spacing, buttonWidth, buttonHeight), "Host (¹æ ¸¸µé±â)"))
+            GUIStyle labelStyle = new GUIStyle(GUI.skin.label);
+            labelStyle.fontSize = 14;
+            labelStyle.fontStyle = FontStyle.Bold;
+            labelStyle.normal.textColor = Color.white;
+
+            // 1. ë‹‰ë„¤ì„ ì…ë ¥ì°½
+            GUI.Label(new Rect(centerX, startY, buttonWidth, 20), "ë‹‰ë„¤ì„ (Nickname):", labelStyle);
+            _playerName = GUI.TextField(new Rect(centerX, startY + 22, buttonWidth, 32), _playerName);
+            PlayerPrefs.SetString("PlayerName", _playerName);
+
+            // 2. ë°© ì½”ë“œ ì…ë ¥ì°½
+            GUI.Label(new Rect(centerX, startY + 62, buttonWidth, 20), "ë°© ì½”ë“œ ì…ë ¥ (Join ì‹œ í•„ìš”):", labelStyle);
+            _roomCode = GUI.TextField(new Rect(centerX, startY + 84, buttonWidth, 32), _roomCode);
+
+            // 3. Host ë²„íŠ¼ (ë°© ë§Œë“¤ê¸°)
+            if (GUI.Button(new Rect(centerX, startY + 128, buttonWidth, buttonHeight), "Host (ë°© ë§Œë“¤ê¸°)"))
             {
-                // È£½ºÆ®´Â ÄÚµå°¡ ¾øÀ¸¸é ·£´ıÇÏ°Ô »ı¼º (¿¹: 4ÀÚ¸® ¼ıÀÚ)
                 if (string.IsNullOrEmpty(_roomCode))
                     _roomCode = Random.Range(1000, 9999).ToString();
 
                 StartGame(GameMode.Host, _roomCode);
             }
 
-            // 3. Join ¹öÆ° (ÀÔ·ÂÇÑ ÄÚµå·Î Á¢¼Ó)
-            if (GUI.Button(new Rect(centerX, centerY + (buttonHeight + spacing) * 2 - 20, buttonWidth, buttonHeight), "Join (Âü¿©ÇÏ±â)"))
+            // 4. Join ë²„íŠ¼ (ì°¸ê°€í•˜ê¸°)
+            if (GUI.Button(new Rect(centerX, startY + 128 + buttonHeight + spacing, buttonWidth, buttonHeight), "Join (ì°¸ê°€í•˜ê¸°)"))
             {
                 if (!string.IsNullOrEmpty(_roomCode))
                 {
@@ -62,46 +63,28 @@ public class BasicLauncher : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogError("Á¢¼ÓÇÒ ¹æ ÄÚµå¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä!");
+                    Debug.LogWarning("ì°¸ê°€í•˜ë ¤ë©´ ë°© ì½”ë“œë¥¼ ì…ë ¥í•˜ì„¸ìš”!");
                 }
             }
         }
-        else if (_runner.IsServer || _runner.IsClient)
+        else
         {
-            // ·ë ÄÚµå ½ºÅ¸ÀÏ ¼³Á¤ (±Û¾¾ Å©°Ô ¸¸µé±â)
+            // ê²Œì„ ì ‘ì† ì¤‘/í”Œë ˆì´ ì¤‘: í™”ë©´ ìƒë‹¨ì— ë°© ì½”ë“œ ì•ˆë‚´
             GUIStyle roomCodeStyle = new GUIStyle(GUI.skin.label);
-            roomCodeStyle.fontSize = 20; // ±ÛÀÚ Å©±â
+            roomCodeStyle.fontSize = 22;
             roomCodeStyle.fontStyle = FontStyle.Bold;
+            roomCodeStyle.normal.textColor = Color.white;
             roomCodeStyle.alignment = TextAnchor.MiddleCenter;
-            roomCodeStyle.normal.textColor = Color.yellow; // ³ë¶õ»öÀ¸·Î °­Á¶
 
-            // 1. È­¸é Áß¾Ó »ó´Ü¿¡ ¹èÄ¡ (°¡·Î Áß¾Ó, À§¿¡¼­ 50px ³»·Á¿Â ÁöÁ¡)
             float labelWidth = 300f;
-            float labelHeight = 40f;
+            float labelHeight = 45f;
             float xPos = (Screen.width - labelWidth) / 2f;
-            float yPos = 50f;
+            float yPos = 30f;
 
-            // ¹Ú½º ¹è°æ°ú ÇÔ²² ¹æ ÄÚµå Ãâ·Â
             GUI.Box(new Rect(xPos, yPos, labelWidth, labelHeight), "");
-            GUI.Label(new Rect(xPos, yPos, labelWidth, labelHeight), $"¹æ ÄÚµå: {_roomCode}", roomCodeStyle);
+            GUI.Label(new Rect(xPos, yPos, labelWidth, labelHeight), $"ë°© ì½”ë“œ: {_roomCode}", roomCodeStyle);
 
-            // (¼±ÅÃ) ÇÏ´Ü¿¡ ÇöÀç »óÅÂ Ç¥½Ã
             GUI.Label(new Rect(10, Screen.height - 30, 200, 25), $"Status: {(_runner.IsServer ? "Host" : "Client")}");
-        }
-        if (_isMenuOpen)
-        {
-            float w = 200; float h = 150;
-            Rect menuRect = new Rect(Screen.width / 2 - w / 2, Screen.height / 2 - h / 2, w, h);
-            GUI.Box(menuRect, "Menu");
-
-            if (GUI.Button(new Rect(menuRect.x + 50, menuRect.y + 40, 100, 30), "°è¼ÓÇÏ±â"))
-                _isMenuOpen = false;
-            if (GUI.Button(new Rect(menuRect.x + 50, menuRect.y + 80, 100, 30), "¹æ ³ª°¡±â"))
-            {
-                ExitGame();
-            }
-
-         
         }
     }
 
@@ -110,38 +93,29 @@ public class BasicLauncher : MonoBehaviour
         if (_isStarting) return;
         _isStarting = true;
 
-        // 1. Runner È®º¸ (Áßº¹ ¹æÁö ·ÎÁ÷)
-        // ÇöÀç ¿ÀºêÁ§Æ®¿¡¼­ °¡Á®¿Íº¸°í, ¾øÀ¸¸é »õ·Î Ãß°¡ÇÕ´Ï´Ù.
         _runner = GetComponent<NetworkRunner>();
         if (_runner == null)
         {
             _runner = gameObject.AddComponent<NetworkRunner>();
         }
 
-        // ¾À ÀÌµ¿ ½Ã ÆÄ±« ¹æÁö
         DontDestroyOnLoad(gameObject);
         _runner.ProvideInput = true;
 
-        // 2. Spawner ¿¬°á
         var spawner = FindObjectOfType<Spawner>();
         if (spawner != null)
         {
-            // Áßº¹ µî·Ï ¹æÁö: ±âÁ¸ Äİ¹éÀ» ´Ù Áö¿ì°í »õ·Î µî·ÏÇÏ°Å³ª Ã¼Å©
             _runner.RemoveCallbacks(spawner);
             _runner.AddCallbacks(spawner);
         }
 
-        Debug.Log($"<color=white>[Launcher]</color> {mode} Á¢¼Ó ½Ãµµ Áß... ¹æ ÄÚµå: {roomName}");
+        Debug.Log($"<color=white>[Launcher]</color> {mode} ëª¨ë“œë¡œ ì‹œì‘ ì‹œë„ ì¤‘... ë°© ì½”ë“œ: {roomName}");
 
-        // 3. °ÔÀÓ ¼¼¼Ç ½ÃÀÛ
         var result = await _runner.StartGame(new StartGameArgs()
         {
             GameMode = mode,
             SessionName = roomName,
-            // [¼öÁ¤] ÇöÀç ¾ÀÀ» ±âÁØÀ¸·Î ½ÃÀÛÇÏµµ·Ï ¼³Á¤
             Scene = SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex),
-
-            // [ÇÙ½É] SceneManager°¡ ¾øÀ¸¸é ¿¡·¯°¡ ³³´Ï´Ù. ¾Æ·¡ ÄÚµå·Î È®½ÇÈ÷ Ãß°¡/¿¬°áÇÏ¼¼¿ä.
             SceneManager = gameObject.GetComponent<NetworkSceneManagerDefault>() ?? gameObject.AddComponent<NetworkSceneManagerDefault>()
         });
 
@@ -149,31 +123,27 @@ public class BasicLauncher : MonoBehaviour
         {
             if (mode == GameMode.Host)
             {
-                Debug.Log("È£½ºÆ®: CharacterSelect ÀÌµ¿");
-                // [ÁÖÀÇ] À§¿¡¼­ SceneManager°¡ Àß ÃÊ±âÈ­µÇ¾ú´Ù¸é ÀÌÁ¦ ÀÌ ÄÚµå°¡ ÀÛµ¿ÇÕ´Ï´Ù.
+                Debug.Log("í˜¸ìŠ¤íŠ¸: CharacterSelect ì”¬ìœ¼ë¡œ ì´ë™");
                 _runner.LoadScene("CharacterSelect", LoadSceneMode.Single);
             }
         }
         else
         {
             _isStarting = false;
-            Debug.LogError($"[Launcher] ½ÃÀÛ ½ÇÆĞ: {result.ShutdownReason}");
+            Debug.LogError($"[Launcher] ì‹œì‘ ì‹¤íŒ¨: {result.ShutdownReason}");
         }
     }
-    private async void ExitGame()
+
+    public async void ExitGame()
     {
         if (_runner != null)
         {
-            // 1. ³×Æ®¿öÅ© ¿¬°áÀ» ¿ÏÀüÈ÷ Á¾·á (¸Å¿ì Áß¿ä!)
             await _runner.Shutdown();
         }
 
-        // 2. ¸¶¿ì½º Ä¿¼­ ´Ù½Ã È°¼ºÈ­ (·Îºñ¿¡¼­ Å¬¸¯ÇØ¾ß ÇÏ´Ï±î¿ä)
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        // 3. ·Îºñ ¾ÀÀ¸·Î ÀÌµ¿
-        // ÁÖÀÇ: Build Settings¿¡ µî·ÏµÈ ·Îºñ ¾À ÀÌ¸§°ú ¶È°°¾Æ¾ß ÇÕ´Ï´Ù!
         SceneManager.LoadScene("Lobby");
     }
 }

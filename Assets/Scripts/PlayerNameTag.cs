@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class PlayerNameTag : NetworkBehaviour
 {
-    // [Networked] º¯¼ö°¡ º¯ÇÏ¸é OnNameChanged¸¦ ½ÇÇàÇÏ¶ó´Â ¶æ
+    // [Networked]  Ï¸ OnNameChanged Ï¶ 
     [Networked, OnChangedRender(nameof(OnNameChanged))]
     public string Nickname { get; set; }
 
@@ -12,16 +12,16 @@ public class PlayerNameTag : NetworkBehaviour
 
     public override void Spawned()
     {
-        // ¸ðµç Å¬¶óÀÌ¾ðÆ®¿¡¼­ ÀÏ´Ü ÇöÀç µ¥ÀÌÅÍ·Î ÅØ½ºÆ® ¾÷µ¥ÀÌÆ®
+        //  Å¬Ì¾Æ® Ï´  Í· Ø½Æ® Æ®
         OnNameChanged();
 
         if (Object.HasInputAuthority)
         {
-            // 1. ÀúÀåµÈ ÀÌ¸§À» Á¤È®ÇÑ Å°°ª("PlayerName")À¸·Î °¡Á®¿É´Ï´Ù.
+            // 1.  Ì¸ È® Å°("PlayerName") É´Ï´.
             string myName = PlayerPrefs.GetString("PlayerName", "Unknown");
-            Debug.Log($"<color=lime>[NameTag]</color> ³» ÀÌ¸§Àº {myName}ÀÔ´Ï´Ù. ¼­¹ö¿¡ ¾Ë¸³´Ï´Ù.");
+            Debug.Log($"<color=lime>[NameTag]</color>  Ì¸ {myName}Ô´Ï´.  Ë¸Ï´.");
 
-            // 2. ¼­¹ö¿¡ ³» ÀÌ¸§À» Àü¼Û
+            // 2.   Ì¸ 
             RPC_SetNickname(myName);
         }
     }
@@ -29,10 +29,10 @@ public class PlayerNameTag : NetworkBehaviour
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_SetNickname(string name)
     {
-        // ¼­¹ö°¡ º¯¼ö¸¦ ¹Ù²Ù¸é ¸ðµç Å¬¶óÀÌ¾ðÆ®ÀÇ OnNameChanged°¡ ½ÇÇàµÊ
+        //   Ù²Ù¸  Å¬Ì¾Æ® OnNameChanged 
         Nickname = name;
     }
-    // Fusion 2¿¡¼­´Â 'static'°ú 'Changed<T>' ´ë½Å ÀÌ·¸°Ô Á÷Á¢ ÂüÁ¶°¡ °¡´ÉÇÕ´Ï´Ù.
+    // Fusion 2 'static' 'Changed<T>'  Ì·   Õ´Ï´.
     public void OnNameChanged()
     {
         if (nameText != null && !string.IsNullOrEmpty(Nickname))
@@ -43,12 +43,19 @@ public class PlayerNameTag : NetworkBehaviour
         }
     }
 
-    // ÀÌ¸§Ç¥°¡ Ä«¸Þ¶ó¸¦ º¸°Ô ¸¸µå´Â ÄÚµå (¼º´ÉÀ» À§ÇØ LateUpdate ±ÇÀå)
+    // Ì¸Ç¥ Ä«Þ¶   Úµ (  LateUpdate )
     private void LateUpdate()
     {
         if (Camera.main != null && nameText != null)
         {
             nameText.transform.rotation = Camera.main.transform.rotation;
         }
+    }
+
+    public string GetResolvedName()
+    {
+        if (!string.IsNullOrEmpty(Nickname)) return Nickname;
+        if (nameText != null && !string.IsNullOrEmpty(nameText.text)) return nameText.text;
+        return null;
     }
 }
