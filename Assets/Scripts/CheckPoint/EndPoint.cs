@@ -12,7 +12,7 @@ public class EndPoint : MonoBehaviour
     {
         if (!other.CompareTag("Player") || isTriggered) return;
 
-        var runner = FindObjectOfType<NetworkRunner>();
+        var runner = FindFirstObjectByType<NetworkRunner>();
         if (runner == null || !runner.IsServer) return;
 
         isTriggered = true;

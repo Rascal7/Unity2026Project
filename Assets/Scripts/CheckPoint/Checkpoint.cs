@@ -44,7 +44,7 @@ public class Checkpoint : MonoBehaviour
 
         // 정지/저장 트리거는 호스트만. 엔딩 화면은 각 피어의 GameEndController 가
         // 동기화된 IsFinished 플래그를 보고 스스로 띄운다.
-        var runner = FindObjectOfType<Fusion.NetworkRunner>();
+        var runner = FindFirstObjectByType<Fusion.NetworkRunner>();
         if (runner != null && !runner.IsServer) return;
 
         float finalTime = nt.StopTimer();

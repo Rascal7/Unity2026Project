@@ -30,7 +30,7 @@ public class RankingBoardUI : MonoBehaviour
     public static RankingBoardUI GetOrCreate()
     {
         if (Instance != null) return Instance;
-        var existing = FindObjectOfType<RankingBoardUI>();
+        var existing = FindFirstObjectByType<RankingBoardUI>();
         if (existing != null) return existing;
 
         var go = new GameObject("RankingBoardUI");
@@ -130,7 +130,7 @@ public class RankingBoardUI : MonoBehaviour
 
     private void Build()
     {
-        if (FindObjectOfType<EventSystem>() == null)
+        if (FindFirstObjectByType<EventSystem>() == null)
         {
             var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
             es.transform.SetParent(transform, false);

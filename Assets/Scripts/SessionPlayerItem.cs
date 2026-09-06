@@ -48,7 +48,7 @@ public class SessionPlayerItem : NetworkBehaviour
 
     private void CheckAllReady()
     {
-        var allItems = FindObjectsOfType<SessionPlayerItem>();
+        var allItems = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
         Debug.Log($"<color=white>[üũ]</color>  ˻ SessionPlayerItem : {allItems.Length}");
 
         int readyCount = 0;

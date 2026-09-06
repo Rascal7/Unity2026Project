@@ -81,14 +81,14 @@ public class CharacterSelectUI : MonoBehaviour
 
     private SessionPlayerItem FindLocalPlayerItem()
     {
-        var runner = FindObjectOfType<NetworkRunner>();
+        var runner = FindFirstObjectByType<NetworkRunner>();
         if (runner == null)
         {
             Debug.LogError("<color=red>[UI]</color> NetworkRunner를 찾을 수 없습니다.");
             return null;
         }
 
-        SessionPlayerItem[] allItems = FindObjectsOfType<SessionPlayerItem>();
+        SessionPlayerItem[] allItems = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
 
         // 1단계: HasInputAuthority 확인
         foreach (var item in allItems)
@@ -111,7 +111,7 @@ public class CharacterSelectUI : MonoBehaviour
         // 3단계: 호스트인데 아이템이 없는 경우 즉시 생성 (안전장치)
         if (runner.IsServer)
         {
-            var spawner = FindObjectOfType<Spawner>();
+            var spawner = FindFirstObjectByType<Spawner>();
             if (spawner != null && spawner.sessionItemPrefab != null)
             {
                 Debug.LogWarning("<color=yellow>[UI]</color> 호스트 세션 아이템이 없어 직접 생성합니다.");

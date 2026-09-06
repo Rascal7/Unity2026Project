@@ -55,7 +55,7 @@ public class RankingManager : MonoBehaviour
     // 씬의 PlayerNameTag에서 닉네임을 수집 (순서는 정렬로 안정화 -> 중복 행 방지에 도움)
     private System.Tuple<string, string> ResolvePlayerNames()
     {
-        var tags = FindObjectsOfType<PlayerNameTag>();
+        var tags = FindObjectsByType<PlayerNameTag>(UnityEngine.FindObjectsSortMode.None);
         var names = new List<string>();
         foreach (var tag in tags)
         {

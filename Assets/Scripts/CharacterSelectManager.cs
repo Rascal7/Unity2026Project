@@ -13,7 +13,7 @@ public class CharacterSelectManager : NetworkBehaviour
         if (!Runner.IsServer) return;
 
         // 현재 접속한 모든 SessionPlayerItem을 찾습니다.
-        var players = FindObjectsOfType<SessionPlayerItem>();
+        var players = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
 
         if (players.Length > 0)
         {

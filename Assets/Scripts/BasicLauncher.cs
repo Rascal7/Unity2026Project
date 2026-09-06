@@ -102,7 +102,7 @@ public class BasicLauncher : MonoBehaviour
         DontDestroyOnLoad(gameObject);
         _runner.ProvideInput = true;
 
-        var spawner = FindObjectOfType<Spawner>();
+        var spawner = FindFirstObjectByType<Spawner>();
         if (spawner != null)
         {
             _runner.RemoveCallbacks(spawner);

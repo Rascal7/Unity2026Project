@@ -28,7 +28,7 @@ public class GoalPoint : MonoBehaviour
         if (nt == null || !nt.IsRunning) return;
 
         // 정지/저장은 호스트만. 엔딩 화면은 GameEndController 가 동기화 플래그를 보고 자동 표시.
-        var runner = FindObjectOfType<Fusion.NetworkRunner>();
+        var runner = FindFirstObjectByType<Fusion.NetworkRunner>();
         if (runner != null && !runner.IsServer) return;
 
         float finalTime = nt.StopTimer();

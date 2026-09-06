@@ -27,7 +27,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
     private void Awake()
     {
-        var objs = FindObjectsOfType<Spawner>();
+        var objs = FindObjectsByType<Spawner>(UnityEngine.FindObjectsSortMode.None);
         if (objs.Length > 1)
         {
             Destroy(gameObject);
@@ -43,7 +43,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
     private void RegisterCallbacks()
     {
-        var runner = FindObjectOfType<NetworkRunner>();
+        var runner = FindFirstObjectByType<NetworkRunner>();
         if (runner != null)
         {
             runner.RemoveCallbacks(this);
@@ -62,7 +62,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         // 1. 캐릭터 선택 씬
         if (currentScene == "CharacterSelect")
         {
-            var oldItems = FindObjectsOfType<SessionPlayerItem>();
+            var oldItems = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
             foreach (var old in oldItems)
             {
                 if (old.Object != null) runner.Despawn(old.Object);
@@ -111,7 +111,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     {
         if (_spawnedCharacters.ContainsKey(player)) return;
         int selectedIndex = 0;
-        var items = FindObjectsOfType<SessionPlayerItem>();
+        var items = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
 
         foreach (var item in items)
         {
@@ -149,6 +149,9 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         data.direction.y = Input.GetAxisRaw("Vertical");
         data.isJumpPressed = Input.GetButton("Jump") || Input.GetKey(KeyCode.Space);
 
+        // 스킬 입력: 키보드(LeftShift) 또는 음성 키워드 인식
+        data.isSkillPressed = Input.GetKey(KeyCode.LeftShift) || VoiceSkillInput.IsSkillRequested;
+
         input.Set(data);
     }
 
@@ -176,7 +179,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         if (currentScene == "CharacterSelect")
         {
             bool alreadyExists = false;
-            var items = FindObjectsOfType<SessionPlayerItem>();
+            var items = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
             foreach (var item in items)
             {
                 if (item.Object != null && item.Object.InputAuthority == player)

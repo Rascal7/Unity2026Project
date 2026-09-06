@@ -11,6 +11,24 @@ public class PlayerMovement : NetworkBehaviour
     public float speed = 5f;
     public float jumpForce = 10f;
 
+    // ìºë¦­í„°ë³„ ê³ ìœ  ìŠ¤í‚¬ ì¢…ë¥˜. í”„ë¦¬íŒ¹ì—ì„œ ì§€ì •í•œë‹¤. (ì—¬ìš°=FoxDash, í† ë¼=RabbitJump)
+    public enum CharacterSkill { None, FoxDash, RabbitJump }
+
+    [Header("Skill Settings")]
+    public CharacterSkill skill = CharacterSkill.None;
+    [Tooltip("ìŠ¤í‚¬ ì¬ì‚¬ìš© ëŒ€ê¸°ì‹œê°„(ì´ˆ)")]
+    public float skillCooldown = 1.5f;
+
+    [Header("Fox Dash")]
+    [Tooltip("ëŒ€ì‹œ ì†ë„")]
+    public float dashSpeed = 18f;
+    [Tooltip("ëŒ€ì‹œ ì§€ì†ì‹œê°„(ì´ˆ)")]
+    public float dashDuration = 0.2f;
+
+    [Header("Rabbit Jump")]
+    [Tooltip("ê°•í•œ ë„ì•½ ì í”„ë ¥ (ê¸°ë³¸ ì í”„ë³´ë‹¤ í¬ê²Œ)")]
+    public float superJumpForce = 18f;
+
     [Header("Ground Check")]
     public Transform groundCheck;
     public float groundCheckRadius = 0.15f;
@@ -21,17 +39,22 @@ public class PlayerMovement : NetworkBehaviour
     private SpriteRenderer _sr;
     private float _originalGravity;
 
-    // Å¬·¡½º »ó´Ü¿¡ º¯¼ö Ãß°¡
+    // Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ü¿ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ß°ï¿½
     [Header("Death Settings")]
     public float fallDeathY = -10f;
 
     private bool _isDead = false;
 
-    // ³×Æ®¿öÅ© µ¿±âÈ­ »óÅÂ
+    // ï¿½ï¿½Æ®ï¿½ï¿½Å© ï¿½ï¿½ï¿½ï¿½È­ ï¿½ï¿½ï¿½ï¿½
     [Networked] private NetworkBool IsClimbing { get; set; }
     [Networked] private NetworkBool IsGrounded { get; set; }
 
-    // ·ÎÄÃ »óÅÂ
+    // ìŠ¤í‚¬ ê´€ë ¨ ë„¤íŠ¸ì›Œí¬ ìƒíƒœ
+    [Networked] private TickTimer SkillCooldownTimer { get; set; } // ìŠ¤í‚¬ ì¿¨ë‹¤ìš´
+    [Networked] private TickTimer DashTimer { get; set; }          // ëŒ€ì‹œ ì§€ì†ì‹œê°„
+    [Networked] private NetworkBool FacingRight { get; set; }      // ë°”ë¼ë³´ëŠ” ë°©í–¥ (ëŒ€ì‹œ ë°©í–¥ ê²°ì •)
+
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     private bool _isOnLadder;
 
     public override void Spawned()
@@ -43,13 +66,18 @@ public class PlayerMovement : NetworkBehaviour
         
         if (_rb == null)
         {
-            Debug.LogError($"[PlayerMovement] {gameObject.name}¿¡ Rigidbody2D°¡ ¾ø½À´Ï´Ù! ÄÄÆ÷³ÍÆ®¸¦ Ãß°¡ÇØÁÖ¼¼¿ä.");
+            Debug.LogError($"[PlayerMovement] {gameObject.name}ï¿½ï¿½ Rigidbody2Dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½! ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ß°ï¿½ï¿½ï¿½ï¿½Ö¼ï¿½ï¿½ï¿½.");
             return;
         }
         _originalGravity = _rb.gravityScale;
+
+        // ì´ˆê¸° ë°©í–¥ì€ ì˜¤ë¥¸ìª½
+        if (Object.HasStateAuthority)
+            FacingRight = true;
+
         if (Object.HasInputAuthority)
         {
-            CameraFollow cam = FindObjectOfType<CameraFollow>();
+            CameraFollow cam = FindFirstObjectByType<CameraFollow>();
             if (cam != null)
                 cam.SetTarget(transform);
         }
@@ -86,26 +114,77 @@ public class PlayerMovement : NetworkBehaviour
 
     private void Move(NetworkInputData data)
     {
-        float xVelocity = data.direction.x * speed;
+        // ë°”ë¼ë³´ëŠ” ë°©í–¥ ê°±ì‹  (ì…ë ¥ì´ ìˆì„ ë•Œë§Œ) - ëŒ€ì‹œ ë°©í–¥ ê²°ì •ì— ì‚¬ìš©
+        if (data.direction.x > 0.01f) FacingRight = true;
+        else if (data.direction.x < -0.01f) FacingRight = false;
+
+        // ìŠ¤í‚¬ ë°œë™ ì‹œë„ (ì¿¨ë‹¤ìš´ì´ ëë‚¬ê³  ì‚¬ë‹¤ë¦¬ ì¤‘ì´ ì•„ë‹ ë•Œ)
+        bool doSuperJump = TryUseSkill(data);
+
+        bool isDashing = !DashTimer.ExpiredOrNotRunning(Runner);
+
+        float xVelocity;
         float yVelocity = _rb.linearVelocity.y;
 
         if (IsClimbing)
         {
-            // ¿ø·¡ ÄÚµåÃ³·³ »ç´Ù¸®¿¡¼­µµ ÁÂ¿ì ÀÔ·ÂÀº À¯Áö
-            // ´Ü, À§¾Æ·¡ ÀÔ·ÂÀÌ ¾øÀ¸¸é yÃàÀº 0À¸·Î °íÁ¤
+            // ï¿½ï¿½ï¿½ï¿½ ï¿½Úµï¿½Ã³ï¿½ï¿½ ï¿½ï¿½Ù¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Â¿ï¿½ ï¿½Ô·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+            // ï¿½ï¿½, ï¿½ï¿½ï¿½Æ·ï¿½ ï¿½Ô·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ yï¿½ï¿½ï¿½ï¿½ 0ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+            xVelocity = data.direction.x * speed;
             yVelocity = Mathf.Abs(data.direction.y) > 0.1f
                 ? data.direction.y * climbSpeed
                 : 0f;
         }
+        else if (isDashing)
+        {
+            // ì—¬ìš° ëŒ€ì‹œ: ë°”ë¼ë³´ëŠ” ë°©í–¥ìœ¼ë¡œ ë¹ ë¥´ê²Œ ì´ë™ (ìˆ˜í‰ ëŒ€ì‹œ)
+            xVelocity = (FacingRight ? 1f : -1f) * dashSpeed;
+            yVelocity = 0f;
+        }
         else
         {
-            if (data.isJumpPressed && IsGrounded)
+            xVelocity = data.direction.x * speed;
+
+            if (doSuperJump)
+            {
+                // í† ë¼ ê°•í•œ ë„ì•½
+                yVelocity = superJumpForce;
+            }
+            else if (data.isJumpPressed && IsGrounded)
             {
                 yVelocity = jumpForce;
             }
         }
 
         _rb.linearVelocity = new Vector2(xVelocity, yVelocity);
+    }
+
+    /// <summary>
+    /// ìŠ¤í‚¬ ì…ë ¥ì„ ë°›ì•„ ë°œë™ì„ ì‹œë„í•œë‹¤.
+    /// ë°˜í™˜ê°’: ì´ë²ˆ í‹±ì— í† ë¼ ê°•í•œ ë„ì•½ì„ ë°œë™í–ˆìœ¼ë©´ true (Move ì—ì„œ yì†ë„ë¡œ ì ìš©).
+    /// ì—¬ìš° ëŒ€ì‹œëŠ” DashTimer ë¥¼ ì„¸íŒ…í•´ ì´í›„ í‹±ë“¤ì—ì„œ ì ìš©ëœë‹¤.
+    /// </summary>
+    private bool TryUseSkill(NetworkInputData data)
+    {
+        if (!data.isSkillPressed) return false;
+        if (IsClimbing) return false;
+        if (!SkillCooldownTimer.ExpiredOrNotRunning(Runner)) return false; // ì¿¨ë‹¤ìš´ ì¤‘
+
+        switch (skill)
+        {
+            case CharacterSkill.FoxDash:
+                DashTimer = TickTimer.CreateFromSeconds(Runner, dashDuration);
+                SkillCooldownTimer = TickTimer.CreateFromSeconds(Runner, skillCooldown);
+                return false;
+
+            case CharacterSkill.RabbitJump:
+                if (!IsGrounded) return false; // ë•…ì— ìˆì„ ë•Œë§Œ ë„ì•½
+                SkillCooldownTimer = TickTimer.CreateFromSeconds(Runner, skillCooldown);
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     private void HandleLadder(NetworkInputData data)
@@ -115,8 +194,8 @@ public class PlayerMovement : NetworkBehaviour
             IsClimbing = true;
             _rb.gravityScale = 0f;
 
-            // ¿ø·¡ ÄÚµå ´À³¦ À¯Áö:
-            // »ç´Ù¸® À§¿¡ ÀÖÀ¸¸é À§¾Æ·¡ ÀÔ·Â ¾øÀ» ¶§ y¼Óµµ 0
+            // ï¿½ï¿½ï¿½ï¿½ ï¿½Úµï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½:
+            // ï¿½ï¿½Ù¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Æ·ï¿½ ï¿½Ô·ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ yï¿½Óµï¿½ 0
             if (Mathf.Abs(data.direction.y) > 0.1f)
             {
                 _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, data.direction.y * climbSpeed);
@@ -126,7 +205,7 @@ public class PlayerMovement : NetworkBehaviour
                 _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, 0f);
             }
 
-            // »ç´Ù¸®¿¡¼­ Á¡ÇÁÇÏ¸é Å»Ãâ
+            // ï¿½ï¿½Ù¸ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ Å»ï¿½ï¿½
             if (data.isJumpPressed)
             {
                 IsClimbing = false;
@@ -155,7 +234,7 @@ public class PlayerMovement : NetworkBehaviour
         ) != null;
     }
 
-    // ¸Ş¼­µå Ãß°¡
+    // ï¿½Ş¼ï¿½ï¿½ï¿½ ï¿½ß°ï¿½
     private void CheckFallDeath()
     {
         if (_isDead) return;
@@ -171,7 +250,7 @@ public class PlayerMovement : NetworkBehaviour
         if (_isDead) return;
         _isDead = true;
 
-        Debug.Log("ÇÃ·¹ÀÌ¾î »ç¸Á!");
+        Debug.Log("ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½ï¿½ï¿½!");
         Respawn();
     }
 
@@ -183,7 +262,7 @@ public class PlayerMovement : NetworkBehaviour
         }
         else
         {
-            transform.position = Vector3.zero; // ±âº» ½ºÆù À§Ä¡
+            transform.position = Vector3.zero; // ï¿½âº» ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡
         }
 
         _rb.linearVelocity = Vector2.zero;
@@ -194,10 +273,8 @@ public class PlayerMovement : NetworkBehaviour
     {
         if (_sr == null) return;
 
-        if (data.direction.x > 0.01f)
-            _sr.flipX = false;
-        else if (data.direction.x < -0.01f)
-            _sr.flipX = true;
+        // FacingRight ë¥¼ ê¸°ì¤€ìœ¼ë¡œ ë’¤ì§‘ê¸° (ëŒ€ì‹œ ì¤‘ ì •ì§€ ìƒíƒœì—ì„œë„ ë°©í–¥ ìœ ì§€)
+        _sr.flipX = !FacingRight;
     }
 
     private void UpdateAnimation(NetworkInputData data)
@@ -229,7 +306,7 @@ public class PlayerMovement : NetworkBehaviour
             _isOnLadder = true;
         }
 
-        // ÀÌ ºÎºĞ Ãß°¡
+        // ï¿½ï¿½ ï¿½Îºï¿½ ï¿½ß°ï¿½
         if (other.CompareTag("Trap"))
         {
             Die();

@@ -3776,6 +3776,11 @@ MonoBehaviour:
   ladderJumpHorizontalForce: 5
   speed: 5
   jumpForce: 7
+  skill: 0
+  skillCooldown: 1.5
+  dashSpeed: 18
+  dashDuration: 0.2
+  superJumpForce: 18
   groundCheck: {fileID: 0}
   groundCheckRadius: 0.15
   groundLayer:
@@ -5124,6 +5129,7 @@ MonoBehaviour:
   target: {fileID: 0}
   offset: {x: 0, y: 0, z: -10}
   smoothSpeed: 0.125
+  verticalOffset: 2
 --- !u!1 &2132199275
 GameObject:
   m_ObjectHideFlags: 0

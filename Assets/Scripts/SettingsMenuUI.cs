@@ -69,7 +69,7 @@ public class SettingsMenuUI : MonoBehaviour
         _canvasGroup = GetComponent<CanvasGroup>();
 
         // 1. UI 클릭 처리를 위한 EventSystem 안전 점검 (없으면 자동 생성)
-        if (FindObjectOfType<EventSystem>() == null)
+        if (FindFirstObjectByType<EventSystem>() == null)
         {
             var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
             DontDestroyOnLoad(es);
@@ -443,7 +443,7 @@ public class SettingsMenuUI : MonoBehaviour
     {
         CloseMenu();
 
-        var runner = FindObjectOfType<NetworkRunner>();
+        var runner = FindFirstObjectByType<NetworkRunner>();
         if (runner != null)
         {
             Debug.Log("<color=orange>[Settings]</color> 네트워크 세션 종료 중...");

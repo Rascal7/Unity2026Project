@@ -123,7 +123,7 @@ public class GameEndController : MonoBehaviour
         // 남아있는 러너를 모두 완전히 종료하고 GameObject 까지 정리한다.
         // (셧다운된 러너를 안은 persistent BasicLauncher 가 로비로 따라오면
         //  런처/러너가 중복되고, 다음 스크립트 재컴파일 때 Fusion 이 예외를 던진다.)
-        foreach (var runner in FindObjectsOfType<NetworkRunner>())
+        foreach (var runner in FindObjectsByType<NetworkRunner>(UnityEngine.FindObjectsSortMode.None))
         {
             if (runner == null) continue;
             await runner.Shutdown();
@@ -138,7 +138,7 @@ public class GameEndController : MonoBehaviour
     {
         if (_root != null) return;
 
-        if (FindObjectOfType<EventSystem>() == null)
+        if (FindFirstObjectByType<EventSystem>() == null)
         {
             var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
             DontDestroyOnLoad(es);
