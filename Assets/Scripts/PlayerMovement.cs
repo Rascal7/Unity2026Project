@@ -54,6 +54,13 @@ public class PlayerMovement : NetworkBehaviour
     [Networked] private TickTimer DashTimer { get; set; }          // 대시 지속시간
     [Networked] private NetworkBool FacingRight { get; set; }      // 바라보는 방향 (대시 방향 결정)
 
+    [Networked] private NetworkBool SkillAirborne { get; set; } // 토끼 도약 중(발사~착지)
+
+    // --- 연출(PlayerSkillVisuals)용 공개 상태 ---
+    public bool IsDashingNow => Runner != null && !DashTimer.ExpiredOrNotRunning(Runner);
+    public bool IsFacingRight => FacingRight;
+    public bool IsSkillAirborne => SkillAirborne;
+
     // ���� ����
     private bool _isOnLadder;
 
@@ -110,6 +117,15 @@ public class PlayerMovement : NetworkBehaviour
             HandleLadder(emptyData);
             UpdateAnimation(emptyData);
         }
+
+        UpdateSkillAirborne();
+    }
+
+    // 토끼 도약 착지 감지: 공중 상태였다가 땅에 닿고 하강/정지하면 종료
+    private void UpdateSkillAirborne()
+    {
+        if (SkillAirborne && IsGrounded && _rb.linearVelocity.y <= 0.1f)
+            SkillAirborne = false;
     }
 
     private void Move(NetworkInputData data)
@@ -180,6 +196,7 @@ public class PlayerMovement : NetworkBehaviour
             case CharacterSkill.RabbitJump:
                 if (!IsGrounded) return false; // 땅에 있을 때만 도약
                 SkillCooldownTimer = TickTimer.CreateFromSeconds(Runner, skillCooldown);
+                SkillAirborne = true; // 연출: 도약 시작
                 return true;
 
             default:
