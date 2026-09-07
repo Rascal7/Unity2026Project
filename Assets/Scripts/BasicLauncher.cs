@@ -9,6 +9,7 @@ public class BasicLauncher : MonoBehaviour
     private bool _isStarting = false;
     private string _playerName = "";
     private bool _isMenuOpen = false;
+    private bool _useIMGUIMenu = false; // 새 TitleScreen 사용. 옛 IMGUI 시작 메뉴는 꺼둔다.
     private void Start()
     {
         // 이전에 썼던 이름 불러오기
@@ -29,7 +30,7 @@ public class BasicLauncher : MonoBehaviour
         // 랭킹 보드가 열려 있으면 IMGUI 메뉴/버튼도 막는다 (모달)
         if (RankingManager.Instance != null && RankingManager.Instance.IsBoardOpen) return;
 
-        if (_runner == null)
+        if (_useIMGUIMenu && _runner == null)
         {
             float buttonWidth = 250f;
             float buttonHeight = 40f;
@@ -102,6 +103,36 @@ public class BasicLauncher : MonoBehaviour
             }
 
          
+        }
+    }
+
+    // TitleScreen 에서 호출하는 진입점
+    public void RequestHost(string roomCode, string nick)
+    {
+        ApplyNick(nick);
+        string code = string.IsNullOrWhiteSpace(roomCode) ? Random.Range(1000, 9999).ToString() : roomCode.Trim();
+        _roomCode = code;
+        StartGame(GameMode.Host, code);
+    }
+
+    public void RequestJoin(string roomCode, string nick)
+    {
+        ApplyNick(nick);
+        if (string.IsNullOrWhiteSpace(roomCode))
+        {
+            Debug.LogError("[Launcher] 접속할 방 코드를 입력하세요");
+            return;
+        }
+        _roomCode = roomCode.Trim();
+        StartGame(GameMode.Client, _roomCode);
+    }
+
+    private void ApplyNick(string nick)
+    {
+        if (!string.IsNullOrWhiteSpace(nick))
+        {
+            _playerName = nick.Trim();
+            PlayerPrefs.SetString("PlayerName", _playerName);
         }
     }
 
