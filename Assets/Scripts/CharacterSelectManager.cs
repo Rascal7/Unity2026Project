@@ -2,17 +2,16 @@ using Fusion;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// ¹İµå½Ã class ¼±¾ğÀÌ ÀÖ¾î¾ß ÇÕ´Ï´Ù!
 public class CharacterSelectManager : NetworkBehaviour
 {
-    [SerializeField] private string gameSceneName = "TutorialStage";
+    [SerializeField] private string gameSceneName = "savefile";
 
     public override void FixedUpdateNetwork()
     {
-        // È£½ºÆ®(¼­¹ö)¸¸ ´ÙÀ½ ¾ÀÀ¸·Î ³Ñ¾î°¥ ±ÇÇÑÀÌ ÀÖ½À´Ï´Ù.
+        // í˜¸ìŠ¤íŠ¸(ì„œë²„)ë§Œ ì”¬ì„ ë„˜ì–´ê°ˆ ìˆ˜ ìˆìŠµë‹ˆë‹¤.
         if (!Runner.IsServer) return;
 
-        // ÇöÀç Á¢¼ÓÇÑ ¸ğµç SessionPlayerItemÀ» Ã£½À´Ï´Ù.
+        // ì”¬ì— ìˆëŠ” ëª¨ë“  SessionPlayerItemì„ ì°¾ìŠµë‹ˆë‹¤.
         var players = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
 
         if (players.Length > 0)
@@ -21,7 +20,7 @@ public class CharacterSelectManager : NetworkBehaviour
 
             foreach (var p in players)
             {
-                // ÇÑ ¸íÀÌ¶óµµ ·¹µğ¸¦ ¾È Çß°Å³ª Ä³¸¯ÅÍ¸¦ ¾È °ñ¶ú´Ù¸é false
+                // í•œ ëª…ì´ë¼ë„ ì¤€ë¹„ë¥¼ ì•ˆ í–ˆê±°ë‚˜ ìºë¦­í„°ë¥¼ ì•ˆ ê³¨ëë‹¤ë©´ false
                 if (!p.IsReady || p.SelectedCharacterIndex == -1)
                 {
                     allReady = false;
@@ -29,14 +28,18 @@ public class CharacterSelectManager : NetworkBehaviour
                 }
             }
 
-            // ¸ğµç ÇÃ·¹ÀÌ¾î°¡ ÁØºñ ¿Ï·áµÇ¾ú´Ù¸é °ÔÀÓ ¾ÀÀ¸·Î ÀÌµ¿!
+            // ëª¨ë“  í”Œë ˆì´ì–´ê°€ ì¤€ë¹„ ì™„ë£Œë˜ì—ˆë‹¤ë©´ ì„¸ì´ë¸Œ íŒŒì¼ ì„ íƒ ì”¬ìœ¼ë¡œ ì´ë™!
             if (allReady)
             {
-                // ¾À ÀÌ¸§(string)À» FusionÀÌ ÀÎ½ÄÇÒ ¼ö ÀÖ´Â SceneRef·Î º¯È¯ÇÏ¿© ·ÎµåÇÕ´Ï´Ù.
-                Runner.LoadScene(SceneRef.FromIndex(SceneManager.GetSceneByName(gameSceneName).buildIndex));
-
-                // ¶Ç´Â °¡Àå È®½ÇÇÏ°í °£´ÜÇÑ ¹æ¹ı (ºôµå ¼¼ÆÃÀÇ ÀÎµ¦½º³ª ÀÌ¸§À» Á÷Á¢ ³Ö±â):
-                // Runner.LoadScene(gameSceneName); 
+                int sceneIndex = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{gameSceneName}.unity");
+                if (sceneIndex >= 0)
+                {
+                    Runner.LoadScene(SceneRef.FromIndex(sceneIndex));
+                }
+                else
+                {
+                    Runner.LoadScene(gameSceneName, LoadSceneMode.Single);
+                }
             }
         }
     }

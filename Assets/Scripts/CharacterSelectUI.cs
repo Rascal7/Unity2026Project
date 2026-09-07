@@ -5,36 +5,112 @@ using TMPro;
 
 public class CharacterSelectUI : MonoBehaviour
 {
+    [Header("Buttons")]
     public Button[] selectButtons;
     public Button readyButton;
 
-    [Header("Highlight Settings")]
+    [Header("Character Selection Highlights")]
+    [Tooltip("선택 시 활성화될 외곽선/하이라이트 오브젝트 (인덱스 순서대로 대응)")]
+    public GameObject[] selectHighlights;
+    [Tooltip("선택 시 버튼에 적용할 스프라이트 (미할당 시 색상 틴트 사용)")]
+    public Sprite selectedButtonSprite;
+    [Tooltip("기본 상태 버튼 스프라이트")]
+    public Sprite normalButtonSprite;
+
+    [Header("Ready Button Visuals")]
+    public Image readyButtonImage;
+    [Tooltip("준비 완료 시 레디 버튼 스프라이트 (초록색 등)")]
+    public Sprite readySprite;
+    [Tooltip("준비 전 레디 버튼 스프라이트 (파란색 등)")]
+    public Sprite notReadySprite;
+    public TextMeshProUGUI readyText;
+    public string readyTextString = "READY!";
+    public string notReadyTextString = "준비하기";
+
+    [Header("Color Settings (Fallback)")]
     public Color normalColor = Color.white;
     public Color selectedColor = Color.yellow;
     public Color readyColor = Color.green;
+
+    private bool _hasSyncedInitialState = false;
 
     private void Start()
     {
         Debug.Log("<color=cyan>[UI]</color> CharacterSelectUI 초기화 시작");
 
-        Button[] allButtons = GetComponentsInChildren<Button>(true);
-
-        for (int i = 0; i < allButtons.Length; i++)
+        // 1. 캐릭터 선택 버튼 바인딩
+        if (selectButtons != null && selectButtons.Length > 0)
         {
-            Button btn = allButtons[i];
-            int index = i;
-
-            if (btn.name.Contains("Ready"))
+            for (int i = 0; i < selectButtons.Length; i++)
             {
-                btn.onClick.RemoveAllListeners();
-                btn.onClick.AddListener(() => OnClickReady());
-                Debug.Log($"<color=cyan>[UI]</color> {btn.name} -> Ready 버튼 등록");
+                if (selectButtons[i] == null) continue;
+                int index = i;
+                selectButtons[i].onClick.RemoveAllListeners();
+                selectButtons[i].onClick.AddListener(() => OnClickSelect(index));
+                Debug.Log($"<color=cyan>[UI]</color> {selectButtons[i].name} -> {index}번 선택 버튼 등록");
             }
-            else
+        }
+        else
+        {
+            // 폴백: 인스펙터에 미할당 시 자식 버튼 중 'Ready'가 아닌 버튼 탐색
+            Button[] allButtons = GetComponentsInChildren<Button>(true);
+            int selectIdx = 0;
+            for (int i = 0; i < allButtons.Length; i++)
             {
+                Button btn = allButtons[i];
+                if (btn.name.Contains("Ready")) continue;
+
+                int index = selectIdx++;
                 btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(() => OnClickSelect(index));
-                Debug.Log($"<color=cyan>[UI]</color> {btn.name} -> {index}번 선택 버튼 등록");
+                Debug.Log($"<color=cyan>[UI]</color> {btn.name} -> {index}번 선택 버튼 등록 (자동)");
+            }
+        }
+
+        // 2. 레디 버튼 바인딩
+        if (readyButton == null)
+        {
+            GameObject readyObj = GameObject.Find("ReadyButton");
+            if (readyObj == null) readyObj = GameObject.Find("Ready Button");
+            if (readyObj != null) readyButton = readyObj.GetComponent<Button>();
+        }
+
+        if (readyButton != null)
+        {
+            readyButton.onClick.RemoveAllListeners();
+            readyButton.onClick.AddListener(() => OnClickReady());
+            Debug.Log($"<color=cyan>[UI]</color> {readyButton.name} -> Ready 버튼 등록");
+        }
+
+        if (readyButtonImage == null && readyButton != null)
+        {
+            readyButtonImage = readyButton.GetComponent<Image>();
+        }
+
+        if (readyText == null && readyButton != null)
+        {
+            readyText = readyButton.GetComponentInChildren<TextMeshProUGUI>();
+        }
+
+        // 초기 시각 상태 적용 (아직 선택 안됨)
+        UpdateCharacterSelectionUI(-1);
+        UpdateReadyUI(false);
+    }
+
+    private void Update()
+    {
+        // 씬 로드 직후 늦게 스폰된 세션 아이템의 상태를 1회 자동 동기화
+        if (!_hasSyncedInitialState)
+        {
+            var myItem = FindLocalPlayerItem();
+            if (myItem != null)
+            {
+                if (myItem.SelectedCharacterIndex >= 0)
+                {
+                    UpdateCharacterSelectionUI(myItem.SelectedCharacterIndex);
+                }
+                UpdateReadyUI(myItem.IsReady);
+                _hasSyncedInitialState = true;
             }
         }
     }
@@ -129,13 +205,36 @@ public class CharacterSelectUI : MonoBehaviour
 
     private void UpdateCharacterSelectionUI(int selectedIndex)
     {
-        for (int i = 0; i < selectButtons.Length; i++)
+        // 1. 외곽선/하이라이트 오브젝트 켜기/끄기
+        if (selectHighlights != null)
         {
-            if (selectButtons[i] == null) continue;
-            Image btnImage = selectButtons[i].GetComponent<Image>();
-            if (btnImage != null)
+            for (int i = 0; i < selectHighlights.Length; i++)
             {
-                btnImage.color = (i == selectedIndex) ? selectedColor : normalColor;
+                if (selectHighlights[i] != null)
+                {
+                    selectHighlights[i].SetActive(i == selectedIndex);
+                }
+            }
+        }
+
+        // 2. 버튼 스프라이트 또는 색상 틴트 업데이트
+        if (selectButtons != null)
+        {
+            for (int i = 0; i < selectButtons.Length; i++)
+            {
+                if (selectButtons[i] == null) continue;
+                Image btnImage = selectButtons[i].GetComponent<Image>();
+                if (btnImage != null)
+                {
+                    if (selectedButtonSprite != null && normalButtonSprite != null)
+                    {
+                        btnImage.sprite = (i == selectedIndex) ? selectedButtonSprite : normalButtonSprite;
+                    }
+                    else
+                    {
+                        btnImage.color = (i == selectedIndex) ? selectedColor : normalColor;
+                    }
+                }
             }
         }
     }
@@ -145,27 +244,44 @@ public class CharacterSelectUI : MonoBehaviour
         if (readyButton == null)
         {
             GameObject readyObj = GameObject.Find("ReadyButton");
+            if (readyObj == null) readyObj = GameObject.Find("Ready Button");
             if (readyObj != null) readyButton = readyObj.GetComponent<Button>();
         }
 
-        if (readyButton != null)
+        if (readyButtonImage == null && readyButton != null)
         {
-            Image btnImage = readyButton.GetComponent<Image>();
-            if (btnImage != null)
-            {
-                btnImage.color = isReady ? readyColor : normalColor;
-            }
+            readyButtonImage = readyButton.GetComponent<Image>();
+        }
 
-            Text btnText = readyButton.GetComponentInChildren<Text>();
-            if (btnText != null)
+        if (readyButtonImage != null)
+        {
+            if (readySprite != null && notReadySprite != null)
             {
-                btnText.text = isReady ? "READY!" : "NOT READY";
+                readyButtonImage.sprite = isReady ? readySprite : notReadySprite;
+                // 스프라이트 본래 색상을 살리기 위해 흰색으로 유지
+                readyButtonImage.color = Color.white;
             }
-
-            TextMeshProUGUI tmpText = readyButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (tmpText != null)
+            else
             {
-                tmpText.text = isReady ? "READY!" : "NOT READY";
+                readyButtonImage.color = isReady ? readyColor : normalColor;
+            }
+        }
+
+        if (readyText == null && readyButton != null)
+        {
+            readyText = readyButton.GetComponentInChildren<TextMeshProUGUI>();
+        }
+
+        if (readyText != null)
+        {
+            readyText.text = isReady ? readyTextString : notReadyTextString;
+        }
+        else if (readyButton != null)
+        {
+            Text legacyText = readyButton.GetComponentInChildren<Text>();
+            if (legacyText != null)
+            {
+                legacyText.text = isReady ? readyTextString : notReadyTextString;
             }
         }
     }

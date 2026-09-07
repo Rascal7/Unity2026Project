@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class EndPoint : MonoBehaviour
 {
-    [Header("´ÙÀ½ ¾À ÀÌ¸§ (Build Settings¿¡ µî·ÏµÈ ÀÌ¸§°ú Á¤È®È÷ ÀÏÄ¡ÇØ¾ß ÇÔ)")]
+    [Header("ë‹¤ìŒ ì”¬ ì´ë¦„ (Build Settingsì— ë“±ë¡ëœ ì´ë¦„ê³¼ ì •í™•íˆ ì¼ì¹˜í•´ì•¼ í•¨)")]
     public string nextSceneName;
 
     private bool isTriggered = false;
@@ -16,9 +16,10 @@ public class EndPoint : MonoBehaviour
         if (runner == null || !runner.IsServer) return;
 
         isTriggered = true;
-        Debug.Log($"<color=cyan>[EndPoint]</color> ´ÙÀ½ ½ºÅ×ÀÌÁö·Î ÀÌµ¿: {nextSceneName}");
+        Debug.Log($"<color=cyan>[EndPoint]</color> ë‹¤ìŒ ìŠ¤í…Œì´ì§€ë¡œ ì´ë™: {nextSceneName}");
 
         CheckpointManager.ResetCheckpoint();
+        SaveDataManager.UpdateProgress(nextSceneName);
 
         runner.LoadScene(SceneRef.FromIndex(GetSceneIndex(nextSceneName)));
     }

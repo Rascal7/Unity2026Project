@@ -1,0 +1,362 @@
+using System;
+using Fusion;
+using TMPro;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+
+public class SaveFileUI : MonoBehaviour
+{
+    public enum SlotActionType
+    {
+        NewGame,
+        LoadGame
+    }
+
+    [System.Serializable]
+    public class SlotRowUI
+    {
+        public int slotIndex = 1;
+        public Button slotButton;
+        public TextMeshProUGUI slotTitleText;
+        public TextMeshProUGUI slotInfoText;
+        public Button deleteButton;
+        public Image background;
+    }
+
+    [Header("Panels")]
+    public GameObject modeSelectPanel;
+    public GameObject slotSelectPanel;
+
+    [Header("Mode Select UI")]
+    public Button newGameModeButton;
+    public Button loadGameModeButton;
+    public Button backToCharacterSelectButton;
+
+    [Header("Slot Select UI")]
+    public TextMeshProUGUI slotPanelTitleText;
+    public TextMeshProUGUI slotPanelSubtitleText;
+    public Button backToModeButton;
+    public SlotRowUI[] slotRows = new SlotRowUI[5];
+
+    [Header("Confirm Modal (Overwrite / Delete)")]
+    public GameObject confirmModal;
+    public TextMeshProUGUI confirmMessageText;
+    public Button confirmYesButton;
+    public Button confirmNoButton;
+
+    [Header("Notice Modal (Alerts)")]
+    public GameObject noticeModal;
+    public TextMeshProUGUI noticeMessageText;
+    public Button noticeOkButton;
+
+    [Header("Multiplayer / Host Notice")]
+    public TextMeshProUGUI clientNoticeText;
+
+    private SlotActionType _currentAction = SlotActionType.NewGame;
+    private Action _pendingConfirmAction = null;
+
+    private void Start()
+    {
+        BindEvents();
+        CheckNetworkAuthority();
+        ShowModeSelect();
+    }
+
+    private void BindEvents()
+    {
+        if (newGameModeButton != null)
+        {
+            newGameModeButton.onClick.RemoveAllListeners();
+            newGameModeButton.onClick.AddListener(() => OpenSlotSelect(SlotActionType.NewGame));
+        }
+
+        if (loadGameModeButton != null)
+        {
+            loadGameModeButton.onClick.RemoveAllListeners();
+            loadGameModeButton.onClick.AddListener(() => OpenSlotSelect(SlotActionType.LoadGame));
+        }
+
+        if (backToCharacterSelectButton != null)
+        {
+            backToCharacterSelectButton.onClick.RemoveAllListeners();
+            backToCharacterSelectButton.onClick.AddListener(OnClickBackToCharacterSelect);
+        }
+
+        if (backToModeButton != null)
+        {
+            backToModeButton.onClick.RemoveAllListeners();
+            backToModeButton.onClick.AddListener(ShowModeSelect);
+        }
+
+        if (confirmYesButton != null)
+        {
+            confirmYesButton.onClick.RemoveAllListeners();
+            confirmYesButton.onClick.AddListener(() =>
+            {
+                CloseConfirmModal();
+                _pendingConfirmAction?.Invoke();
+                _pendingConfirmAction = null;
+            });
+        }
+
+        if (confirmNoButton != null)
+        {
+            confirmNoButton.onClick.RemoveAllListeners();
+            confirmNoButton.onClick.AddListener(() =>
+            {
+                CloseConfirmModal();
+                _pendingConfirmAction = null;
+            });
+        }
+
+        if (noticeOkButton != null)
+        {
+            noticeOkButton.onClick.RemoveAllListeners();
+            noticeOkButton.onClick.AddListener(CloseNoticeModal);
+        }
+
+        if (slotRows != null)
+        {
+            for (int i = 0; i < slotRows.Length; i++)
+            {
+                int slotIndex = i + 1;
+                var row = slotRows[i];
+                if (row == null) continue;
+
+                row.slotIndex = slotIndex;
+
+                if (row.slotButton != null)
+                {
+                    row.slotButton.onClick.RemoveAllListeners();
+                    row.slotButton.onClick.AddListener(() => OnClickSlot(slotIndex));
+                }
+
+                if (row.deleteButton != null)
+                {
+                    row.deleteButton.onClick.RemoveAllListeners();
+                    row.deleteButton.onClick.AddListener(() => OnClickDeleteSlot(slotIndex));
+                }
+            }
+        }
+    }
+
+    private void CheckNetworkAuthority()
+    {
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        bool isMultiplayer = runner != null && runner.IsRunning;
+        bool isHost = isMultiplayer ? runner.IsServer : true;
+
+        if (clientNoticeText != null)
+        {
+            if (isMultiplayer && !isHost)
+            {
+                clientNoticeText.gameObject.SetActive(true);
+                clientNoticeText.text = "방장(Host)이 세이브 파일을 선택하는 중입니다...";
+            }
+            else
+            {
+                clientNoticeText.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    public void ShowModeSelect()
+    {
+        if (modeSelectPanel != null) modeSelectPanel.SetActive(true);
+        if (slotSelectPanel != null) slotSelectPanel.SetActive(false);
+        CloseConfirmModal();
+        CloseNoticeModal();
+    }
+
+    public void OpenSlotSelect(SlotActionType actionType)
+    {
+        _currentAction = actionType;
+
+        if (modeSelectPanel != null) modeSelectPanel.SetActive(false);
+        if (slotSelectPanel != null) slotSelectPanel.SetActive(true);
+
+        if (slotPanelTitleText != null)
+        {
+            slotPanelTitleText.text = (_currentAction == SlotActionType.NewGame)
+                ? "새 게임 - 슬롯 선택"
+                : "이어하기 - 슬롯 선택";
+        }
+
+        if (slotPanelSubtitleText != null)
+        {
+            slotPanelSubtitleText.text = (_currentAction == SlotActionType.NewGame)
+                ? "시작할 세이브 슬롯을 선택하세요 (1 ~ 5)"
+                : "불러올 세이브 슬롯을 선택하세요 (1 ~ 5)";
+        }
+
+        RefreshSlotList();
+    }
+
+    public void RefreshSlotList()
+    {
+        if (slotRows == null) return;
+
+        for (int i = 0; i < slotRows.Length; i++)
+        {
+            int slotIndex = i + 1;
+            var row = slotRows[i];
+            if (row == null) continue;
+
+            var data = SaveDataManager.GetSlot(slotIndex);
+
+            if (row.slotTitleText != null)
+            {
+                row.slotTitleText.text = $"SLOT {slotIndex:00}";
+            }
+
+            if (row.slotInfoText != null)
+            {
+                if (data != null && data.hasData)
+                {
+                    row.slotInfoText.text = $"<color=#FFE066>{data.stageDisplayName}</color>   <color=#BBBBBB>{data.updatedTime}</color>";
+                }
+                else
+                {
+                    row.slotInfoText.text = "<color=#888888>[ 빈 슬롯 (EMPTY) ]</color>";
+                }
+            }
+
+            if (row.deleteButton != null)
+            {
+                row.deleteButton.gameObject.SetActive(data != null && data.hasData);
+            }
+        }
+    }
+
+    public void OnClickSlot(int slotIndex)
+    {
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        if (runner != null && runner.IsRunning && !runner.IsServer)
+        {
+            ShowNoticeModal("방장(Host)만 세이브 슬롯을 선택할 수 있습니다.");
+            return;
+        }
+
+        bool hasData = SaveDataManager.HasSlotData(slotIndex);
+
+        if (_currentAction == SlotActionType.NewGame)
+        {
+            if (hasData)
+            {
+                _pendingConfirmAction = () => ProceedNewGame(slotIndex);
+                ShowConfirmModal($"슬롯 {slotIndex}에 이미 저장된 데이터가 있습니다.\n덮어쓰고 새로 시작하시겠습니까?");
+            }
+            else
+            {
+                ProceedNewGame(slotIndex);
+            }
+        }
+        else // LoadGame
+        {
+            if (hasData)
+            {
+                ProceedLoadGame(slotIndex);
+            }
+            else
+            {
+                ShowNoticeModal($"슬롯 {slotIndex}에 저장된 데이터가 없습니다!\n새 게임 모드로 시작해 주세요.");
+            }
+        }
+    }
+
+    private void ProceedNewGame(int slotIndex)
+    {
+        Debug.Log($"<color=lime>[SaveFileUI]</color> 새 게임 시작 (슬롯 {slotIndex}) -> TutorialStage 로드");
+        SaveDataManager.CreateNewGame(slotIndex);
+        LoadTargetScene("TutorialStage");
+    }
+
+    private void ProceedLoadGame(int slotIndex)
+    {
+        var data = SaveDataManager.GetSlot(slotIndex);
+        SaveDataManager.CurrentSlotIndex = slotIndex;
+        string targetScene = string.IsNullOrEmpty(data.stageName) ? "TutorialStage" : data.stageName;
+
+        Debug.Log($"<color=lime>[SaveFileUI]</color> 이어하기 (슬롯 {slotIndex}) -> {targetScene} 로드");
+        LoadTargetScene(targetScene);
+    }
+
+    private void OnClickDeleteSlot(int slotIndex)
+    {
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        if (runner != null && runner.IsRunning && !runner.IsServer)
+        {
+            ShowNoticeModal("방장(Host)만 세이브 슬롯을 삭제할 수 있습니다.");
+            return;
+        }
+
+        _pendingConfirmAction = () =>
+        {
+            SaveDataManager.DeleteSlot(slotIndex);
+            RefreshSlotList();
+        };
+        ShowConfirmModal($"슬롯 {slotIndex}의 세이브 데이터를 정말 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.");
+    }
+
+    private void OnClickBackToCharacterSelect()
+    {
+        LoadTargetScene("CharacterSelect");
+    }
+
+    private void LoadTargetScene(string sceneName)
+    {
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        if (runner != null && runner.IsRunning)
+        {
+            if (runner.IsServer)
+            {
+                int sceneIndex = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{sceneName}.unity");
+                if (sceneIndex >= 0)
+                {
+                    runner.LoadScene(SceneRef.FromIndex(sceneIndex));
+                }
+                else
+                {
+                    runner.LoadScene(sceneName, LoadSceneMode.Single);
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[SaveFileUI] 클라이언트는 직접 씬을 전환할 수 없습니다.");
+            }
+        }
+        else
+        {
+            SceneManager.LoadScene(sceneName);
+        }
+    }
+
+    private void ShowConfirmModal(string message)
+    {
+        if (confirmModal != null)
+        {
+            if (confirmMessageText != null) confirmMessageText.text = message;
+            confirmModal.SetActive(true);
+        }
+    }
+
+    private void CloseConfirmModal()
+    {
+        if (confirmModal != null) confirmModal.SetActive(false);
+    }
+
+    private void ShowNoticeModal(string message)
+    {
+        if (noticeModal != null)
+        {
+            if (noticeMessageText != null) noticeMessageText.text = message;
+            noticeModal.SetActive(true);
+        }
+    }
+
+    private void CloseNoticeModal()
+    {
+        if (noticeModal != null) noticeModal.SetActive(false);
+    }
+}

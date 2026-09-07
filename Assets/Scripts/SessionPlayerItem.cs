@@ -52,18 +52,28 @@ public class SessionPlayerItem : NetworkBehaviour
         Debug.Log($"<color=white>[üũ]</color>  ˻ SessionPlayerItem : {allItems.Length}");
 
         int readyCount = 0;
+        bool allCharactersSelected = true;
         foreach (var item in allItems)
         {
             if (item.IsReady) readyCount++;
+            if (item.SelectedCharacterIndex == -1) allCharactersSelected = false;
         }
 
         int targetCount = Mathf.Max(1, System.Linq.Enumerable.Count(Runner.ActivePlayers));
         Debug.Log($"<color=white>[체크]</color> 준비 완료 인원: {readyCount} / 접속 인원: {targetCount}");
 
-        if (readyCount >= targetCount)
+        if (readyCount >= targetCount && allCharactersSelected)
         {
-            Debug.Log("<color=green>[출발]</color> 전원 준비 완료! 스테이지로 이동합니다.");
-            Runner.LoadScene("TutorialStage");
+            Debug.Log("<color=green>[출발]</color> 전원 준비 완료! 세이브 파일 선택 씬(savefile)으로 이동합니다.");
+            int sceneIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/savefile.unity");
+            if (sceneIndex >= 0)
+            {
+                Runner.LoadScene(SceneRef.FromIndex(sceneIndex));
+            }
+            else
+            {
+                Runner.LoadScene("savefile");
+            }
         }
     }
     public void OnIndexChanged()
