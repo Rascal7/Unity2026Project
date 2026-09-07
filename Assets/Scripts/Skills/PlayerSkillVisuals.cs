@@ -30,6 +30,28 @@ public class PlayerSkillVisuals : MonoBehaviour
     [Header("토끼 도약 - 착지 흔들림")]
     public float landShake = 0.35f;  // 착지 화면 흔들림 세기
 
+    [Header("이펙트 프레임 (슬라이스된 스프라이트)")]
+    public Sprite[] dashSmokeFrames;     // 여우 대시 먼지 (바닥먼지)
+    public float dashSmokeFps = 20f;
+    public float dashSmokeScale = 1.6f;
+    public float dashSmokeBackOffset = 0.4f; // 대시 반대방향(뒤)으로 이만큼 이동
+    public float dashSmokeLift = 0.18f;      // 발밑에서 살짝 위로
+    [Tooltip("대시 중 경로를 따라 먼지를 남김")]
+    public bool dashDustTrail = true;
+    public float dashDustInterval = 0.03f;
+    public float dashDustScale = 1.1f;
+    public Sprite[] jumpLaunchFrames;    // 토끼 발사 먼지 (바닥먼지)
+    public float jumpLaunchFps = 22f;
+    public float jumpLaunchScale = 1.2f;
+    public Sprite[] jumpLandFrames;      // 토끼 착지 poof (pimen)
+    public float jumpLandFps = 24f;
+    public float jumpLandScale = 1.3f;
+
+    [Header("이펙트 공통")]
+    public Color effectTint = Color.white;
+    public int effectSortingOrder = 6;   // 플레이어(4) 앞
+    public float groundOffset = 0f;      // 발밑 기준 추가 보정(+위/-아래)
+
     private PlayerMovement _pm;
     private NetworkObject _no;
     private SpriteRenderer _sr;
@@ -39,6 +61,7 @@ public class PlayerSkillVisuals : MonoBehaviour
     private bool _prevAirborne;
     private float _aiTimer;
     private float _landTimer;
+    private float _dashDustTimer;
     private Vector3 _visualScale = Vector3.one;
 
     private void Awake()
@@ -64,18 +87,47 @@ public class PlayerSkillVisuals : MonoBehaviour
         float dt = Time.deltaTime;
         CameraFollow cam = Camera.main != null ? Camera.main.GetComponent<CameraFollow>() : null;
 
+        int slId = _sr.sortingLayerID;
+        // 발밑 = 스프라이트 경계 하단(캐릭터/프레임마다 자동 적응) + 보정
+        Vector3 feet = new Vector3(transform.position.x, _sr.bounds.min.y + groundOffset, transform.position.z);
+
         // --- 이벤트 엣지 ---
-        if (dashing && !_prevDashing && localPlayer && cam != null)
-            cam.AddImpulse(new Vector2((_pm.IsFacingRight ? 1f : -1f) * camKick, 0f));
+        if (dashing && !_prevDashing)           // 여우 대시 시작 → 바닥먼지(뒤쪽)
+        {
+            Vector3 dashPos = feet + Vector3.right * (_pm.IsFacingRight ? -dashSmokeBackOffset : dashSmokeBackOffset);
+            dashPos.y += dashSmokeLift;
+            SpriteEffect.Spawn(dashSmokeFrames, dashPos, dashSmokeFps, dashSmokeScale,
+                _pm.IsFacingRight, slId, effectSortingOrder, effectTint);
+            if (localPlayer && cam != null)
+                cam.AddImpulse(new Vector2((_pm.IsFacingRight ? 1f : -1f) * camKick, 0f));
+        }
+
+        // 대시 중 먼지 트레일 (경로를 따라 먼지가 인다) - 밋밋함 보완
+        if (dashing && dashDustTrail)
+        {
+            _dashDustTimer -= dt;
+            if (_dashDustTimer <= 0f)
+            {
+                _dashDustTimer = dashDustInterval;
+                Vector3 tp = new Vector3(feet.x, feet.y + dashSmokeLift, feet.z);
+                SpriteEffect.Spawn(dashSmokeFrames, tp, dashSmokeFps, dashDustScale,
+                    _pm.IsFacingRight, slId, effectSortingOrder, effectTint);
+            }
+        }
+        else _dashDustTimer = 0f;
 
         if (airborne && !_prevAirborne)         // 토끼 발사
         {
             _visualScale = new Vector3(launchStretch.x, launchStretch.y, 1f);
+            SpriteEffect.Spawn(jumpLaunchFrames, feet, jumpLaunchFps, jumpLaunchScale,
+                false, slId, effectSortingOrder, effectTint);
         }
         if (!airborne && _prevAirborne)         // 토끼 착지
         {
             _visualScale = new Vector3(landSquash.x, landSquash.y, 1f);
             _landTimer = landRecoverTime;
+            SpriteEffect.Spawn(jumpLandFrames, feet, jumpLandFps, jumpLandScale,
+                false, slId, effectSortingOrder, effectTint);
             if (localPlayer && cam != null) cam.AddShake(landShake);
         }
 

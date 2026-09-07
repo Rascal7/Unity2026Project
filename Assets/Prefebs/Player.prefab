@@ -638,3 +638,48 @@ MonoBehaviour:
   afterimageLife: 0.28
   afterimageTint: {r: 0.7, g: 0.85, b: 1, a: 0.55}
   camKick: 0.7
+  launchStretch: {x: 0.7, y: 1.4}
+  landSquash: {x: 1.45, y: 0.6}
+  landRecoverTime: 0.14
+  landShake: 0.35
+  dashSmokeFrames:
+  - {fileID: -7808597636291067876, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: 7721334607561410134, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: -2242772661877119312, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: -4654318857513309391, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: -5621109665231567814, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: 5152649840331385086, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: 2823272402737709826, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: 1130324612296305782, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  dashSmokeFps: 20
+  dashSmokeScale: 1.6
+  dashSmokeBackOffset: 0.4
+  jumpLaunchFrames:
+  - {fileID: -7808597636291067876, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: 7721334607561410134, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: -2242772661877119312, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: -4654318857513309391, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: -5621109665231567814, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: 5152649840331385086, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: 2823272402737709826, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  - {fileID: 1130324612296305782, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
+  jumpLaunchFps: 22
+  jumpLaunchScale: 1.6
+  jumpLandFrames:
+  - {fileID: -3757666834431055642, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
+  - {fileID: -3151195825567880470, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
+  - {fileID: -3515243970220461367, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
+  - {fileID: -216875733195619816, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
+  - {fileID: 1618525343133235863, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
+  - {fileID: -3154329818631211778, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
+  - {fileID: 275969281115302137, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
+  - {fileID: 5303531299478335461, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
+  - {fileID: -1995599777882064969, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
+  - {fileID: -9089638283045509904, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
+  - {fileID: -6483419717464838650, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
+  - {fileID: -6802366858308617346, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
+  jumpLandFps: 24
+  jumpLandScale: 1.3
+  effectTint: {r: 1, g: 1, b: 1, a: 1}
+  effectSortingOrder: 6
+  groundOffset: 0

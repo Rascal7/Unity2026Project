@@ -1,0 +1,525 @@
+fileFormatVersion: 2
+guid: bd24315130561eb4da9e04c90e68b667
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -3757666834431055642
+    second: fx_jump_land_0
+  - first:
+      213: -3151195825567880470
+    second: fx_jump_land_1
+  - first:
+      213: -3515243970220461367
+    second: fx_jump_land_2
+  - first:
+      213: -216875733195619816
+    second: fx_jump_land_3
+  - first:
+      213: 1618525343133235863
+    second: fx_jump_land_4
+  - first:
+      213: -3154329818631211778
+    second: fx_jump_land_5
+  - first:
+      213: 275969281115302137
+    second: fx_jump_land_6
+  - first:
+      213: 5303531299478335461
+    second: fx_jump_land_7
+  - first:
+      213: -1995599777882064969
+    second: fx_jump_land_8
+  - first:
+      213: -9089638283045509904
+    second: fx_jump_land_9
+  - first:
+      213: -6483419717464838650
+    second: fx_jump_land_10
+  - first:
+      213: -6802366858308617346
+    second: fx_jump_land_11
+  - first:
+      213: -5413516115717819121
+    second: fx_jump_land_12
+  - first:
+      213: 8529865581196736289
+    second: fx_jump_land_13
+  - first:
+      213: -1029520205464528752
+    second: fx_jump_land_14
+  - first:
+      213: -6968164595996753814
+    second: fx_jump_land_15
+  - first:
+      213: -3516071715804953180
+    second: fx_jump_land_16
+  - first:
+      213: 5042777342225089333
+    second: fx_jump_land_17
+  - first:
+      213: -1489769627825733373
+    second: fx_jump_land_18
+  - first:
+      213: 3054096040186705363
+    second: fx_jump_land_19
+  - first:
+      213: 1208487511789693561
+    second: fx_jump_land_20
+  - first:
+      213: -4446518517818481075
+    second: fx_jump_land_21
+  - first:
+      213: 3297135193156759845
+    second: fx_jump_land_22
+  - first:
+      213: 7671634346092873489
+    second: fx_jump_land_23
+  - first:
+      213: -670025800654957923
+    second: fx_jump_land_24
+  - first:
+      213: 3511712261701556955
+    second: fx_jump_land_25
+  - first:
+      213: 8669115629662270623
+    second: fx_jump_land_26
+  - first:
+      213: 263524640339519241
+    second: fx_jump_land_27
+  - first:
+      213: 6382476880366840278
+    second: fx_jump_land_28
+  - first:
+      213: 8360079394552314048
+    second: fx_jump_land_29
+  - first:
+      213: 8570977654775618888
+    second: fx_jump_land_30
+  - first:
+      213: -3693915975419301852
+    second: fx_jump_land_31
+  - first:
+      213: 3337422891149234948
+    second: fx_jump_land_32
+  - first:
+      213: -6565966436385298272
+    second: fx_jump_land_33
+  - first:
+      213: 1909682089440409900
+    second: fx_jump_land_34
+  - first:
+      213: 114794806708784246
+    second: fx_jump_land_35
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 32
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: fx_jump_land_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 64
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6e8687d4ce51adbc0800000000000000
+      internalID: -3757666834431055642
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_jump_land_1
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 0
+        width: 64
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: aea2557a714b444d0800000000000000
+      internalID: -3151195825567880470
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_jump_land_2
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 0
+        width: 64
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9c2fc20db38573fc0800000000000000
+      internalID: -3515243970220461367
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_jump_land_3
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 0
+        width: 64
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 81209727ba08dfcf0800000000000000
+      internalID: -216875733195619816
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_jump_land_4
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 0
+        width: 64
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 79a7c696938267610800000000000000
+      internalID: 1618525343133235863
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_jump_land_5
+      rect:
+        serializedVersion: 2
+        x: 320
+        y: 0
+        width: 64
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ef470180eb19934d0800000000000000
+      internalID: -3154329818631211778
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_jump_land_6
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 0
+        width: 64
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9f82cc9599074d300800000000000000
+      internalID: 275969281115302137
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_jump_land_7
+      rect:
+        serializedVersion: 2
+        x: 448
+        y: 0
+        width: 64
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5ef62981e9de99940800000000000000
+      internalID: 5303531299478335461
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_jump_land_8
+      rect:
+        serializedVersion: 2
+        x: 512
+        y: 0
+        width: 64
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7b7bd7d33943e44e0800000000000000
+      internalID: -1995599777882064969
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_jump_land_9
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 0
+        width: 64
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0f4e74af32e1bd180800000000000000
+      internalID: -9089638283045509904
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_jump_land_10
+      rect:
+        serializedVersion: 2
+        x: 640
+        y: 0
+        width: 64
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 60eaeba1e144606a0800000000000000
+      internalID: -6483419717464838650
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_jump_land_11
+      rect:
+        serializedVersion: 2
+        x: 704
+        y: 0
+        width: 64
+        height: 64
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e7bff9202632991a0800000000000000
+      internalID: -6802366858308617346
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      fx_jump_land_0: -3757666834431055642
+      fx_jump_land_1: -3151195825567880470
+      fx_jump_land_10: -6483419717464838650
+      fx_jump_land_11: -6802366858308617346
+      fx_jump_land_12: -5413516115717819121
+      fx_jump_land_13: 8529865581196736289
+      fx_jump_land_14: -1029520205464528752
+      fx_jump_land_15: -6968164595996753814
+      fx_jump_land_16: -3516071715804953180
+      fx_jump_land_17: 5042777342225089333
+      fx_jump_land_18: -1489769627825733373
+      fx_jump_land_19: 3054096040186705363
+      fx_jump_land_2: -3515243970220461367
+      fx_jump_land_20: 1208487511789693561
+      fx_jump_land_21: -4446518517818481075
+      fx_jump_land_22: 3297135193156759845
+      fx_jump_land_23: 7671634346092873489
+      fx_jump_land_24: -670025800654957923
+      fx_jump_land_25: 3511712261701556955
+      fx_jump_land_26: 8669115629662270623
+      fx_jump_land_27: 263524640339519241
+      fx_jump_land_28: 6382476880366840278
+      fx_jump_land_29: 8360079394552314048
+      fx_jump_land_3: -216875733195619816
+      fx_jump_land_30: 8570977654775618888
+      fx_jump_land_31: -3693915975419301852
+      fx_jump_land_32: 3337422891149234948
+      fx_jump_land_33: -6565966436385298272
+      fx_jump_land_34: 1909682089440409900
+      fx_jump_land_35: 114794806708784246
+      fx_jump_land_4: 1618525343133235863
+      fx_jump_land_5: -3154329818631211778
+      fx_jump_land_6: 275969281115302137
+      fx_jump_land_7: 5303531299478335461
+      fx_jump_land_8: -1995599777882064969
+      fx_jump_land_9: -9089638283045509904
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
