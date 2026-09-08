@@ -8,6 +8,7 @@ public class BasicLauncher : MonoBehaviour
     private string _roomCode = ""; // 사용자가 입력할 방 코드
     private bool _isStarting = false;
     private string _playerName = "";
+    [SerializeField] private bool _useIMGUIMenu = false; // 새 TitleScreen 도입으로 구 IMGUI 로비 메뉴는 기본 비활성화
 
     private void Start()
     {
@@ -20,8 +21,8 @@ public class BasicLauncher : MonoBehaviour
         if (RankingManager.Instance != null && RankingManager.Instance.IsBoardOpen) return;
         if (SettingsMenuUI.Instance != null && SettingsMenuUI.Instance.IsOpen) return;
 
-        // 아직 룸에 접속하지 않은 상태 (로비 화면)
-        if (_runner == null)
+        // 아직 룸에 접속하지 않은 상태 (로비 화면) - _useIMGUIMenu가 true일 때만 레거시 IMGUI 표시
+        if (_useIMGUIMenu && _runner == null)
         {
             float buttonWidth = 260f;
             float buttonHeight = 44f;
@@ -67,7 +68,7 @@ public class BasicLauncher : MonoBehaviour
                 }
             }
         }
-        else
+        else if (_runner != null && (_runner.IsServer || _runner.IsClient))
         {
             // 게임 접속 중/플레이 중: 화면 상단에 방 코드 안내
             GUIStyle roomCodeStyle = new GUIStyle(GUI.skin.label);
@@ -85,6 +86,36 @@ public class BasicLauncher : MonoBehaviour
             GUI.Label(new Rect(xPos, yPos, labelWidth, labelHeight), $"방 코드: {_roomCode}", roomCodeStyle);
 
             GUI.Label(new Rect(10, Screen.height - 30, 200, 25), $"Status: {(_runner.IsServer ? "Host" : "Client")}");
+        }
+    }
+
+    // TitleScreen 등 외부 UI에서 호출하는 진입점
+    public void RequestHost(string roomCode, string nick)
+    {
+        ApplyNick(nick);
+        string code = string.IsNullOrWhiteSpace(roomCode) ? Random.Range(1000, 9999).ToString() : roomCode.Trim();
+        _roomCode = code;
+        StartGame(GameMode.Host, code);
+    }
+
+    public void RequestJoin(string roomCode, string nick)
+    {
+        ApplyNick(nick);
+        if (string.IsNullOrWhiteSpace(roomCode))
+        {
+            Debug.LogError("[Launcher] 들어갈 방 코드를 입력하세요!");
+            return;
+        }
+        _roomCode = roomCode.Trim();
+        StartGame(GameMode.Client, _roomCode);
+    }
+
+    private void ApplyNick(string nick)
+    {
+        if (!string.IsNullOrWhiteSpace(nick))
+        {
+            _playerName = nick.Trim();
+            PlayerPrefs.SetString("PlayerName", _playerName);
         }
     }
 
