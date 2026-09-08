@@ -1,8 +1,12 @@
 using Fusion;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
+/// <summary>
+/// 캐릭터 선택 화면 UI 컨트롤러.
+/// 로비(TitleScreen)와 동일한 비주얼 톤앤매너(우드 프레임, 골드 타이틀, 3D 픽셀 버튼)를 적용합니다.
+/// </summary>
 public class CharacterSelectUI : MonoBehaviour
 {
     [Header("Buttons")]
@@ -10,22 +14,20 @@ public class CharacterSelectUI : MonoBehaviour
     public Button readyButton;
 
     [Header("Character Selection Highlights")]
-    [Tooltip("선택 시 활성화될 외곽선/하이라이트 오브젝트 (인덱스 순서대로 대응)")]
+    [Tooltip("선택 시 활성화될 외곽선 하이라이트 오브젝트")]
     public GameObject[] selectHighlights;
-    [Tooltip("선택 시 버튼에 적용할 스프라이트 (미할당 시 색상 틴트 사용)")]
+    [Tooltip("선택 시 버튼 스프라이트 (선택사항)")]
     public Sprite selectedButtonSprite;
-    [Tooltip("기본 상태 버튼 스프라이트")]
+    [Tooltip("기본 상태 버튼 스프라이트 (선택사항)")]
     public Sprite normalButtonSprite;
 
     [Header("Ready Button Visuals")]
     public Image readyButtonImage;
-    [Tooltip("준비 완료 시 레디 버튼 스프라이트 (초록색 등)")]
     public Sprite readySprite;
-    [Tooltip("준비 전 레디 버튼 스프라이트 (파란색 등)")]
     public Sprite notReadySprite;
     public TextMeshProUGUI readyText;
-    public string readyTextString = "READY!";
-    public string notReadyTextString = "준비하기";
+    public string readyTextString = "준비 완료! (READY)";
+    public string notReadyTextString = "준비하기 (READY)";
 
     [Header("Color Settings (Fallback)")]
     public Color normalColor = Color.white;
@@ -33,12 +35,16 @@ public class CharacterSelectUI : MonoBehaviour
     public Color readyColor = Color.green;
 
     private bool _hasSyncedInitialState = false;
+    private int _currentSelectedIndex = -1;
 
     private void Start()
     {
         Debug.Log("<color=cyan>[UI]</color> CharacterSelectUI 초기화 시작");
 
-        // 1. 캐릭터 선택 버튼 바인딩
+        // 1. 로비 테마 비주얼 적용 (배경, 우드 프레임, 폰트, 버튼 텍스트 복구 및 스타일링)
+        ApplyLobbyTheme();
+
+        // 2. 캐릭터 선택 버튼 바인딩
         if (selectButtons != null && selectButtons.Length > 0)
         {
             for (int i = 0; i < selectButtons.Length; i++)
@@ -52,7 +58,6 @@ public class CharacterSelectUI : MonoBehaviour
         }
         else
         {
-            // 폴백: 인스펙터에 미할당 시 자식 버튼 중 'Ready'가 아닌 버튼 탐색
             Button[] allButtons = GetComponentsInChildren<Button>(true);
             int selectIdx = 0;
             for (int i = 0; i < allButtons.Length; i++)
@@ -67,7 +72,7 @@ public class CharacterSelectUI : MonoBehaviour
             }
         }
 
-        // 2. 레디 버튼 바인딩
+        // 3. 레디 버튼 바인딩
         if (readyButton == null)
         {
             GameObject readyObj = GameObject.Find("ReadyButton");
@@ -92,14 +97,14 @@ public class CharacterSelectUI : MonoBehaviour
             readyText = readyButton.GetComponentInChildren<TextMeshProUGUI>();
         }
 
-        // 초기 시각 상태 적용 (아직 선택 안됨)
+        // 초기 시각 상태 적용
         UpdateCharacterSelectionUI(-1);
         UpdateReadyUI(false);
     }
 
     private void Update()
     {
-        // 씬 로드 직후 늦게 스폰된 세션 아이템의 상태를 1회 자동 동기화
+        // 씬 로드 직후 네트워크 스폰된 세션 아이템의 상태를 1회 자동 동기화
         if (!_hasSyncedInitialState)
         {
             var myItem = FindLocalPlayerItem();
@@ -112,6 +117,151 @@ public class CharacterSelectUI : MonoBehaviour
                 UpdateReadyUI(myItem.IsReady);
                 _hasSyncedInitialState = true;
             }
+        }
+    }
+
+    /// <summary>
+    /// 로비와 통일된 비주얼 테마를 적용합니다.
+    /// </summary>
+    private void ApplyLobbyTheme()
+    {
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas == null) canvas = GetComponent<Canvas>();
+
+        if (canvas != null)
+        {
+            // 1) 숲 픽셀 아트 전체 배경 적용
+            LobbyUITheme.ApplyBackground(canvas.transform);
+
+            // 캔버스 스케일러 통일 (1920x1080)
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            if (scaler != null)
+            {
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920, 1080);
+                scaler.matchWidthOrHeight = 0.5f;
+            }
+        }
+
+        // 2) 타이틀 배너 (CHARACTER SELECT + 서브 안내문)
+        Transform titleObj = transform.Find("TitleText");
+        if (titleObj != null)
+        {
+            var titleRt = titleObj.GetComponent<RectTransform>();
+            titleRt.anchorMin = new Vector2(0.5f, 1f);
+            titleRt.anchorMax = new Vector2(0.5f, 1f);
+            titleRt.pivot = new Vector2(0.5f, 1f);
+            titleRt.anchoredPosition = new Vector2(0f, -60f);
+            titleRt.sizeDelta = new Vector2(1000f, 75f);
+
+            var titleTmp = titleObj.GetComponent<TextMeshProUGUI>();
+            if (titleTmp != null)
+            {
+                LobbyUITheme.StyleTitle(titleTmp, "CHARACTER SELECT", 54f);
+            }
+
+            Transform subObj = transform.Find("SubtitleText") ?? titleObj.Find("SubtitleText");
+            if (subObj == null)
+            {
+                GameObject subGo = new GameObject("SubtitleText", typeof(RectTransform), typeof(TextMeshProUGUI));
+                subGo.transform.SetParent(transform, false);
+                var srt = subGo.GetComponent<RectTransform>();
+                srt.anchorMin = new Vector2(0.5f, 1f);
+                srt.anchorMax = new Vector2(0.5f, 1f);
+                srt.pivot = new Vector2(0.5f, 1f);
+                srt.anchoredPosition = new Vector2(0f, -135f);
+                srt.sizeDelta = new Vector2(800f, 36f);
+                var subTmp = subGo.GetComponent<TextMeshProUGUI>();
+                if (titleTmp != null && titleTmp.font != null) subTmp.font = titleTmp.font;
+                LobbyUITheme.StyleSubtitle(subTmp, "원하는 캐릭터를 선택하고 준비를 완료하세요", 22f);
+            }
+            else
+            {
+                var srt = subObj.GetComponent<RectTransform>();
+                srt.anchorMin = new Vector2(0.5f, 1f);
+                srt.anchorMax = new Vector2(0.5f, 1f);
+                srt.pivot = new Vector2(0.5f, 1f);
+                srt.anchoredPosition = new Vector2(0f, -135f);
+                var subTmp = subObj.GetComponent<TextMeshProUGUI>();
+                if (subTmp != null) LobbyUITheme.StyleSubtitle(subTmp, "원하는 캐릭터를 선택하고 준비를 완료하세요", 22f);
+            }
+        }
+
+        // 3) 캐릭터 카드 (여우: 대쉬, 토끼: 슈퍼점프)
+        StyleCharacterCard("SlotsContainer/Card_Fox", 0, "여우 (FOXY)", "스킬: 대쉬 [Shift]", "Title/char1");
+        StyleCharacterCard("SlotsContainer/Card_Rabbit", 1, "토끼 (RABBIT)", "스킬: 슈퍼점프 [Shift]", "Title/char2");
+
+        // 4) 레디 버튼 초기 스타일링
+        if (readyButton != null)
+        {
+            LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Stone, notReadyTextString, 30);
+        }
+    }
+
+    private void StyleCharacterCard(string path, int cardIndex, string defaultTitle, string defaultSkill, string spritePath)
+    {
+        Transform cardTrans = transform.Find(path);
+        if (cardTrans == null) return;
+
+        GameObject cardGo = cardTrans.gameObject;
+
+        // 우드 프레임 적용
+        LobbyUITheme.StyleWoodPanel(cardGo, LobbyUITheme.WoodFill, 8f, 6f);
+
+        // 카드 내 이름 텍스트
+        Transform nameTrans = cardTrans.Find("NameText");
+        if (nameTrans != null)
+        {
+            var nameTmp = nameTrans.GetComponent<TextMeshProUGUI>();
+            if (nameTmp != null)
+            {
+                LobbyUITheme.StyleTitle(nameTmp, defaultTitle, 32f);
+            }
+        }
+
+        // 캐릭터 아이콘 인셋 영역 스타일링
+        Transform iconTrans = cardTrans.Find("CharacterIcon") ?? cardTrans.Find("IconBox/CharacterIcon");
+        if (iconTrans != null)
+        {
+            var iconImg = iconTrans.GetComponent<Image>();
+            if (iconImg != null)
+            {
+                iconImg.preserveAspect = true;
+                if (iconImg.sprite == null)
+                {
+                    var sp = Resources.Load<Sprite>(spritePath);
+                    if (sp != null) iconImg.sprite = sp;
+                }
+            }
+        }
+
+        // 스킬 텍스트 (대쉬 / 슈퍼점프)
+        Transform skillTrans = cardTrans.Find("SkillText") ?? cardTrans.Find("SkillBox/SkillText");
+        if (skillTrans != null)
+        {
+            var skillTmp = skillTrans.GetComponent<TextMeshProUGUI>();
+            if (skillTmp != null)
+            {
+                LobbyUITheme.StyleSubtitle(skillTmp, defaultSkill, 19f);
+            }
+        }
+
+        // 선택 버튼 (텍스트 "선택하기" 확실하게 생성/부착)
+        Transform btnTrans = cardTrans.Find("SelectButton");
+        if (btnTrans != null)
+        {
+            var btn = btnTrans.GetComponent<Button>();
+            if (btn != null)
+            {
+                LobbyUITheme.StylePixelButton(btn, LobbyUITheme.ButtonType.Stone, "선택하기", 24);
+            }
+        }
+
+        // 선택 하이라이트: 속이 빈 4면 테두리(Hollow Border) 적용 (카드 전체를 노랗게 덮지 않음!)
+        Transform hlTrans = cardTrans.Find("HighlightOutline");
+        if (hlTrans != null)
+        {
+            LobbyUITheme.SetupHollowOutline(hlTrans.gameObject, LobbyUITheme.Gold, 6f);
         }
     }
 
@@ -199,41 +349,64 @@ public class CharacterSelectUI : MonoBehaviour
             }
         }
 
-        Debug.LogError("<color=red>[UI]</color> 씬에 아이템은 있으나, 내 권한(Input Authority)이 있는 것은 없습니다.");
+        Debug.LogError("<color=red>[UI]</color> 방에 아이템은 있으나 내 권한(Input Authority)이 있는 것을 못 찾았습니다.");
         return null;
     }
 
     private void UpdateCharacterSelectionUI(int selectedIndex)
     {
-        // 1. 외곽선/하이라이트 오브젝트 켜기/끄기
+        _currentSelectedIndex = selectedIndex;
+
+        // 1. 외곽선 골드 테두리만 켜기/끄기 (내부는 투명하여 내용이 다 보임)
         if (selectHighlights != null)
         {
             for (int i = 0; i < selectHighlights.Length; i++)
             {
                 if (selectHighlights[i] != null)
                 {
+                    // 혹시라도 루트 Image가 노란색으로 채워져 있을 경우를 대비해 투명화 보장
+                    var rootImg = selectHighlights[i].GetComponent<Image>();
+                    if (rootImg != null) rootImg.color = Color.clear;
+
                     selectHighlights[i].SetActive(i == selectedIndex);
                 }
             }
         }
 
-        // 2. 버튼 스프라이트 또는 색상 틴트 업데이트
+        // 2. 카드 베벨 테두리 골드 하이라이트 연동
+        Transform[] cardRoots = new Transform[] {
+            transform.Find("SlotsContainer/Card_Fox"),
+            transform.Find("SlotsContainer/Card_Rabbit")
+        };
+
+        for (int i = 0; i < cardRoots.Length; i++)
+        {
+            if (cardRoots[i] == null) continue;
+            bool isThisSelected = (i == selectedIndex);
+
+            Transform bevel = cardRoots[i].Find("_Bevel");
+            if (bevel != null)
+            {
+                var bImg = bevel.GetComponent<Image>();
+                if (bImg != null) bImg.color = isThisSelected ? LobbyUITheme.Gold : LobbyUITheme.WoodLight;
+            }
+        }
+
+        // 3. 선택 버튼 상태를 로비 3D 픽셀 버튼으로 전환 ("선택완료!" vs "선택하기")
         if (selectButtons != null)
         {
             for (int i = 0; i < selectButtons.Length; i++)
             {
                 if (selectButtons[i] == null) continue;
-                Image btnImage = selectButtons[i].GetComponent<Image>();
-                if (btnImage != null)
+                bool isThisSelected = (i == selectedIndex);
+
+                if (isThisSelected)
                 {
-                    if (selectedButtonSprite != null && normalButtonSprite != null)
-                    {
-                        btnImage.sprite = (i == selectedIndex) ? selectedButtonSprite : normalButtonSprite;
-                    }
-                    else
-                    {
-                        btnImage.color = (i == selectedIndex) ? selectedColor : normalColor;
-                    }
+                    LobbyUITheme.StylePixelButton(selectButtons[i], LobbyUITheme.ButtonType.Gold, "선택완료!", 24);
+                }
+                else
+                {
+                    LobbyUITheme.StylePixelButton(selectButtons[i], LobbyUITheme.ButtonType.Stone, "선택하기", 24);
                 }
             }
         }
@@ -248,40 +421,17 @@ public class CharacterSelectUI : MonoBehaviour
             if (readyObj != null) readyButton = readyObj.GetComponent<Button>();
         }
 
-        if (readyButtonImage == null && readyButton != null)
+        if (readyButton != null)
         {
-            readyButtonImage = readyButton.GetComponent<Image>();
-        }
-
-        if (readyButtonImage != null)
-        {
-            if (readySprite != null && notReadySprite != null)
+            if (isReady)
             {
-                readyButtonImage.sprite = isReady ? readySprite : notReadySprite;
-                // 스프라이트 본래 색상을 살리기 위해 흰색으로 유지
-                readyButtonImage.color = Color.white;
+                // 준비 완료: 선명한 그린 3D 픽셀 버튼
+                LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Green, readyTextString, 30);
             }
             else
             {
-                readyButtonImage.color = isReady ? readyColor : normalColor;
-            }
-        }
-
-        if (readyText == null && readyButton != null)
-        {
-            readyText = readyButton.GetComponentInChildren<TextMeshProUGUI>();
-        }
-
-        if (readyText != null)
-        {
-            readyText.text = isReady ? readyTextString : notReadyTextString;
-        }
-        else if (readyButton != null)
-        {
-            Text legacyText = readyButton.GetComponentInChildren<Text>();
-            if (legacyText != null)
-            {
-                legacyText.text = isReady ? readyTextString : notReadyTextString;
+                // 준비 전: 스톤 3D 픽셀 버튼
+                LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Stone, notReadyTextString, 30);
             }
         }
     }

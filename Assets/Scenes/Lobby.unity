@@ -1788,6 +1788,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b39816fafd6b1a47a693636ef07260c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BasicLauncher
+  _useIMGUIMenu: 0
 --- !u!114 &771729758
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3522,6 +3523,11 @@ MonoBehaviour:
   ladderJumpHorizontalForce: 5
   speed: 5
   jumpForce: 7
+  skill: 0
+  skillCooldown: 1.5
+  dashSpeed: 18
+  dashDuration: 0.2
+  superJumpForce: 18
   groundCheck: {fileID: 0}
   groundCheckRadius: 0.15
   groundLayer:
@@ -4870,6 +4876,16 @@ MonoBehaviour:
   target: {fileID: 0}
   offset: {x: 0, y: 0, z: -10}
   smoothSpeed: 0.125
+  ySmoothSpeed: 0.15
+  verticalOffset: 2
+  lookUp: 3.5
+  lookDown: 0.5
+  autoClampToBackground: 1
+  useManualBounds: 0
+  minY: -100
+  maxY: 100
+  onScreenMargin: 0.6
+  impulseDamping: 14
 --- !u!1 &2132199275
 GameObject:
   m_ObjectHideFlags: 0

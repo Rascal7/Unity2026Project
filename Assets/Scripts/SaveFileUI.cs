@@ -5,6 +5,10 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
+/// <summary>
+/// 세이브 슬롯 선택 및 모드(새 게임/이어하기) 관리 UI.
+/// 로비(TitleScreen)와 동일한 픽셀 아트 우드 & 골드 테마를 일관되게 적용합니다.
+/// </summary>
 public class SaveFileUI : MonoBehaviour
 {
     public enum SlotActionType
@@ -58,9 +62,180 @@ public class SaveFileUI : MonoBehaviour
 
     private void Start()
     {
+        ApplyLobbyTheme();
         BindEvents();
         CheckNetworkAuthority();
         ShowModeSelect();
+    }
+
+    /// <summary>
+    /// 로비와 통일된 우드/골드 픽셀 테마 적용
+    /// </summary>
+    private void ApplyLobbyTheme()
+    {
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas == null) canvas = GetComponent<Canvas>();
+
+        if (canvas != null)
+        {
+            // 1) 로비와 동일한 숲 배경 적용
+            LobbyUITheme.ApplyBackground(canvas.transform);
+
+            // 기존의 평면 단색 Background 및 DarkOverlay 오브젝트 비활성화
+            Transform legacyBg = canvas.transform.Find("Background");
+            if (legacyBg != null)
+            {
+                legacyBg.gameObject.SetActive(false);
+            }
+
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            if (scaler != null)
+            {
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920, 1080);
+                scaler.matchWidthOrHeight = 0.5f;
+            }
+        }
+
+        // 2) 모드 선택 패널 스타일링
+        if (modeSelectPanel != null)
+        {
+            LobbyUITheme.StyleWoodPanel(modeSelectPanel, LobbyUITheme.WoodFill, 8f, 6f);
+
+            Transform mainTitleTrans = modeSelectPanel.transform.Find("MainTitle");
+            if (mainTitleTrans != null)
+            {
+                var titleTmp = mainTitleTrans.GetComponent<TextMeshProUGUI>();
+                if (titleTmp != null) LobbyUITheme.StyleTitle(titleTmp, "VOICE ADVENTURE", 58f);
+            }
+
+            Transform subTrans = modeSelectPanel.transform.Find("ModeSubtitle");
+            if (subTrans != null)
+            {
+                var subTmp = subTrans.GetComponent<TextMeshProUGUI>();
+                if (subTmp != null) LobbyUITheme.StyleSubtitle(subTmp, "모드를 선택하세요", 26f);
+            }
+
+            if (newGameModeButton != null)
+            {
+                LobbyUITheme.StylePixelButton(newGameModeButton, LobbyUITheme.ButtonType.Gold, "새 게임 (NEW GAME)", 30);
+            }
+
+            if (loadGameModeButton != null)
+            {
+                LobbyUITheme.StylePixelButton(loadGameModeButton, LobbyUITheme.ButtonType.Stone, "이어하기 (LOAD GAME)", 30);
+            }
+
+            if (backToCharacterSelectButton != null)
+            {
+                LobbyUITheme.StylePixelButton(backToCharacterSelectButton, LobbyUITheme.ButtonType.Stone, "뒤로가기 (BACK)", 24);
+            }
+        }
+
+        // 3) 슬롯 선택 패널 스타일링
+        if (slotSelectPanel != null)
+        {
+            LobbyUITheme.StyleWoodPanel(slotSelectPanel, LobbyUITheme.WoodFill, 8f, 6f);
+
+            if (slotPanelTitleText != null)
+            {
+                LobbyUITheme.StyleTitle(slotPanelTitleText, null, 46f);
+            }
+
+            if (slotPanelSubtitleText != null)
+            {
+                LobbyUITheme.StyleSubtitle(slotPanelSubtitleText, null, 24f);
+            }
+
+            if (backToModeButton != null)
+            {
+                LobbyUITheme.StylePixelButton(backToModeButton, LobbyUITheme.ButtonType.Stone, "뒤로가기 (BACK)", 26);
+            }
+
+            // 슬롯 행들 스타일링
+            if (slotRows != null)
+            {
+                for (int i = 0; i < slotRows.Length; i++)
+                {
+                    var row = slotRows[i];
+                    if (row == null) continue;
+
+                    if (row.slotButton != null)
+                    {
+                        LobbyUITheme.StyleInsetBox(row.slotButton.gameObject, LobbyUITheme.FieldBg, LobbyUITheme.WoodDark, 3f);
+                    }
+
+                    if (row.slotTitleText != null)
+                    {
+                        LobbyUITheme.StyleTitle(row.slotTitleText, null, 26f);
+                    }
+
+                    if (row.deleteButton != null)
+                    {
+                        LobbyUITheme.StylePixelButton(row.deleteButton, LobbyUITheme.ButtonType.Red, "삭제", 20);
+                    }
+                }
+            }
+        }
+
+        // 4) 확인 모달 스타일링
+        if (confirmModal != null)
+        {
+            Transform box = confirmModal.transform.Find("Box");
+            if (box != null) LobbyUITheme.StyleWoodPanel(box.gameObject, LobbyUITheme.WoodFill, 8f, 6f);
+
+            Transform darkOverlay = confirmModal.transform.Find("DarkOverlay");
+            if (darkOverlay != null)
+            {
+                var img = darkOverlay.GetComponent<Image>();
+                if (img != null) img.color = new Color(0f, 0f, 0f, 0.72f);
+            }
+
+            if (confirmYesButton != null)
+            {
+                LobbyUITheme.StylePixelButton(confirmYesButton, LobbyUITheme.ButtonType.Green, "확인", 24);
+            }
+
+            if (confirmNoButton != null)
+            {
+                LobbyUITheme.StylePixelButton(confirmNoButton, LobbyUITheme.ButtonType.Red, "취소", 24);
+            }
+
+            if (confirmMessageText != null)
+            {
+                LobbyUITheme.StyleSubtitle(confirmMessageText, null, 24f);
+            }
+        }
+
+        // 5) 안내 모달 스타일링
+        if (noticeModal != null)
+        {
+            Transform box = noticeModal.transform.Find("Box");
+            if (box != null) LobbyUITheme.StyleWoodPanel(box.gameObject, LobbyUITheme.WoodFill, 8f, 6f);
+
+            Transform darkOverlay = noticeModal.transform.Find("DarkOverlay");
+            if (darkOverlay != null)
+            {
+                var img = darkOverlay.GetComponent<Image>();
+                if (img != null) img.color = new Color(0f, 0f, 0f, 0.72f);
+            }
+
+            if (noticeOkButton != null)
+            {
+                LobbyUITheme.StylePixelButton(noticeOkButton, LobbyUITheme.ButtonType.Gold, "확인", 24);
+            }
+
+            if (noticeMessageText != null)
+            {
+                LobbyUITheme.StyleSubtitle(noticeMessageText, null, 24f);
+            }
+        }
+
+        // 6) 멀티플레이어 안내 텍스트
+        if (clientNoticeText != null)
+        {
+            LobbyUITheme.StyleSubtitle(clientNoticeText, null, 24f);
+        }
     }
 
     private void BindEvents()
@@ -181,6 +356,7 @@ public class SaveFileUI : MonoBehaviour
             slotPanelTitleText.text = (_currentAction == SlotActionType.NewGame)
                 ? "새 게임 - 슬롯 선택"
                 : "이어하기 - 슬롯 선택";
+            LobbyUITheme.StyleTitle(slotPanelTitleText, null, 46f);
         }
 
         if (slotPanelSubtitleText != null)
@@ -188,6 +364,7 @@ public class SaveFileUI : MonoBehaviour
             slotPanelSubtitleText.text = (_currentAction == SlotActionType.NewGame)
                 ? "시작할 세이브 슬롯을 선택하세요 (1 ~ 5)"
                 : "불러올 세이브 슬롯을 선택하세요 (1 ~ 5)";
+            LobbyUITheme.StyleSubtitle(slotPanelSubtitleText, null, 24f);
         }
 
         RefreshSlotList();
@@ -208,17 +385,18 @@ public class SaveFileUI : MonoBehaviour
             if (row.slotTitleText != null)
             {
                 row.slotTitleText.text = $"SLOT {slotIndex:00}";
+                LobbyUITheme.StyleTitle(row.slotTitleText, null, 26f);
             }
 
             if (row.slotInfoText != null)
             {
                 if (data != null && data.hasData)
                 {
-                    row.slotInfoText.text = $"<color=#FFE066>{data.stageDisplayName}</color>   <color=#BBBBBB>{data.updatedTime}</color>";
+                    row.slotInfoText.text = $"<color=#FAD16B><b>{data.stageDisplayName}</b></color>   <color=#FAF2E3>{data.updatedTime}</color>";
                 }
                 else
                 {
-                    row.slotInfoText.text = "<color=#888888>[ 빈 슬롯 (EMPTY) ]</color>";
+                    row.slotInfoText.text = "<color=#8C7B6B>[ 빈 슬롯 (EMPTY) ]</color>";
                 }
             }
 
