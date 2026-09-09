@@ -60,7 +60,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 4
   m_TargetDisplay: 0
 --- !u!114 &2395627080960743289
 MonoBehaviour:
@@ -654,6 +654,10 @@ MonoBehaviour:
   dashSmokeFps: 20
   dashSmokeScale: 1.6
   dashSmokeBackOffset: 0.4
+  dashSmokeLift: 0.18
+  dashDustTrail: 1
+  dashDustInterval: 0.03
+  dashDustScale: 1.1
   jumpLaunchFrames:
   - {fileID: -7808597636291067876, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
   - {fileID: 7721334607561410134, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
