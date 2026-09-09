@@ -1,5 +1,11 @@
 {
   "dependencies": {
+    "babilinski.vosk.unity": {
+      "version": "file:Vosk",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.coplaydev.unity-mcp": {
       "version": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
       "depth": 0,

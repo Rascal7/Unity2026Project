@@ -23,6 +23,8 @@ public class SettingsMenuUI : MonoBehaviour
     [Tooltip("마스터 볼륨 슬라이더 (다운받은 슬라이더 스프라이트 적용 가능)")]
     public Slider masterVolumeSlider;
     public TMP_Text masterVolumeText;
+    [Tooltip("오디오 출력 장치 선택 드롭다운")]
+    public TMP_Dropdown outputDeviceDropdown;
     public TMP_Text outputDeviceInfoText;
 
     [Header("오디오 입력 설정 (마이크)")]
@@ -52,6 +54,84 @@ public class SettingsMenuUI : MonoBehaviour
     private bool _isTestingMic = false;
     private float[] _sampleBuffer = new float[128];
 
+    private void OnEnable()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private void OnDisable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        EnsureEventSystem();
+        InitializeUIEvents();
+    }
+
+    public static void EnsureEventSystem()
+    {
+        var es = EventSystem.current;
+        if (es == null)
+        {
+            es = FindFirstObjectByType<EventSystem>();
+        }
+
+        if (es == null)
+        {
+            var esGo = new GameObject("EventSystem", typeof(EventSystem));
+            es = esGo.GetComponent<EventSystem>();
+            esGo.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+            DontDestroyOnLoad(esGo);
+            Debug.Log("<color=lime>[SettingsMenuUI]</color> EventSystem 자동 생성 및 DontDestroyOnLoad 설정 완료");
+        }
+        else
+        {
+            var inputSystemModule = es.GetComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+            var standaloneModule = es.GetComponent<StandaloneInputModule>();
+
+            if (inputSystemModule == null && standaloneModule == null)
+            {
+                es.gameObject.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+            }
+            else if (inputSystemModule != null)
+            {
+                if (!inputSystemModule.enabled) inputSystemModule.enabled = true;
+                if (standaloneModule != null && standaloneModule.enabled) standaloneModule.enabled = false;
+            }
+            else if (standaloneModule != null && !standaloneModule.enabled)
+            {
+                standaloneModule.enabled = true;
+            }
+        }
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void Bootstrap()
+    {
+        if (Instance != null) return;
+        var existing = FindFirstObjectByType<SettingsMenuUI>();
+        if (existing != null)
+        {
+            Instance = existing;
+            return;
+        }
+
+        var prefab = Resources.Load<GameObject>("SettingsMenuCanvas");
+        if (prefab != null)
+        {
+            var go = Instantiate(prefab);
+            go.name = "SettingsMenuCanvas";
+            DontDestroyOnLoad(go);
+            Debug.Log("<color=lime>[SettingsMenuUI]</color> SettingsMenuCanvas 자동 로드 및 DontDestroyOnLoad 완료");
+        }
+        else
+        {
+            Debug.LogWarning("[SettingsMenuUI] Resources/SettingsMenuCanvas 프리팹을 찾을 수 없습니다.");
+        }
+    }
+
     private void Awake()
     {
         if (Instance == null)
@@ -66,14 +146,17 @@ public class SettingsMenuUI : MonoBehaviour
         }
 
         _canvas = GetComponent<Canvas>();
+        if (_canvas != null)
+        {
+            _canvas.sortingOrder = 25000;
+        }
         _canvasGroup = GetComponent<CanvasGroup>();
 
-        // 1. UI 클릭 처리를 위한 EventSystem 안전 점검 (없으면 자동 생성)
-        if (FindFirstObjectByType<EventSystem>() == null)
-        {
-            var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-            DontDestroyOnLoad(es);
-        }
+        var gr = GetComponent<GraphicRaycaster>();
+        if (gr == null) gr = gameObject.AddComponent<GraphicRaycaster>();
+        gr.enabled = true;
+
+        EnsureEventSystem();
 
         // 2. menuPanel 자동 탐색 안전장치
         if (menuPanel == null)
@@ -99,6 +182,7 @@ public class SettingsMenuUI : MonoBehaviour
     private void Start()
     {
         LoadSettings();
+        RefreshOutputDeviceList();
         RefreshMicrophoneList();
 
         // 시작 시 다시 한 번 확실하게 닫기
@@ -107,10 +191,40 @@ public class SettingsMenuUI : MonoBehaviour
 
     private void Update()
     {
-        // ESC 키 입력으로 메뉴 토글
-        if (Input.GetKeyDown(KeyCode.Escape))
+        // ESC 키 입력으로 메뉴 토글 (레거시 Input 및 New Input System 모두 완벽 지원)
+        bool escPressed = false;
+#if ENABLE_INPUT_SYSTEM
+        if (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            escPressed = true;
+        }
+#endif
+        if (!escPressed && Input.GetKeyDown(KeyCode.Escape))
+        {
+            escPressed = true;
+        }
+
+        if (escPressed)
         {
             ToggleMenu();
+        }
+
+        // 메뉴가 열려 있을 때 마우스 및 EventSystem 상태 강제 유지
+        if (_isOpen)
+        {
+            if (Cursor.lockState != CursorLockMode.None)
+            {
+                Cursor.lockState = CursorLockMode.None;
+            }
+            if (!Cursor.visible)
+            {
+                Cursor.visible = true;
+            }
+
+            if (EventSystem.current == null)
+            {
+                EnsureEventSystem();
+            }
         }
 
         // 마이크 테스트 중일 때 음량 게이지 갱신
@@ -127,6 +241,12 @@ public class SettingsMenuUI : MonoBehaviour
         {
             masterVolumeSlider.onValueChanged.RemoveAllListeners();
             masterVolumeSlider.onValueChanged.AddListener(OnMasterVolumeChanged);
+        }
+
+        if (outputDeviceDropdown != null)
+        {
+            outputDeviceDropdown.onValueChanged.RemoveAllListeners();
+            outputDeviceDropdown.onValueChanged.AddListener(OnOutputDeviceSelected);
         }
 
         // 2. 마이크 슬라이더 및 드롭다운 이벤트
@@ -181,6 +301,19 @@ public class SettingsMenuUI : MonoBehaviour
     {
         _isOpen = true;
 
+        EnsureEventSystem();
+        InitializeUIEvents();
+
+        if (_canvas != null)
+        {
+            _canvas.enabled = true;
+            _canvas.sortingOrder = 25000;
+        }
+
+        var gr = GetComponent<GraphicRaycaster>();
+        if (gr == null) gr = gameObject.AddComponent<GraphicRaycaster>();
+        gr.enabled = true;
+
         if (menuPanel != null)
         {
             menuPanel.SetActive(true);
@@ -191,11 +324,6 @@ public class SettingsMenuUI : MonoBehaviour
             if (dim != null) dim.gameObject.SetActive(true);
             var panel = transform.Find("SettingsPanel");
             if (panel != null) panel.gameObject.SetActive(true);
-        }
-
-        if (_canvas != null)
-        {
-            _canvas.enabled = true;
         }
 
         if (_canvasGroup != null)
@@ -209,7 +337,8 @@ public class SettingsMenuUI : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        // 최신 마이크 목록 갱신
+        // 최신 출력 장치 및 마이크 목록 갱신
+        RefreshOutputDeviceList();
         RefreshMicrophoneList();
     }
 
@@ -246,7 +375,12 @@ public class SettingsMenuUI : MonoBehaviour
 
         // 4. 인게임 플레이 씬인 경우 커서 잠금 복원
         string currentScene = SceneManager.GetActiveScene().name;
-        if (currentScene == "TutorialStage" || currentScene == "GameStage" || currentScene == "TestStage")
+        bool isInGameStage = currentScene == "TutorialStage" ||
+                             currentScene == "Main Stage1" ||
+                             currentScene == "Main Stage2" ||
+                             currentScene == "TestStage" ||
+                             currentScene == "GameStage";
+        if (isInGameStage)
         {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -316,6 +450,91 @@ public class SettingsMenuUI : MonoBehaviour
 
     #endregion
 
+    #region 오디오 출력 장치 제어
+
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+    [System.Runtime.InteropServices.DllImport("winmm.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+    private static extern int waveOutGetNumDevs();
+
+    [System.Runtime.InteropServices.DllImport("winmm.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+    private static extern int waveOutGetDevCaps(System.IntPtr uDeviceID, out WAVEOUTCAPS pwoc, int cbwoc);
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+    private struct WAVEOUTCAPS
+    {
+        public ushort wMid;
+        public ushort wPid;
+        public uint vDriverVersion;
+        [System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string szPname;
+        public uint dwFormats;
+        public ushort wChannels;
+        public ushort wReserved1;
+        public uint dwSupport;
+    }
+#endif
+
+    public void RefreshOutputDeviceList()
+    {
+        if (outputDeviceDropdown == null) return;
+
+        outputDeviceDropdown.ClearOptions();
+        List<string> options = new List<string>();
+        options.Add("시스템 기본 출력 장치 (Default)");
+
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+        try
+        {
+            int count = waveOutGetNumDevs();
+            for (int i = 0; i < count; i++)
+            {
+                WAVEOUTCAPS caps = new WAVEOUTCAPS();
+                if (waveOutGetDevCaps((System.IntPtr)i, out caps, System.Runtime.InteropServices.Marshal.SizeOf(typeof(WAVEOUTCAPS))) == 0)
+                {
+                    if (!string.IsNullOrEmpty(caps.szPname) && !options.Contains(caps.szPname))
+                    {
+                        options.Add(caps.szPname);
+                    }
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[SettingsMenuUI] 출력 장치 목록 조회 실패: {e.Message}");
+        }
+#endif
+
+        string savedDevice = PlayerPrefs.GetString("SelectedOutputDevice", options[0]);
+        int selectedIndex = 0;
+        for (int i = 0; i < options.Count; i++)
+        {
+            if (options[i] == savedDevice)
+            {
+                selectedIndex = i;
+                break;
+            }
+        }
+
+        outputDeviceDropdown.AddOptions(options);
+        outputDeviceDropdown.value = selectedIndex;
+        outputDeviceDropdown.RefreshShownValue();
+    }
+
+    public void OnOutputDeviceSelected(int index)
+    {
+        if (outputDeviceDropdown == null || index < 0 || index >= outputDeviceDropdown.options.Count) return;
+
+        string selectedDevice = outputDeviceDropdown.options[index].text;
+        PlayerPrefs.SetString("SelectedOutputDevice", selectedDevice);
+        PlayerPrefs.Save();
+        Debug.Log($"<color=cyan>[Settings]</color> 출력 장치 선택: {selectedDevice}");
+
+        // 유니티 오디오 설정 재적용
+        AudioSettings.Reset(AudioSettings.GetConfiguration());
+    }
+
+    #endregion
+
     #region 마이크 입력 장치 제어
 
     public void RefreshMicrophoneList()
@@ -364,6 +583,12 @@ public class SettingsMenuUI : MonoBehaviour
             PlayerPrefs.Save();
             Debug.Log($"<color=cyan>[Settings]</color> 마이크 장치 변경: {_currentMicDevice}");
 
+            // Vosk 음성 스킬 입력 장치 즉시 갱신
+            if (VoiceSkillInput.Instance != null)
+            {
+                VoiceSkillInput.Instance.ChangeMicrophone(_currentMicDevice);
+            }
+
             if (_isTestingMic)
             {
                 StopMicTest();
@@ -392,6 +617,12 @@ public class SettingsMenuUI : MonoBehaviour
             return;
         }
 
+        // 인게임 음성 인식이 같은 마이크를 사용 중이면 충돌 방지를 위해 일시 정지
+        if (VoiceSkillInput.Instance != null)
+        {
+            VoiceSkillInput.Instance.PauseListening();
+        }
+
         _isTestingMic = true;
         if (micTestButtonText != null) micTestButtonText.text = "테스트 중지";
 
@@ -410,6 +641,12 @@ public class SettingsMenuUI : MonoBehaviour
 
         _micTestClip = null;
         if (micVolumeMeter != null) micVolumeMeter.fillAmount = 0f;
+
+        // 마이크 테스트 종료 후 음성 스킬 청취 재개
+        if (VoiceSkillInput.Instance != null)
+        {
+            VoiceSkillInput.Instance.ResumeListening();
+        }
     }
 
     private void UpdateMicMeter()

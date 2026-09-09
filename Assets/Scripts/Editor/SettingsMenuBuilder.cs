@@ -68,25 +68,26 @@ public static class SettingsMenuBuilder
         CreateText(panelGo.transform, "TitleText", "게임 설정 (Settings)", new Vector2(0, 210), new Vector2(500, 50), 28, FontStyles.Bold, TextAlignmentOptions.Center, defaultFont);
 
         // ------------------------------------------
-        // 5. 오디오 출력 섹션 (Output)
+        // 5. 오디오 출력 섹션 (Output - 스피커/헤드폰)
         // ------------------------------------------
-        CreateText(panelGo.transform, "OutputLabel", "🔊 오디오 출력 (스피커 볼륨)", new Vector2(-15, 140), new Vector2(500, 30), 20, FontStyles.Bold, TextAlignmentOptions.Left, defaultFont);
+        CreateText(panelGo.transform, "OutputLabel", "🔊 오디오 출력 (스피커/헤드폰)", new Vector2(-15, 160), new Vector2(500, 30), 20, FontStyles.Bold, TextAlignmentOptions.Left, defaultFont);
 
-        var (sliderGo, sliderComp) = CreateSlider(panelGo.transform, "MasterVolumeSlider", new Vector2(-60, 95), new Vector2(380, 24));
+        // 출력 장치 드롭다운 (드롭다운 1)
+        TMP_Dropdown outDropdown = CreateDropdown(panelGo.transform, "OutputDeviceDropdown", new Vector2(0, 120), new Vector2(530, 34), defaultFont);
+        menuScript.outputDeviceDropdown = outDropdown;
+
+        // 마스터 볼륨 슬라이더
+        var (sliderGo, sliderComp) = CreateSlider(panelGo.transform, "MasterVolumeSlider", new Vector2(-60, 75), new Vector2(380, 24));
         menuScript.masterVolumeSlider = sliderComp;
 
-        TMP_Text volText = CreateText(panelGo.transform, "VolumeValueText", "100%", new Vector2(190, 95), new Vector2(90, 30), 18, FontStyles.Normal, TextAlignmentOptions.Left, defaultFont);
+        TMP_Text volText = CreateText(panelGo.transform, "VolumeValueText", "100%", new Vector2(190, 75), new Vector2(90, 30), 18, FontStyles.Normal, TextAlignmentOptions.Left, defaultFont);
         menuScript.masterVolumeText = volText;
-
-        TMP_Text outInfoText = CreateText(panelGo.transform, "OutputDeviceInfoText", "출력 장치: 시스템 기본값 (OS Default)", new Vector2(0, 60), new Vector2(530, 24), 14, FontStyles.Italic, TextAlignmentOptions.Left, defaultFont);
-        outInfoText.color = new Color(0.75f, 0.75f, 0.75f, 1f);
-        menuScript.outputDeviceInfoText = outInfoText;
 
         // 구분선
         GameObject sep = new GameObject("Separator");
         sep.transform.SetParent(panelGo.transform, false);
         RectTransform sepRect = sep.AddComponent<RectTransform>();
-        sepRect.anchoredPosition = new Vector2(0, 30);
+        sepRect.anchoredPosition = new Vector2(0, 45);
         sepRect.sizeDelta = new Vector2(540, 2);
         Image sepImg = sep.AddComponent<Image>();
         sepImg.color = new Color(0.35f, 0.35f, 0.4f, 0.8f);
@@ -94,26 +95,27 @@ public static class SettingsMenuBuilder
         // ------------------------------------------
         // 6. 오디오 입력 섹션 (Input - 마이크)
         // ------------------------------------------
-        CreateText(panelGo.transform, "InputLabel", "🎙 오디오 입력 (마이크 장치)", new Vector2(-15, -5), new Vector2(500, 30), 20, FontStyles.Bold, TextAlignmentOptions.Left, defaultFont);
+        CreateText(panelGo.transform, "InputLabel", "🎙 오디오 입력 (마이크 장치)", new Vector2(-15, 20), new Vector2(500, 30), 20, FontStyles.Bold, TextAlignmentOptions.Left, defaultFont);
 
-        TMP_Dropdown dropdown = CreateDropdown(panelGo.transform, "MicDropdown", new Vector2(0, -45), new Vector2(530, 36), defaultFont);
+        // 마이크 장치 드롭다운 (드롭다운 2)
+        TMP_Dropdown dropdown = CreateDropdown(panelGo.transform, "MicDropdown", new Vector2(0, -20), new Vector2(530, 34), defaultFont);
         menuScript.micDropdown = dropdown;
 
         // 마이크 감도 슬라이더
-        CreateText(panelGo.transform, "MicSensLabel", "마이크 감도:", new Vector2(-195, -95), new Vector2(140, 30), 16, FontStyles.Normal, TextAlignmentOptions.Left, defaultFont);
-        var (_, micSensSlider) = CreateSlider(panelGo.transform, "MicSensitivitySlider", new Vector2(0, -95), new Vector2(250, 24));
+        CreateText(panelGo.transform, "MicSensLabel", "마이크 감도:", new Vector2(-195, -65), new Vector2(140, 30), 16, FontStyles.Normal, TextAlignmentOptions.Left, defaultFont);
+        var (_, micSensSlider) = CreateSlider(panelGo.transform, "MicSensitivitySlider", new Vector2(0, -65), new Vector2(250, 24));
         menuScript.micSensitivitySlider = micSensSlider;
 
-        TMP_Text micSensText = CreateText(panelGo.transform, "MicSensValueText", "100%", new Vector2(170, -95), new Vector2(70, 30), 16, FontStyles.Normal, TextAlignmentOptions.Left, defaultFont);
+        TMP_Text micSensText = CreateText(panelGo.transform, "MicSensValueText", "100%", new Vector2(170, -65), new Vector2(70, 30), 16, FontStyles.Normal, TextAlignmentOptions.Left, defaultFont);
         menuScript.micSensitivityText = micSensText;
 
         // 마이크 입력 레벨 미터 바
-        CreateText(panelGo.transform, "MeterLabel", "입력 레벨:", new Vector2(-195, -135), new Vector2(140, 30), 16, FontStyles.Normal, TextAlignmentOptions.Left, defaultFont);
+        CreateText(panelGo.transform, "MeterLabel", "입력 레벨:", new Vector2(-195, -105), new Vector2(140, 30), 16, FontStyles.Normal, TextAlignmentOptions.Left, defaultFont);
         
         GameObject meterBg = new GameObject("MicMeterBg");
         meterBg.transform.SetParent(panelGo.transform, false);
         RectTransform meterBgRect = meterBg.AddComponent<RectTransform>();
-        meterBgRect.anchoredPosition = new Vector2(0, -135);
+        meterBgRect.anchoredPosition = new Vector2(0, -105);
         meterBgRect.sizeDelta = new Vector2(250, 18);
         Image meterBgImg = meterBg.AddComponent<Image>();
         meterBgImg.color = new Color(0.1f, 0.1f, 0.1f, 1f);
@@ -132,30 +134,36 @@ public static class SettingsMenuBuilder
         menuScript.micVolumeMeter = meterFillImg;
 
         // 마이크 테스트 버튼
-        var (testBtnGo, testBtnComp, testBtnText) = CreateButton(panelGo.transform, "MicTestButton", "테스트", new Vector2(180, -135), new Vector2(90, 28), defaultFont);
+        var (testBtnGo, testBtnComp, testBtnText) = CreateButton(panelGo.transform, "MicTestButton", "테스트", new Vector2(180, -105), new Vector2(90, 28), defaultFont);
         menuScript.micTestButton = testBtnComp;
         menuScript.micTestButtonText = testBtnText;
 
         // ------------------------------------------
         // 7. 하단 버튼 (계속하기 / 방 나가기)
         // ------------------------------------------
-        var (_, resumeBtnComp, _) = CreateButton(panelGo.transform, "ResumeButton", "계속하기 (Resume)", new Vector2(-120, -210), new Vector2(210, 45), defaultFont);
+        var (_, resumeBtnComp, _) = CreateButton(panelGo.transform, "ResumeButton", "계속하기 (Resume)", new Vector2(-120, -195), new Vector2(210, 45), defaultFont);
         menuScript.resumeButton = resumeBtnComp;
 
-        var (_, exitBtnComp, _) = CreateButton(panelGo.transform, "ExitButton", "방 나가기 (Exit)", new Vector2(120, -210), new Vector2(210, 45), defaultFont);
+        var (_, exitBtnComp, _) = CreateButton(panelGo.transform, "ExitButton", "방 나가기 (Exit)", new Vector2(120, -195), new Vector2(210, 45), defaultFont);
         menuScript.exitButton = exitBtnComp;
 
         // 생성 직후 메뉴 패널은 기본적으로 닫힌 상태로 설정
         dimGo.SetActive(false);
 
-        // 프리팹 저장
+        // 프리팹 저장 (Assets/Prefebs 및 Assets/Resources 양쪽에 저장)
         string prefabPath = "Assets/Prefebs/SettingsMenuCanvas.prefab";
         if (!AssetDatabase.IsValidFolder("Assets/Prefebs"))
         {
             AssetDatabase.CreateFolder("Assets", "Prefebs");
         }
         PrefabUtility.SaveAsPrefabAssetAndConnect(canvasGo, prefabPath, InteractionMode.UserAction);
-        Debug.Log($"<color=lime>[SettingsMenuBuilder]</color> 설정 메뉴 Canvas 생성 완료 (기본 닫힘 상태): {prefabPath}");
+
+        if (!AssetDatabase.IsValidFolder("Assets/Resources"))
+        {
+            AssetDatabase.CreateFolder("Assets", "Resources");
+        }
+        PrefabUtility.SaveAsPrefabAsset(canvasGo, "Assets/Resources/SettingsMenuCanvas.prefab");
+        Debug.Log($"<color=lime>[SettingsMenuBuilder]</color> 2개 드롭다운 설정 메뉴 Canvas 생성 완료: {prefabPath}");
 
         Selection.activeGameObject = canvasGo;
         Undo.RegisterCreatedObjectUndo(canvasGo, "Create Settings Menu Canvas");
@@ -287,6 +295,7 @@ public static class SettingsMenuBuilder
         labelText.fontSize = 15;
         labelText.alignment = TextAlignmentOptions.Left;
         labelText.color = Color.white;
+        labelText.raycastTarget = false;
         dropdown.captionText = labelText;
 
         // Arrow
@@ -303,6 +312,7 @@ public static class SettingsMenuBuilder
         arrowText.fontSize = 14;
         arrowText.alignment = TextAlignmentOptions.Center;
         arrowText.color = Color.gray;
+        arrowText.raycastTarget = false;
 
         // Template
         GameObject template = new GameObject("Template");
