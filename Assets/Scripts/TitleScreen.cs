@@ -2,11 +2,11 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-// ½ÃÀÛ ¸ŞÀÎ È­¸é (Voice Adventure) - Lobby ¾À¿¡ ¹èÄ¡µÈ ÄÄÆ÷³ÍÆ®.
-//  - [ExecuteAlways] ·Î ¿¡µğÅÍ Game ºä¿¡¼­µµ ¹Ì¸®º¸±â (»ı¼º¹°Àº HideAndDontSave ¶ó ¾À¿¡ ÀúÀå ¾È µÊ)
-//  - ¹è°æ: À§ÂÊ ÇÏ´Ã ¸Ê ÀÌ¹ÌÁö(back.png) + ¾Æ·¡·Î °¥¼ö·Ï ±×¶óµ¥ÀÌ¼Ç + ½£(far.png)
-//  - Ä³¸¯ÅÍ(¿©¿ì/Åä³¢) ÁÂ¿ì ¹èÄ¡ + °¡º­¿î »óÇÏ Èçµé¸²
-//  - Å¸ÀÌÆ² BoldPixels, ÀÔ·ÂÃ¢ Sunflower(°¡µ¶¼º), ·©Å·Àº Æ®·ÎÇÇ ¾ÆÀÌÄÜ ¹öÆ°
+// ì‹œì‘ ë©”ì¸ í™”ë©´ (Voice Adventure) - Lobby ì”¬ì— ë°°ì¹˜ëœ ì»´í¬ë„ŒíŠ¸.
+//  - [ExecuteAlways] ë¡œ ì—ë””í„° Game ë·°ì—ì„œë„ ë¯¸ë¦¬ë³´ê¸° (ìƒì„±ë¬¼ì€ HideAndDontSave ë¼ ì”¬ì— ì €ì¥ ì•ˆ ë¨)
+//  - ë°°ê²½: ìœ„ìª½ í•˜ëŠ˜ ë§µ ì´ë¯¸ì§€(back.png) + ì•„ë˜ë¡œ ê°ˆìˆ˜ë¡ ê·¸ë¼ë°ì´ì…˜ + ìˆ²(far.png)
+//  - ìºë¦­í„°(ì—¬ìš°/í† ë¼) ì¢Œìš° ë°°ì¹˜ + ê°€ë²¼ìš´ ìƒí•˜ í”ë“¤ë¦¼
+//  - íƒ€ì´í‹€ BoldPixels, ì…ë ¥ì°½ Sunflower(ê°€ë…ì„±), ë­í‚¹ì€ íŠ¸ë¡œí”¼ ì•„ì´ì½˜ ë²„íŠ¼
 [ExecuteAlways]
 public class TitleScreen : MonoBehaviour
 {
@@ -54,11 +54,13 @@ public class TitleScreen : MonoBehaviour
 
     private void OnDisable()
     {
+        UnregisterLauncherEvents();
         DestroyGenerated();
     }
 
     private void OnDestroy()
     {
+        UnregisterLauncherEvents();
         DestroyGenerated();
         if (Instance == this) Instance = null;
     }
@@ -89,12 +91,70 @@ public class TitleScreen : MonoBehaviour
     private void RefreshMenu()
     {
         _busy = false;
-        _launcher = FindObjectOfType<BasicLauncher>();
+        EnsureLauncher();
         SetInteractable(true);
         if (_nickField != null)
             _nickField.text = PlayerPrefs.GetString("PlayerName", "Player" + Random.Range(100, 999));
         if (_noteText != null)
             _noteText.text = "";
+    }
+
+    private void EnsureLauncher()
+    {
+        if (_launcher == null)
+        {
+            _launcher = FindObjectOfType<BasicLauncher>();
+        }
+        RegisterLauncherEvents();
+    }
+
+    private void RegisterLauncherEvents()
+    {
+        if (_launcher != null)
+        {
+            _launcher.OnConnectionStarted -= HandleConnectionStarted;
+            _launcher.OnConnectionStarted += HandleConnectionStarted;
+            _launcher.OnConnectionFailed -= HandleConnectionFailed;
+            _launcher.OnConnectionFailed += HandleConnectionFailed;
+            _launcher.OnConnectionSuccess -= HandleConnectionSuccess;
+            _launcher.OnConnectionSuccess += HandleConnectionSuccess;
+        }
+    }
+
+    private void UnregisterLauncherEvents()
+    {
+        if (_launcher != null)
+        {
+            _launcher.OnConnectionStarted -= HandleConnectionStarted;
+            _launcher.OnConnectionFailed -= HandleConnectionFailed;
+            _launcher.OnConnectionSuccess -= HandleConnectionSuccess;
+        }
+    }
+
+    private void HandleConnectionStarted()
+    {
+        _busy = true;
+        _busySince = Time.realtimeSinceStartup;
+        SetInteractable(false);
+    }
+
+    private void HandleConnectionFailed(string reason)
+    {
+        _busy = false;
+        SetInteractable(true);
+        if (_noteText != null)
+        {
+            _noteText.text = string.IsNullOrEmpty(reason) ? "ì ‘ì† ì‹¤íŒ¨ - ë‹¤ì‹œ ì‹œë„í•˜ì„¸ìš”" : reason;
+        }
+    }
+
+    private void HandleConnectionSuccess()
+    {
+        _busy = false;
+        if (_noteText != null)
+        {
+            _noteText.text = "ì ‘ì† ì„±ê³µ! ë°©ìœ¼ë¡œ ì´ë™ ì¤‘...";
+        }
     }
 
     private void Update()
@@ -104,11 +164,14 @@ public class TitleScreen : MonoBehaviour
         if (_char2 != null) _char2.anchoredPosition = _char2Base + new Vector2(0f, Mathf.Sin(t * 2.0f + 1.6f) * 8f);
 
         if (!Application.isPlaying) return;
-        if (_busy && t - _busySince > 4f)
+
+        // ë¹„ìƒìš© ì•ˆì „ íƒ€ì„ì•„ì›ƒ (ë„¤íŠ¸ì›Œí¬ ì§€ì—°ì„ ê°ì•ˆí•´ 15ì´ˆ)
+        if (_busy && t - _busySince > 15f)
         {
             _busy = false;
             SetInteractable(true);
-            if (_noteText != null) _noteText.text = "Á¢¼Ó ½ÇÆĞ - ´Ù½Ã ½ÃµµÇÏ¼¼¿ä";
+            if (_noteText != null) _noteText.text = "ì—°ê²° ì‹œê°„ ì´ˆê³¼ - ë‹¤ì‹œ ì‹œë„í•˜ì„¸ìš”";
+            if (_launcher != null) _ = _launcher.CleanupRunnerAsync();
         }
     }
 
@@ -121,28 +184,28 @@ public class TitleScreen : MonoBehaviour
     private void OnHost()
     {
         if (!Application.isPlaying || _busy) return;
-        if (_launcher == null) _launcher = FindObjectOfType<BasicLauncher>();
+        EnsureLauncher();
         if (_launcher == null) return;
         _busy = true; _busySince = Time.realtimeSinceStartup;
         SetInteractable(false);
-        if (_noteText != null) _noteText.text = "¹æ »ı¼º Áß...";
-        _launcher.RequestHost(_roomField.text, _nickField.text);
+        if (_noteText != null) _noteText.text = "ë°© ë§Œë“œëŠ” ì¤‘...";
+        _launcher.RequestHost(_roomField != null ? _roomField.text : "", _nickField != null ? _nickField.text : "");
     }
 
     private void OnJoin()
     {
         if (!Application.isPlaying || _busy) return;
-        if (_launcher == null) _launcher = FindObjectOfType<BasicLauncher>();
+        EnsureLauncher();
         if (_launcher == null) return;
-        if (string.IsNullOrWhiteSpace(_roomField.text))
+        if (_roomField == null || string.IsNullOrWhiteSpace(_roomField.text))
         {
-            if (_noteText != null) _noteText.text = "¹æ ÄÚµå¸¦ ÀÔ·ÂÇÏ¼¼¿ä";
+            if (_noteText != null) _noteText.text = "ë°© ì½”ë“œë¥¼ ì…ë ¥í•˜ì„¸ìš”";
             return;
         }
         _busy = true; _busySince = Time.realtimeSinceStartup;
         SetInteractable(false);
-        if (_noteText != null) _noteText.text = "Á¢¼Ó Áß...";
-        _launcher.RequestJoin(_roomField.text, _nickField.text);
+        if (_noteText != null) _noteText.text = "ì ‘ì† ì¤‘...";
+        _launcher.RequestJoin(_roomField.text, _nickField != null ? _nickField.text : "");
     }
 
     private void OnRanking()
@@ -153,7 +216,7 @@ public class TitleScreen : MonoBehaviour
         else RankingBoardUI.GetOrCreate().Toggle();
     }
 
-    // ================= UI ºôµå =================
+    // ================= UI ë¹Œë“œ =================
     private void Build()
     {
         if (FindObjectOfType<EventSystem>() == null)
@@ -175,7 +238,7 @@ public class TitleScreen : MonoBehaviour
         scaler.matchWidthOrHeight = 0.5f;
         _root.AddComponent<GraphicRaycaster>();
 
-        // ---- ¹è°æ: back.png ÇÑ ÀåÀ» È­¸é ÀüÃ¼·Î ´Ã¸² (È­¸é ºñÀ²¿¡ ¸ÂÃç stretch) ----
+        // ---- ë°°ê²½: back.png í•œ ì¥ì„ í™”ë©´ ì „ì²´ë¡œ ëŠ˜ë¦¼ (í™”ë©´ ë¹„ìœ¨ì— ë§ì¶° stretch) ----
         var bgTex = Resources.Load<Texture2D>("Title/back");
         if (bgTex != null)
         {
@@ -188,20 +251,20 @@ public class TitleScreen : MonoBehaviour
             braw.raycastTarget = false;
         }
 
-        // ---- Ä³¸¯ÅÍ ----
+        // ---- ìºë¦­í„° ----
         _char1 = MakeCharacter("Char1_Fox", "Title/char1", new Vector2(0f, 0f), new Vector2(320f, 155f), 320f, false);
         _char2 = MakeCharacter("Char2_Rabbit", "Title/char2", new Vector2(1f, 0f), new Vector2(-320f, 155f), 320f, true);
         if (_char1 != null) _char1Base = _char1.anchoredPosition;
         if (_char2 != null) _char2Base = _char2.anchoredPosition;
 
-        // ---- Å¸ÀÌÆ² ----
+        // ---- íƒ€ì´í‹€ ----
         MakeTitle(_root.transform, "VOICE ADVENTURE", 150f, new Vector2(0.5f, 0.875f), 1820f);
-        var sub = AddLabel(_root.transform, "º¸ÀÌ½º ¾îµåº¥ÃÄ", 40f, new Vector2(0.5f, 0.70f), 1200f, TextAnchor.MiddleCenter, Parch, _plain);
+        var sub = AddLabel(_root.transform, "ë³´ì´ìŠ¤ ì–´ë“œë²¤ì³", 40f, new Vector2(0.5f, 0.70f), 1200f, TextAnchor.MiddleCenter, Parch, _plain);
         var subOut = sub.gameObject.AddComponent<Outline>();
         subOut.effectColor = new Color(0.06f, 0.14f, 0.10f, 0.95f);
         subOut.effectDistance = new Vector2(3f, -3f);
 
-        // ---- ¸Ş´º ÆĞ³Î ----
+        // ---- ë©”ë‰´ íŒ¨ë„ ----
         var panel = NewChild("Panel", _root.transform);
         var pr = panel.GetComponent<RectTransform>();
         pr.anchorMin = pr.anchorMax = new Vector2(0.5f, 0.5f);
@@ -211,10 +274,10 @@ public class TitleScreen : MonoBehaviour
         Framed(panel, WoodFill, WoodDark, WoodLight);
 
         AddLabel(panel.transform, "NICKNAME", 30f, new Vector2(0f, 1f), 400f, TextAnchor.UpperLeft, Parch, _pixel, new Vector2(52f, -44f));
-        _nickField = MakeInput(panel.transform, new Vector2(52f, -92f), 656f, 84f, "ÀÌ¸§À» ÀÔ·ÂÇÏ¼¼¿ä");
+        _nickField = MakeInput(panel.transform, new Vector2(52f, -92f), 656f, 84f, "ì´ë¦„ì„ ì…ë ¥í•˜ì„¸ìš”");
 
         AddLabel(panel.transform, "ROOM CODE", 30f, new Vector2(0f, 1f), 400f, TextAnchor.UpperLeft, Parch, _pixel, new Vector2(52f, -206f));
-        _roomField = MakeInput(panel.transform, new Vector2(52f, -254f), 656f, 84f, "HOST ½Ã ÀÚµ¿ »ı¼º");
+        _roomField = MakeInput(panel.transform, new Vector2(52f, -254f), 656f, 84f, "HOST ì‹œ ìë™ ìƒì„±");
 
         _hostBtn = MakeButton(panel.transform, new Vector2(52f, -374f), 312f, 112f, "HOST", Gold, GoldDeep, OnHost);
         _joinBtn = MakeButton(panel.transform, new Vector2(396f, -374f), 312f, 112f, "JOIN", Stone, new Color(0.13f, 0.13f, 0.15f), OnJoin);
@@ -222,9 +285,9 @@ public class TitleScreen : MonoBehaviour
         _noteText = AddLabel(_root.transform, "", 26f, new Vector2(0.5f, 0.5f), 1000f, TextAnchor.MiddleCenter,
             new Color(0.62f, 0.16f, 0.10f), _plain, new Vector2(0f, -452f));
 
-        // ---- Æ®·ÎÇÇ(·©Å·) ¹öÆ° ----
+        // ---- íŠ¸ë¡œí”¼(ë­í‚¹) ë²„íŠ¼ ----
         MakeIconButton(_root.transform, "Title/trophy", new Vector2(1f, 1f), new Vector2(-40f, -40f), 92f, OnRanking);
-        // ÆùÆ® ¶óÀÌ¼±½º(BoldPixels, CC BY-SA 4.0) Ç¥±â´Â README / Å©·¹µ÷ È­¸é¿¡¼­ Ã³¸®.
+        // í°íŠ¸ ë¼ì´ì„ ìŠ¤(BoldPixels, CC BY-SA 4.0) í‘œê¸°ëŠ” README / í¬ë ˆë”§ í™”ë©´ì—ì„œ ì²˜ë¦¬.
 
         SetGenFlagsRecursive(_root.transform);
     }
@@ -236,7 +299,7 @@ public class TitleScreen : MonoBehaviour
             SetGenFlagsRecursive(root.GetChild(i));
     }
 
-    // ================= ÇïÆÛ =================
+    // ================= í—¬í¼ =================
     private static GameObject NewChild(string name, Transform parent)
     {
         var go = new GameObject(name, typeof(RectTransform));
@@ -271,7 +334,7 @@ public class TitleScreen : MonoBehaviour
         return Sprite.Create(tex, new Rect(0f, 0f, 1f, h), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
     }
 
-    // ÅØ½ºÃ³ÀÇ [uvY, uvY+uvH] ¼¼·Î ±¸°£À» È­¸éÀÇ [bottomFrac, topFrac] ¹êµå¿¡ °¡·Î ¹İº¹
+    // í…ìŠ¤ì²˜ì˜ [uvY, uvY+uvH] ì„¸ë¡œ êµ¬ê°„ì„ í™”ë©´ì˜ [bottomFrac, topFrac] ë°´ë“œì— ê°€ë¡œ ë°˜ë³µ
     private void AddParallax(string name, Texture2D tex, float bottomFrac, float topFrac, float tilesX, float uvY, float uvH, Color tint)
     {
         if (tex == null) return;

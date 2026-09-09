@@ -1,18 +1,51 @@
+using System;
+using System.Threading.Tasks;
 using Fusion;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class BasicLauncher : MonoBehaviour
 {
+    public static BasicLauncher Instance { get; private set; }
+
     private NetworkRunner _runner;
     private string _roomCode = ""; // 사용자가 입력할 방 코드
     private bool _isStarting = false;
     private string _playerName = "";
     [SerializeField] private bool _useIMGUIMenu = false; // 새 TitleScreen 도입으로 구 IMGUI 로비 메뉴는 기본 비활성화
 
+    // 연결 상태 이벤트
+    public event Action OnConnectionStarted;
+    public event Action<string> OnConnectionFailed;
+    public event Action OnConnectionSuccess;
+
+    public bool IsStarting => _isStarting;
+    public NetworkRunner Runner => _runner;
+
+    private void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else if (Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+    }
+
     private void Start()
     {
-        _playerName = PlayerPrefs.GetString("PlayerName", "Player" + Random.Range(100, 999));
+        _playerName = PlayerPrefs.GetString("PlayerName", "Player" + UnityEngine.Random.Range(100, 999));
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 
     private void OnGUI()
@@ -22,7 +55,7 @@ public class BasicLauncher : MonoBehaviour
         if (SettingsMenuUI.Instance != null && SettingsMenuUI.Instance.IsOpen) return;
 
         // 아직 룸에 접속하지 않은 상태 (로비 화면) - _useIMGUIMenu가 true일 때만 레거시 IMGUI 표시
-        if (_useIMGUIMenu && _runner == null)
+        if (_useIMGUIMenu && (_runner == null || !_runner.IsRunning))
         {
             float buttonWidth = 260f;
             float buttonHeight = 44f;
@@ -50,7 +83,7 @@ public class BasicLauncher : MonoBehaviour
             if (GUI.Button(new Rect(centerX, startY + 128, buttonWidth, buttonHeight), "Host (방 만들기)"))
             {
                 if (string.IsNullOrEmpty(_roomCode))
-                    _roomCode = Random.Range(1000, 9999).ToString();
+                    _roomCode = UnityEngine.Random.Range(1000, 9999).ToString();
 
                 StartGame(GameMode.Host, _roomCode);
             }
@@ -93,7 +126,7 @@ public class BasicLauncher : MonoBehaviour
     public void RequestHost(string roomCode, string nick)
     {
         ApplyNick(nick);
-        string code = string.IsNullOrWhiteSpace(roomCode) ? Random.Range(1000, 9999).ToString() : roomCode.Trim();
+        string code = string.IsNullOrWhiteSpace(roomCode) ? UnityEngine.Random.Range(1000, 9999).ToString() : roomCode.Trim();
         _roomCode = code;
         StartGame(GameMode.Host, code);
     }
@@ -104,6 +137,7 @@ public class BasicLauncher : MonoBehaviour
         if (string.IsNullOrWhiteSpace(roomCode))
         {
             Debug.LogError("[Launcher] 들어갈 방 코드를 입력하세요!");
+            OnConnectionFailed?.Invoke("방 코드를 입력하세요.");
             return;
         }
         _roomCode = roomCode.Trim();
@@ -119,58 +153,155 @@ public class BasicLauncher : MonoBehaviour
         }
     }
 
-    async void StartGame(GameMode mode, string roomName)
+    /// <summary>
+    /// 러너 및 네트워크 연결을 완전히 초기화하고 파괴합니다.
+    /// 연결 실패, 재시도, 게임 종료 시 호출됩니다.
+    /// </summary>
+    public async Task CleanupRunnerAsync()
     {
-        if (_isStarting) return;
-        _isStarting = true;
+        _isStarting = false;
 
-        _runner = GetComponent<NetworkRunner>();
-        if (_runner == null)
+        if (_runner != null)
         {
-            _runner = gameObject.AddComponent<NetworkRunner>();
-        }
-
-        DontDestroyOnLoad(gameObject);
-        _runner.ProvideInput = true;
-
-        var spawner = FindFirstObjectByType<Spawner>();
-        if (spawner != null)
-        {
-            _runner.RemoveCallbacks(spawner);
-            _runner.AddCallbacks(spawner);
-        }
-
-        Debug.Log($"<color=white>[Launcher]</color> {mode} 모드로 시작 시도 중... 방 코드: {roomName}");
-
-        var result = await _runner.StartGame(new StartGameArgs()
-        {
-            GameMode = mode,
-            SessionName = roomName,
-            Scene = SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex),
-            SceneManager = gameObject.GetComponent<NetworkSceneManagerDefault>() ?? gameObject.AddComponent<NetworkSceneManagerDefault>()
-        });
-
-        if (result.Ok)
-        {
-            if (mode == GameMode.Host)
+            try
             {
-                Debug.Log("호스트: CharacterSelect 씬으로 이동");
-                _runner.LoadScene("CharacterSelect", LoadSceneMode.Single);
+                if (_runner.IsRunning)
+                {
+                    await _runner.Shutdown();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[Launcher] Runner Shutdown 예외 (정상 정리 진행): {ex.Message}");
+            }
+
+            if (_runner != null && _runner.gameObject != null)
+            {
+                Destroy(_runner.gameObject);
+            }
+            _runner = null;
+        }
+
+        // 씬 내 잔류 중인 고아 러너가 있다면 일괄 정리
+        var runners = FindObjectsByType<NetworkRunner>(FindObjectsSortMode.None);
+        foreach (var r in runners)
+        {
+            if (r != null)
+            {
+                try
+                {
+                    if (r.IsRunning) r.Shutdown();
+                }
+                catch { }
+
+                if (r.gameObject != null)
+                {
+                    Destroy(r.gameObject);
+                }
             }
         }
-        else
+    }
+
+    async void StartGame(GameMode mode, string roomName)
+    {
+        if (_isStarting)
+        {
+            Debug.LogWarning("[Launcher] 이미 연결 시도 중입니다. 잠시 기다려주세요.");
+            return;
+        }
+
+        _isStarting = true;
+        OnConnectionStarted?.Invoke();
+
+        try
+        {
+            // 1. 이전 시도로 남아있을 수 있는 러너 완전 정리 (초기화)
+            await CleanupRunnerAsync();
+
+            // 2. NetworkRunner 전용 GameObject 동적 생성 (BasicLauncher 본체 오염 방지)
+            var runnerGO = new GameObject("FusionNetworkRunner");
+            _runner = runnerGO.AddComponent<NetworkRunner>();
+            var sceneManager = runnerGO.AddComponent<NetworkSceneManagerDefault>();
+
+            _runner.ProvideInput = true;
+
+            var spawner = FindFirstObjectByType<Spawner>();
+            if (spawner != null)
+            {
+                _runner.RemoveCallbacks(spawner);
+                _runner.AddCallbacks(spawner);
+            }
+
+            Debug.Log($"<color=white>[Launcher]</color> {mode} 모드로 시작 시도 중... 방 코드: {roomName}");
+
+            var result = await _runner.StartGame(new StartGameArgs()
+            {
+                GameMode = mode,
+                SessionName = roomName,
+                Scene = SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex),
+                SceneManager = sceneManager
+            });
+
+            if (result.Ok)
+            {
+                Debug.Log($"<color=green>[Launcher]</color> {mode} 세션 연결 성공! (방 코드: {roomName})");
+                DontDestroyOnLoad(runnerGO);
+                OnConnectionSuccess?.Invoke();
+
+                if (mode == GameMode.Host)
+                {
+                    Debug.Log("호스트: CharacterSelect 씬으로 이동");
+                    _runner.LoadScene("CharacterSelect", LoadSceneMode.Single);
+                }
+            }
+            else
+            {
+                string reasonMsg = FormatShutdownReason(result.ShutdownReason);
+                Debug.LogError($"[Launcher] 시작 실패: {result.ShutdownReason} ({reasonMsg})");
+
+                // 실패 시 즉시 러너 파괴 및 초기화하여 다음 시도(Host 등)가 가능하도록 복구
+                await CleanupRunnerAsync();
+                OnConnectionFailed?.Invoke(reasonMsg);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[Launcher] 시작 중 예외 발생: {ex.Message}\n{ex.StackTrace}");
+            await CleanupRunnerAsync();
+            OnConnectionFailed?.Invoke("네트워크 오류가 발생했습니다. 다시 시도하세요.");
+        }
+        finally
         {
             _isStarting = false;
-            Debug.LogError($"[Launcher] 시작 실패: {result.ShutdownReason}");
+        }
+    }
+
+    private string FormatShutdownReason(ShutdownReason reason)
+    {
+        switch (reason)
+        {
+            case ShutdownReason.GameNotFound:
+                return "방을 찾을 수 없습니다. 코드를 확인하세요.";
+            case ShutdownReason.GameIsFull:
+                return "방이 꽉 찼습니다.";
+            case ShutdownReason.GameClosed:
+                return "이미 종료되었거나 닫힌 방입니다.";
+            case ShutdownReason.GameIdAlreadyExists:
+                return "이미 존재하는 방 코드입니다.";
+            case ShutdownReason.ConnectionTimeout:
+            case ShutdownReason.PhotonCloudTimeout:
+            case ShutdownReason.OperationTimeout:
+                return "연결 시간이 초과되었습니다.";
+            case ShutdownReason.HostMigration:
+                return "호스트 이전 중입니다.";
+            default:
+                return $"접속 실패 ({reason})";
         }
     }
 
     public async void ExitGame()
     {
-        if (_runner != null)
-        {
-            await _runner.Shutdown();
-        }
+        await CleanupRunnerAsync();
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;

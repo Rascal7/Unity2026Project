@@ -9,12 +9,14 @@ public class RankingManager : MonoBehaviour
     public static RankingManager Instance;
     private bool _isAutoInstance = false;
 
+    [Header("Firebase Realtime Database")]
+    [SerializeField]
+    private string _firebaseBaseUrl = "https://unity-93c2a-default-rtdb.asia-southeast1.firebasedatabase.app/";
+
     private void Awake()
     {
-        // ÀÌ ÄÄÆ÷³ÍÆ®´Â ¾À UI(UIManager)¿Í °°Àº GameObject ¿¡ ºÙ¾î ÀÖ´Ù.
-        // ¿©±â¼­ DontDestroyOnLoad/Destroy(gameObject) ¸¦ ÇÏ¸é, ·Îºñ·Î µ¹¾Æ¿ÔÀ» ¶§
-        // »õ·Î ·ÎµåµÈ UIManager ±îÁö ÆÄ±«µÇ¾î ·©Å·º¸µå ¹öÆ°ÀÌ Á×´Â´Ù.
-        // µû¶ó¼­ Ç×»ó "ÇöÀç ¾ÀÀÇ ÀÎ½ºÅÏ½º"¸¦ Instance ·Î µĞ´Ù.
+        // ì´ ì˜¤ë¸Œì íŠ¸ëŠ” ê° UI(UIManager)ì™€ ê°™ì€ GameObject ì— ë¶™ì–´ ìˆì„ ìˆ˜ ìˆë‹¤.
+        // í•­ìƒ "ê°€ì¥ ìµœê·¼ ì¸ìŠ¤í„´ìŠ¤"ë¥¼ Instance ì— ë‘”ë‹¤.
         Instance = this;
     }
 
@@ -23,14 +25,13 @@ public class RankingManager : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
-    // ¾À¿¡ RankingManager °¡ ¾øÀ» ¶§(½ºÅ×ÀÌÁö¿¡¼­ ¹Ù·Î Play, ¶Ç´Â ·Îºñ ½ÃÀÛ ÈÄ ½ºÅ×ÀÌÁö ÁøÀÔ) ÀúÀå ¿äÃ»¸¸
-    // Ã³¸®ÇÒ ÀÓ½Ã ÀÎ½ºÅÏ½º¸¦ ¸¸µç´Ù. UI(rankRows)´Â ¾ø°í, ÀúÀåÀÌ ³¡³ª¸é ½º½º·Î »ç¶óÁø´Ù.
+    // ì™¸ë¶€ì—ì„œ RankingManager ê°€ ì—†ì„ ë•Œ ì„ì‹œ ì¸ìŠ¤í„´ìŠ¤ ìƒì„±
     public static RankingManager GetOrCreate()
     {
         if (Instance == null)
         {
             var go = new GameObject("RankingManager (auto)");
-            DontDestroyOnLoad(go); // ¾À ÀüÈ¯ Áß¿¡µµ ÀúÀå ÄÚ·çÆ¾ÀÌ ³¡³ªµµ·Ï À¯Áö
+            DontDestroyOnLoad(go);
             var rm = go.AddComponent<RankingManager>();
             rm._isAutoInstance = true;
         }
@@ -43,16 +44,16 @@ public class RankingManager : MonoBehaviour
         SaveScore(time, names.Item1, names.Item2);
     }
 
-    // ½ÇÁ¦ ÇÃ·¹ÀÌ¾î ´Ğ³×ÀÓÀ» Á÷Á¢ ³Ñ±æ ¼ö ÀÖ´Â ¿À¹ö·Îµå
+    // íŠ¹ì • í”Œë ˆì´ì–´ ë‹‰ë„¤ì„ì„ ì§ì ‘ ë„˜ê¸¸ ìˆ˜ ìˆëŠ” ì˜¤ë²„ë¡œë“œ
     public void SaveScore(float time, string p1, string p2)
     {
         p1 = string.IsNullOrWhiteSpace(p1) ? "Player1" : p1.Trim();
         p2 = string.IsNullOrWhiteSpace(p2) ? "Player2" : p2.Trim();
-        Debug.Log($"¼­¹ö·Î {time}ÃÊ ±â·Ï Àü¼Û ½Ãµµ ({p1} & {p2})");
+        Debug.Log($"<color=cyan>[Ranking]</color> í´ë¦¬ì–´ {time:F2}ì´ˆ ë­í‚¹ ë“±ë¡ ì‹œë„ ({p1} & {p2})");
         StartCoroutine(PostRankingData(p1, p2, time));
     }
 
-    // ¾ÀÀÇ PlayerNameTag¿¡¼­ ´Ğ³×ÀÓÀ» ¼öÁı (¼ø¼­´Â Á¤·Ä·Î ¾ÈÁ¤È­ -> Áßº¹ Çà ¹æÁö¿¡ µµ¿ò)
+    // ì”¬ì˜ PlayerNameTagì—ì„œ ë‹‰ë„¤ì„ ìˆ˜ì§‘
     private System.Tuple<string, string> ResolvePlayerNames()
     {
         var tags = FindObjectsByType<PlayerNameTag>(UnityEngine.FindObjectsSortMode.None);
@@ -69,13 +70,24 @@ public class RankingManager : MonoBehaviour
         return System.Tuple.Create(p1, p2);
     }
 
-    IEnumerator PostRankingData(string p1,string p2,float time)
+    private string GetFirebaseEndpoint(string pathAndQuery)
     {
-        string url = "http://localhost:8080/api/ranks/save";
-        RankData newData = new RankData();
-        newData.player1 = p1;
-        newData.player2 = p2;
-        newData.clearTime = (double)time;
+        string baseUrl = _firebaseBaseUrl.Trim();
+        if (!baseUrl.EndsWith("/")) baseUrl += "/";
+        return baseUrl + pathAndQuery;
+    }
+
+    IEnumerator PostRankingData(string p1, string p2, float time)
+    {
+        string url = GetFirebaseEndpoint("ranks.json");
+
+        RankData newData = new RankData
+        {
+            player1 = p1,
+            player2 = p2,
+            clearTime = (double)time,
+            createdAt = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
 
         string json = JsonUtility.ToJson(newData);
 
@@ -84,26 +96,22 @@ public class RankingManager : MonoBehaviour
             byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(json);
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
             request.downloadHandler = new DownloadHandlerBuffer();
-            request.SetRequestHeader("Content-Type", "application/json"); // JSON Çü½ÄÀÓÀ» ¼­¹ö¿¡ ¾Ë¸²
+            request.SetRequestHeader("Content-Type", "application/json");
 
-            Debug.Log("<color=yellow>[Network]</color> ¼­¹ö·Î ±â·Ï Àü¼Û ½ÃÀÛ..."); // Àü¼Û ½ÃÀÛ ·Î±×
+            Debug.Log("<color=yellow>[Firebase]</color> ë­í‚¹ ë°ì´í„° ì „ì†¡ ì¤‘...");
             yield return request.SendWebRequest();
 
-            Debug.Log($"¼­¹ö ÀÀ´ä ÄÚµå: {request.responseCode}");
-            Debug.Log($"¼­¹ö ÀÀ´ä ³»¿ë: {request.downloadHandler.text}");
             if (request.result == UnityWebRequest.Result.Success)
             {
-                Debug.Log("<color=lime>¡Ú¡Ú [Success] ¼­¹ö ÀúÀå ¿Ï·á! ¡Ú¡Ú</color>");
-                Debug.Log("¼­¹ö ÀÀ´ä ³»¿ë: " + request.downloadHandler.text); 
-                //RequestRanking();
+                Debug.Log($"<color=lime>â˜… [Firebase Success] ë­í‚¹ ì €ì¥ ì™„ë£Œ! â˜… (ì‘ë‹µ: {request.downloadHandler.text})</color>");
             }
             else
             {
-                Debug.LogError($"<color=red>[Error]</color> ±â·Ï ÀúÀå ½ÇÆĞ: {request.error}");
+                Debug.LogError($"<color=red>[Firebase Error]</color> ë­í‚¹ ì €ì¥ ì‹¤íŒ¨: {request.error} | Response: {request.downloadHandler?.text}");
             }
         }
 
-        // ÀÓ½Ã(auto) ÀÎ½ºÅÏ½º´Â ÀúÀåÀÌ ³¡³ª¸é ½º½º·Î Á¤¸®
+        // ì„ì‹œ(auto) ì¸ìŠ¤í„´ìŠ¤ëŠ” ì €ì¥ì´ ëë‚˜ë©´ ìŠ¤ìŠ¤ë¡œ ì •ë¦¬
         if (_isAutoInstance)
         {
             if (Instance == this) Instance = null;
@@ -114,9 +122,9 @@ public class RankingManager : MonoBehaviour
     [System.Serializable]
     public class RankRowUI
     {
-        public TextMeshProUGUI rankText;    // 1st, 2nd... °¡ µé¾î°¥ Ä­
-        public TextMeshProUGUI namesText;   // ÇÃ·¹ÀÌ¾î ÀÌ¸§µéÀÌ µé¾î°¥ Ä­
-        public TextMeshProUGUI timeText;    // Å¬¸®¾î Å¸ÀÓÀÌ µé¾î°¥ Ä­
+        public TextMeshProUGUI rankText;    // 1st, 2nd... ê°€ ë“¤ì–´ê°ˆ ì¹¸
+        public TextMeshProUGUI namesText;   // í”Œë ˆì´ì–´ ì´ë¦„ë“¤ì´ ë“¤ì–´ê°ˆ ì¹¸
+        public TextMeshProUGUI timeText;    // í´ë¦¬ì–´ íƒ€ì„ì´ ë“¤ì–´ê°ˆ ì¹¸
     }
 
     [System.Serializable]
@@ -125,6 +133,7 @@ public class RankingManager : MonoBehaviour
         public string player1;
         public string player2;
         public double clearTime;
+        public long createdAt;
     }
 
     [System.Serializable]
@@ -140,7 +149,7 @@ public class RankingManager : MonoBehaviour
         StartCoroutine(GetRankingData());
     }
 
-    // ---- ·©Å· º¸µå(ÄÚµå »ı¼º UI) Á¦¾î ----
+    // ---- ë­í‚¹ ë³´ë“œ(ìë™ ìƒì„± UI) ì—°ë™ ----
     public bool IsBoardOpen
     {
         get { return RankingBoardUI.Instance != null && RankingBoardUI.Instance.IsOpen; }
@@ -173,15 +182,17 @@ public class RankingManager : MonoBehaviour
 
     IEnumerator GetRankingData()
     {
-        string url = "http://localhost:8080/api/ranks/all";
+        // Firebase Realtime Database: clearTime ê¸°ì¤€ ì˜¤ë¦„ì°¨ìˆœ(ë¹ ë¥¸ ìˆœ) ìƒìœ„ 20ê°œ ì¡°íšŒ
+        string url = GetFirebaseEndpoint("ranks.json?orderBy=\"clearTime\"&limitToFirst=20");
+
         using (UnityWebRequest request = UnityWebRequest.Get(url))
         {
             yield return request.SendWebRequest();
 
             if (request.result == UnityWebRequest.Result.Success)
             {
-                string json = "{\"items\":" + request.downloadHandler.text + "}";
-                RankList ranks = JsonUtility.FromJson<RankList>(json);
+                string rawJson = request.downloadHandler.text;
+                List<RankData> ranks = ParseFirebaseRanks(rawJson);
 
                 var board = RankingBoardUI.Instance;
                 int rowCount = board != null ? RankingBoardUI.RowCount
@@ -189,12 +200,12 @@ public class RankingManager : MonoBehaviour
 
                 for (int i = 0; i < rowCount; i++)
                 {
-                    bool has = ranks != null && ranks.items != null && i < ranks.items.Count;
+                    bool has = ranks != null && i < ranks.Count;
                     string players = "-";
                     string time = "--:--.--";
                     if (has)
                     {
-                        var data = ranks.items[i];
+                        var data = ranks[i];
                         players = $"{data.player1} & {data.player2}";
                         time = FormatTime(data.clearTime);
                     }
@@ -215,12 +226,87 @@ public class RankingManager : MonoBehaviour
             }
             else
             {
-                Debug.LogError($"<color=red>[Ranking]</color> ·©Å· Á¶È¸ ½ÇÆĞ: {request.error}");
+                Debug.LogError($"<color=red>[Firebase]</color> ë­í‚¹ ì¡°íšŒ ì‹¤íŒ¨: {request.error} | Response: {request.downloadHandler?.text}");
             }
         }
     }
 
-    // 1 -> "1st", 2 -> "2nd", 3 -> "3rd", 4 -> "4th" ... (11~13À§´Â th)
+    /// <summary>
+    /// Firebase Realtime Databaseì˜ ê°ì²´ ë”•ì…”ë„ˆë¦¬ ì‘ë‹µ {"-key1":{...}, "-key2":{...}} ì„
+    /// List<RankData>ë¡œ ì•ˆì „í•˜ê²Œ íŒŒì‹±í•˜ê³  í´ë¦¬ì–´ íƒ€ì„ ê¸°ì¤€ ì˜¤ë¦„ì°¨ìˆœìœ¼ë¡œ ì •ë ¬í•©ë‹ˆë‹¤.
+    /// </summary>
+    private List<RankData> ParseFirebaseRanks(string json)
+    {
+        var list = new List<RankData>();
+        if (string.IsNullOrWhiteSpace(json) || json.Trim() == "null" || json.Trim() == "{}")
+            return list;
+
+        int depth = 0;
+        int startIdx = -1;
+        bool inQuotes = false;
+        bool escape = false;
+
+        for (int i = 0; i < json.Length; i++)
+        {
+            char c = json[i];
+
+            if (escape)
+            {
+                escape = false;
+                continue;
+            }
+
+            if (c == '\\')
+            {
+                escape = true;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                inQuotes = !inQuotes;
+                continue;
+            }
+
+            if (inQuotes) continue;
+
+            if (c == '{')
+            {
+                depth++;
+                if (depth == 2)
+                {
+                    startIdx = i;
+                }
+            }
+            else if (c == '}')
+            {
+                if (depth == 2 && startIdx != -1)
+                {
+                    string itemJson = json.Substring(startIdx, i - startIdx + 1);
+                    try
+                    {
+                        var item = JsonUtility.FromJson<RankData>(itemJson);
+                        if (item != null)
+                        {
+                            list.Add(item);
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning($"[Ranking] ê°œë³„ í•­ëª© íŒŒì‹± ì˜ˆì™¸ (ë¬´ì‹œë¨): {ex.Message}");
+                    }
+                    startIdx = -1;
+                }
+                depth--;
+            }
+        }
+
+        // í´ë¼ì´ì–¸íŠ¸ ì¸¡ì—ì„œ í´ë¦¬ì–´ íƒ€ì„ ê¸°ì¤€ ì˜¤ë¦„ì°¨ìˆœ(ë¹ ë¥¸ ê¸°ë¡ ìˆœ) ì •ë ¬ ì¬ë³´ì¥
+        list.Sort((a, b) => a.clearTime.CompareTo(b.clearTime));
+        return list;
+    }
+
+    // 1 -> "1st", 2 -> "2nd", 3 -> "3rd", 4 -> "4th" ... (11~13ì€ th)
     string Ordinal(int n)
     {
         int mod100 = n % 100;
