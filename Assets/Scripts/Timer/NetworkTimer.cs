@@ -1,23 +1,33 @@
 using Fusion;
 using UnityEngine;
 
-// Å¬¸®¾î Å¸ÀÓÀÇ "ÁøÂ¥ ¼Ò½º".
-// È£½ºÆ®°¡ tick ´ÜÀ§·Î Runner.DeltaTime À» ´©ÀûÇÏ°í, [Networked] °ªÀ¸·Î Àü ÇÇ¾î¿¡ µ¿±âÈ­ÇÑ´Ù.
-// È­¸é Ç¥½Ã´Â TimerManager °¡ ÀÌ °ªÀ» ÀÐ¾î¼­ Ã³¸®ÇÑ´Ù. (TimerManager ´Â UI ¹ÙÀÎµù¸¸ ´ã´ç)
+// Å¬ï¿½ï¿½ï¿½ï¿½ Å¸ï¿½ï¿½ï¿½ï¿½ "ï¿½ï¿½Â¥ ï¿½Ò½ï¿½".
+// È£ï¿½ï¿½Æ®ï¿½ï¿½ tick ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Runner.DeltaTime ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½, [Networked] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ç¾î¿¡ ï¿½ï¿½ï¿½ï¿½È­ï¿½Ñ´ï¿½.
+// È­ï¿½ï¿½ Ç¥ï¿½Ã´ï¿½ TimerManager ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ð¾î¼­ Ã³ï¿½ï¿½ï¿½Ñ´ï¿½. (TimerManager ï¿½ï¿½ UI ï¿½ï¿½ï¿½Îµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½)
+//
+// Phase(ï¿½Ü°ï¿½)ï¿½ï¿½ ï¿½ï¿½ ï¿½Ç¾î°¡ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ È­ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ñ´ï¿½:
+//   0 Running       : ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ (Å¸ï¿½Ì¸ï¿½ ï¿½ï¿½)
+//   1 AwaitingChoice: ï¿½ß°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ [ï¿½Îºï¿½]/[ï¿½ï¿½ï¿½ï¿½] ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ (È£ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
+//   2 Finished      : ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Õ»ï¿½ ï¿½Ã°ï¿½ È®ï¿½ï¿½, ï¿½Úµï¿½ ï¿½Îºï¿½ ï¿½ï¿½ï¿½ï¿½
 public class NetworkTimer : NetworkBehaviour
 {
     public static NetworkTimer Instance { get; private set; }
 
+    public const int PhaseRunning = 0;
+    public const int PhaseAwaitingChoice = 1;
+    public const int PhaseFinished = 2;
+    public const int PhaseIntro = 3;   // STAGE intro card showing; timer held until it ends
+
     [Networked] public float ElapsedTime { get; private set; }
     [Networked] public NetworkBool IsRunning { get; private set; }
     [Networked] public NetworkBool IsFinished { get; private set; }
-    [Networked] public float FinalTime { get; private set; }
+    [Networked] public float FinalTime { get; private set; }   // Phaseï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ã°ï¿½(ï¿½ß°ï¿½) ï¿½Ç´ï¿½ ï¿½Õ»ï¿½Ã°ï¿½(ï¿½ï¿½ï¿½ï¿½)
+    [Networked] public int Phase { get; private set; }
+    [Networked] public float IntroRemaining { get; private set; }   // seconds left on STAGE intro before the run starts
 
     public override void Spawned()
     {
         Instance = this;
-
-        // ½ºÅ×ÀÌÁöÀÇ TimerText ¿¡ ´Ù½Ã ¹ÙÀÎµù
         if (TimerManager.Instance != null)
             TimerManager.Instance.FindTimerUI();
     }
@@ -29,12 +39,29 @@ public class NetworkTimer : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
-        // È£½ºÆ®¸¸ ½ÇÁ¦ ´©Àû(±ÇÀ§). Å¬¶óÀÌ¾ðÆ®´Â [Networked] ·Î ¹ÞÀº °ªÀ» ±×´ë·Î »ç¿ë.
-        if (IsRunning && !IsFinished)
+        // È£ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½). Å¬ï¿½ï¿½ï¿½Ì¾ï¿½Æ®ï¿½ï¿½ [Networked] ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½×´ï¿½ï¿½ ï¿½ï¿½ï¿½.
+        // STAGE intro: hold the timer at 0, count the intro down, then begin the run.
+        if (Phase == PhaseIntro)
+        {
+            if (HasStateAuthority)
+            {
+                IntroRemaining -= Runner.DeltaTime;
+                if (IntroRemaining <= 0f)
+                {
+                    IntroRemaining = 0f;
+                    ElapsedTime = 0f;
+                    IsRunning = true;
+                    Phase = PhaseRunning;
+                }
+            }
+            return;
+        }
+
+        if (IsRunning && Phase == PhaseRunning)
             ElapsedTime += Runner.DeltaTime;
     }
 
-    // ---------- È£½ºÆ® Àü¿ë Á¦¾î ----------
+    // ---------- È£ï¿½ï¿½Æ® ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ----------
 
     public void StartTimer()
     {
@@ -43,16 +70,56 @@ public class NetworkTimer : NetworkBehaviour
         FinalTime = 0f;
         IsFinished = false;
         IsRunning = true;
+        Phase = PhaseRunning;
     }
 
-    // Á¤ÁöÇÏ°í ÃÖÁ¾ ±â·ÏÀ» È®Á¤. ¹ÝÈ¯°ª = È®Á¤µÈ Å¬¸®¾î Å¸ÀÓ.
-    public float StopTimer()
+    // Begin the stage with a short STAGE-card intro. Timer stays at 0 until IntroRemaining hits 0.
+    // introSeconds <= 0 starts the run immediately (same as StartTimer).
+    public void StartWithIntro(float introSeconds)
+    {
+        if (!HasStateAuthority) return;
+        ElapsedTime = 0f;
+        FinalTime = 0f;
+        IsFinished = false;
+        if (introSeconds > 0f)
+        {
+            IsRunning = false;
+            IntroRemaining = introSeconds;
+            Phase = PhaseIntro;
+        }
+        else
+        {
+            IsRunning = true;
+            IntroRemaining = 0f;
+            Phase = PhaseRunning;
+        }
+    }
+
+    // ï¿½ß°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½: Å¸ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½ï¿½ + ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ã°ï¿½ È®ï¿½ï¿½ + ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Ü°ï¿½ï¿½.
+    // ï¿½ï¿½È¯ï¿½ï¿½ = ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ã°ï¿½.
+    public float PauseForChoice()
     {
         if (!HasStateAuthority) return FinalTime;
-        if (!IsRunning) return FinalTime;
+        if (Phase != PhaseRunning) return FinalTime;
+        IsRunning = false;
+        FinalTime = ElapsedTime;   // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ã°ï¿½
+        Phase = PhaseAwaitingChoice;
+        return FinalTime;
+    }
+
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½: ï¿½Õ»ï¿½ ï¿½Ã°ï¿½(totalSeconds)ï¿½ï¿½ È®ï¿½ï¿½ï¿½Ï°ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ü°ï¿½ï¿½.
+    public void FinishRun(float totalSeconds)
+    {
+        if (!HasStateAuthority) return;
         IsRunning = false;
         IsFinished = true;
-        FinalTime = ElapsedTime;
-        return FinalTime;
+        FinalTime = totalSeconds;  // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Õ»ï¿½ ï¿½Ã°ï¿½
+        Phase = PhaseFinished;
+    }
+
+    // (ï¿½ï¿½ï¿½ï¿½È£È¯) ï¿½ï¿½ï¿½ï¿½ ï¿½Úµå°¡ ï¿½Î¸ï¿½ï¿½ï¿½ ï¿½Ü¼ï¿½ ï¿½ï¿½ï¿½ï¿½. ï¿½ï¿½ï¿½ï¿½ï¿½Ã°ï¿½ È®ï¿½ï¿½ï¿½ï¿½.
+    public float StopTimer()
+    {
+        return PauseForChoice();
     }
 }
