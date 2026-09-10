@@ -13,6 +13,10 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     public NetworkObject player2Prefab;
     private Dictionary<PlayerRef, NetworkObject> _spawnedCharacters = new Dictionary<PlayerRef, NetworkObject>();
 
+    // Phase2: resume-from-checkpoint info for the current stage load (host only, set in OnSceneLoadDone).
+    private Vector3? _resumeSpawnPos = null;
+    private float _resumeTimerOffset = 0f;
+
     // ?�게???�테?��?�?취급?????�름??(?�기?????�테?��? 추�??�면 ??
     private static readonly string[] InGameStageNames = { "TutorialStage", "Main Stage1", "Main Stage2" };
 
@@ -79,6 +83,25 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             Debug.Log($"<color=yellow>[Spawner]</color> ??로드 ?�료: {currentScene}. ?�레?�어 ?�폰 ?�작!");
 
             // ?�트?�크 ?�?�머 ?�성 + ?�작 (?�스?�만, ?�테?��?마다 ?�로 ?�성??
+            // 랭킹 리더보드를 미리 캐시해 둔다 (클리어 시 New Record 즉시 판정용).
+            RankingManager.PrefetchLeaderboard();
+
+            // Phase2: resume info (checkpoint pos + timer offset) from the save slot, if any.
+            _resumeSpawnPos = null;
+            _resumeTimerOffset = 0f;
+            if (currentScene != "TutorialStage")
+            {
+                var slot = SaveDataManager.GetSlot(SaveDataManager.CurrentSlotIndex);
+                if (slot != null && slot.hasCheckpoint && slot.stageName == currentScene)
+                {
+                    _resumeSpawnPos = new Vector3(slot.checkpointX, slot.checkpointY, 0f);
+                    _resumeTimerOffset = slot.stageElapsed;
+                    CheckpointManager.lastCheckpointPosition = _resumeSpawnPos.Value;
+                    CheckpointManager.hasCheckpoint = true;
+                    Debug.Log($"<color=orange>[Spawner]</color> resume checkpoint @ ({slot.checkpointX:0.0},{slot.checkpointY:0.0}) offset {slot.stageElapsed:0.00}s");
+                }
+            }
+
             if (currentScene == "TutorialStage")
             {
                 RunManager.ResetRun(); // �� �� ����: ���� �ʱ�ȭ (Ʃ�丮���� Ÿ�̸� ����)
@@ -90,7 +113,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
                 {
                     var timerObj = runner.Spawn(timerPrefab);
                     var nt = timerObj != null ? timerObj.GetComponent<NetworkTimer>() : null;
-                    if (nt != null) nt.StartWithIntro(2f);
+                    if (nt != null) nt.StartWithIntro(2f, _resumeTimerOffset);
                     Debug.Log("<color=orange>[Timer]</color> NetworkTimer ?�성 �??�작 ?�료!");
                 }
                 else
@@ -128,6 +151,17 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
         // StartPoint ?�브?�트 찾기
         Vector3 spawnPos = new Vector3(-20f, -7f, 0f); // 기본�?
+        // Phase2: resume at the saved checkpoint position when loading mid-stage.
+        if (_resumeSpawnPos.HasValue)
+        {
+            Vector3 rp = _resumeSpawnPos.Value;
+            if (player.PlayerId % 2 == 0) rp.x += 1.5f;
+            NetworkObject rpf = (selectedIndex == 0) ? player1Prefab : player2Prefab;
+            Debug.Log($"<color=green>[Spawn]</color> resume player {player} @ checkpoint");
+            runner.Spawn(rpf, rp, Quaternion.identity, player);
+            return;
+        }
+
         GameObject startPoint = GameObject.Find("StartPoint");
 
         if (startPoint != null)

@@ -10,7 +10,13 @@ public class SaveSlotData
     public string stageName = "TutorialStage";
     public string stageDisplayName = "튜토리얼 (Tutorial)";
     public string updatedTime = "";
-    public float totalPlayTime = 0f;
+    public float totalPlayTime = 0f;      // 이전 스테이지들의 누적 기록 (완료한 구간 합)
+
+    // Phase2: 현재 스테이지 중간 체크포인트 이어하기용
+    public float stageElapsed = 0f;       // 마지막 체크포인트 시점의 현재 스테이지 경과시간
+    public float checkpointX = 0f;
+    public float checkpointY = 0f;
+    public bool hasCheckpoint = false;    // 현재 스테이지에 저장된 체크포인트가 있는지
 
     public SaveSlotData() { }
 
@@ -227,6 +233,50 @@ public static class SaveDataManager
         data.totalPlayTime += addPlayTime;
         SaveSlot(data);
         Debug.Log($"<color=cyan>[SaveDataManager]</color> 슬롯 {slot} 진행도 업데이트: {data.stageDisplayName} ({data.stageName})");
+    }
+
+    // 진행 스테이지 + "현재까지의 누적 기록(절대값)"을 함께 저장한다. (이어하기 시 합산 복원용)
+    // UpdateProgress 의 '+=' 와 달리 절대값으로 덮어써서, 같은 스테이지 재시도 시 중복 누적을 막는다.
+    public static void SaveProgressWithTime(string nextSceneName, float totalRunSeconds)
+    {
+        int slot = CurrentSlotIndex;
+        var data = GetSlot(slot);
+        if (!data.hasData)
+        {
+            data.hasData = true;
+            data.slotIndex = slot;
+        }
+
+        data.stageName = nextSceneName;
+        data.stageDisplayName = GetStageDisplayName(nextSceneName);
+        data.totalPlayTime = totalRunSeconds < 0f ? 0f : totalRunSeconds;
+        // 새 스테이지 진입이므로 중간 체크포인트 정보는 초기화 (처음부터 시작)
+        data.stageElapsed = 0f;
+        data.hasCheckpoint = false;
+        SaveSlot(data);
+        Debug.Log($"<color=cyan>[SaveDataManager]</color> 진행+기록 저장: {data.stageDisplayName} / 누적 {data.totalPlayTime:0.00}s");
+    }
+
+    // Phase2: 스테이지 중간 체크포인트 저장 (이어하기 시 그 지점 + 타이머부터 복원).
+    public static void SaveCheckpoint(string stageName, float accumulatedSeconds, float stageElapsedSeconds, Vector3 checkpointPos)
+    {
+        int slot = CurrentSlotIndex;
+        var data = GetSlot(slot);
+        if (!data.hasData)
+        {
+            data.hasData = true;
+            data.slotIndex = slot;
+        }
+
+        data.stageName = stageName;
+        data.stageDisplayName = GetStageDisplayName(stageName);
+        data.totalPlayTime = accumulatedSeconds < 0f ? 0f : accumulatedSeconds;
+        data.stageElapsed = stageElapsedSeconds < 0f ? 0f : stageElapsedSeconds;
+        data.checkpointX = checkpointPos.x;
+        data.checkpointY = checkpointPos.y;
+        data.hasCheckpoint = true;
+        SaveSlot(data);
+        Debug.Log($"<color=cyan>[SaveDataManager]</color> 체크포인트 저장: {stageName} / 누적 {data.totalPlayTime:0.00}s / 구간 {data.stageElapsed:0.00}s @ ({checkpointPos.x:0.0},{checkpointPos.y:0.0})");
     }
 
     public static string GetStageDisplayName(string stageName)

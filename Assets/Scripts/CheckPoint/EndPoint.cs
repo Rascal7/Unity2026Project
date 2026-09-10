@@ -31,7 +31,10 @@ public class EndPoint : MonoBehaviour
             float seg = nt.PauseForChoice();
             RunManager.AddSegment(seg);
             RunManager.PendingNextScene = nextSceneName;
-            Debug.Log($"<color=cyan>[EndPoint]</color> 스테이지 클리어(구간 {seg:0.00}s). 누적 기록. 다음 씬: {nextSceneName}");
+            // 스테이지 클리어 시점에 "다음 스테이지"로 진행 저장 (체크포인트 초기화).
+            // -> [다음 스테이지]를 누르든 [로비로]를 누르든, 이어하기는 다음 스테이지 시작부터.
+            SaveDataManager.SaveProgressWithTime(nextSceneName, RunManager.AccumulatedTime);
+            Debug.Log($"<color=cyan>[EndPoint]</color> 스테이지 클리어(구간 {seg:0.00}s). 누적 기록 → 다음 씬 진행 저장: {nextSceneName}");
             return;
         }
 
@@ -51,7 +54,7 @@ public class EndPoint : MonoBehaviour
         // 폴백: 컨트롤러가 없으면 기존처럼 즉시 이동
         Debug.Log($"<color=cyan>[EndPoint]</color> (타이머 없음) 즉시 이동: {nextSceneName}");
         CheckpointManager.ResetCheckpoint();
-        SaveDataManager.UpdateProgress(nextSceneName);
+        SaveDataManager.SaveProgressWithTime(nextSceneName, RunManager.AccumulatedTime);
         int idx = GetSceneIndex(nextSceneName);
         if (runner != null && runner.IsServer && idx >= 0)
             runner.LoadScene(SceneRef.FromIndex(idx));

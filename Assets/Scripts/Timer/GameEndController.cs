@@ -5,27 +5,29 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-// NetworkTimer.Phase ¸¦ º¸°í Á¾·á È­¸éÀ» ¶ç¿î´Ù. ¾À¿¡ ¹èÄ¡ÇÒ ÇÊ¿ä ¾øÀÌ ½º½º·Î ºÎÆ®½ºÆ®·¦µÈ´Ù.
-//   AwaitingChoice(Áß°£ °ñ) ¡æ "STAGE CLEAR" + [´ÙÀ½ ½ºÅ×ÀÌÁö]/[·Îºñ] ¼±ÅÃ (´ÙÀ½Àº È£½ºÆ®¸¸)
-//   Finished(ÃÖÁ¾ °ñ)        ¡æ "ALL CLEAR" + ÇÕ»ê ±â·Ï Ç¥½Ã + ÀÚµ¿ ·Îºñ º¹±Í
+// NetworkTimer.Phase ì— ë”°ë¼ ì¢…ë£Œ í™”ë©´ì„ ë„ìš´ë‹¤. ì”¬ì— ë°°ì¹˜í•  í•„ìš” ì—†ì´ ìŠ¤ìŠ¤ë¡œ ë¶€íŠ¸ìŠ¤íŠ¸ë©ëœë‹¤.
+//   AwaitingChoice(ì¤‘ê°„ í´ë¦¬ì–´) â†’ "STAGE CLEAR" + [ë‹¤ìŒ ìŠ¤í…Œì´ì§€]/[ë¡œë¹„ë¡œ] ì„ íƒ (ë‹¤ìŒì€ í˜¸ìŠ¤íŠ¸ë§Œ)
+//   Finished(ìµœì¢… í´ë¦¬ì–´)       â†’ "ALL CLEAR" + ê¸°ë¡ í‘œì‹œ + ìë™ ë¡œë¹„ ë³µê·€
 public class GameEndController : MonoBehaviour
 {
     public static GameEndController Instance { get; private set; }
 
-    public static event Action<float> OnRunFinished; // ÃÖÁ¾ Å¬¸®¾î(ÇÕ»ê½Ã°£) ½Ã ºê·ÎµåÄ³½ºÆ®
+    public static event Action<float> OnRunFinished; // ìµœì¢… í´ë¦¬ì–´(í•©ì‚°ì‹œê°„) ë¸Œë¡œë“œìºìŠ¤íŠ¸
 
-    [Header("¿É¼Ç")]
+    [Header("ì˜µì…˜")]
     public string lobbySceneName = "Lobby";
-    public float autoReturnDelay = 10f; // ÃÖÁ¾ Å¬¸®¾î ÈÄ ÀÚµ¿ ·Îºñ º¹±Í±îÁö (ÃÊ)
+    public float autoReturnDelay = 10f; // ìµœì¢… í´ë¦¬ì–´ í›„ ìë™ ë¡œë¹„ ë³µê·€ê¹Œì§€ (ì´ˆ)
 
-    private int _shownPhase = -1;   // ÇöÀç È­¸é¿¡ Ç¥½Ã ÁßÀÎ Phase (-1 = ¼û±è)
+    private int _shownPhase = -1;   // í˜„ì¬ í™”ë©´ì— í‘œì‹œ ì¤‘ì¸ Phase (-1 = ì—†ìŒ)
     private bool _returning;
     private float _shownAtUnscaled;
+    private int _pendingRecordRank = -1;   // ì´ë²ˆ ëŸ°ì˜ ìˆœìœ„ (1..5), ì—†ìœ¼ë©´ -1
 
     private GameObject _root;
     private Text _titleText;
     private Text _timeText;
     private Text _hintText;
+    private Text _recordText;      // New Record í‘œì‹œ ì¤„ (ALL CLEAR ì¹´ë“œì— í†µí•©)
     private GameObject _nextBtn;
     private GameObject _lobbyBtn;
 
@@ -43,11 +45,13 @@ public class GameEndController : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
         SceneManager.sceneLoaded += OnSceneLoaded;
+        RankingManager.OnTopRankAchieved += OnTopRank;
     }
 
     private void OnDestroy()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        RankingManager.OnTopRankAchieved -= OnTopRank;
         if (Instance == this) Instance = null;
     }
 
@@ -55,6 +59,7 @@ public class GameEndController : MonoBehaviour
     {
         _shownPhase = -1;
         _returning = false;
+        _pendingRecordRank = -1;
         if (_root != null) _root.SetActive(false);
     }
 
@@ -71,35 +76,35 @@ public class GameEndController : MonoBehaviour
 
         int phase = nt.Phase;
 
-        // ÁøÇà ÁßÀÌ¸é È­¸é ¼û±è (´ÙÀ½ ½ºÅ×ÀÌÁö ½ÃÀÛ µî)
-        if (phase == NetworkTimer.PhaseRunning)
+        // ê²Œì„ ì§„í–‰ ì¤‘ì´ë©´ í™”ë©´ ìˆ¨ê¹€ (ì¸íŠ¸ë¡œ/ëŸ¬ë‹ í¬í•¨)
+        if (phase == NetworkTimer.PhaseRunning || phase == NetworkTimer.PhaseIntro)
         {
             if (_shownPhase != -1) Hide();
             return;
         }
 
-        // Ç¥½ÃÇÒ ´Ü°è°¡ ¹Ù²î¾úÀ¸¸é È­¸é °»½Å
+        // í‘œì‹œí•  ë‹¨ê³„ê°€ ë°”ë€Œì—ˆìœ¼ë©´ í™”ë©´ ê°±ì‹ 
         if (phase != _shownPhase)
         {
             if (phase == NetworkTimer.PhaseAwaitingChoice) ShowChoice(nt.FinalTime);
             else if (phase == NetworkTimer.PhaseFinished) ShowFinal(nt.FinalTime);
         }
 
-        // ÃÖÁ¾ Å¬¸®¾î: ÀÚµ¿ ·Îºñ º¹±Í Ä«¿îÆ®´Ù¿î
+        // ìµœì¢… í´ë¦¬ì–´: ìë™ ë¡œë¹„ ë³µê·€ ì¹´ìš´íŠ¸ë‹¤ìš´
         if (_shownPhase == NetworkTimer.PhaseFinished)
         {
             float elapsed = Time.unscaledTime - _shownAtUnscaled;
             if (_hintText != null && autoReturnDelay > 0f)
             {
                 int left = Mathf.Max(0, Mathf.CeilToInt(autoReturnDelay - elapsed));
-                _hintText.text = left + "ÃÊ ÈÄ ·Îºñ·Î ÀÌµ¿   ¡¤   [R] Áö±İ ÀÌµ¿";
+                _hintText.text = left + "ì´ˆ í›„ ë¡œë¹„ë¡œ ì´ë™   Â·   [R] ì¦‰ì‹œ ì´ë™";
             }
             if (Input.GetKeyDown(KeyCode.R)) { OnLobby(); return; }
             if (autoReturnDelay > 0f && elapsed >= autoReturnDelay) OnLobby();
         }
     }
 
-    // ---------- È­¸é Ç¥½Ã ----------
+    // ---------- í™”ë©´ í‘œì‹œ ----------
     private void ShowChoice(float segmentTime)
     {
         EnsureUI();
@@ -107,13 +112,15 @@ public class GameEndController : MonoBehaviour
         _shownAtUnscaled = Time.unscaledTime;
         _root.SetActive(true);
 
+        if (_recordText != null) _recordText.gameObject.SetActive(false); // ì¤‘ê°„ í´ë¦¬ì–´ì—” New Record ì—†ìŒ
         _titleText.text = "STAGE CLEAR!";
-        _timeText.text = "ÀÌ¹ø ±¸°£ " + FormatTime(segmentTime) + "     ´©Àû " + FormatTime(RunManager.AccumulatedTime);
+        // ì´ë²ˆ ìŠ¤í…Œì´ì§€ ê¸°ë¡ë§Œ í‘œì‹œ (ëˆ„ì  í‘œê¸° ì œê±°)
+        _timeText.text = "ê¸°ë¡  " + FormatTime(segmentTime);
 
         bool isHost = IsHost();
-        _nextBtn.SetActive(isHost);         // ´ÙÀ½ ½ºÅ×ÀÌÁö´Â È£½ºÆ®¸¸
-        _lobbyBtn.SetActive(true);          // ·Îºñ´Â ´©±¸³ª
-        _hintText.text = isHost ? "" : "´ÙÀ½ ½ºÅ×ÀÌÁö´Â È£½ºÆ®°¡ ¼±ÅÃÇÕ´Ï´Ù";
+        _nextBtn.SetActive(isHost);         // ë‹¤ìŒ ìŠ¤í…Œì´ì§€ëŠ” í˜¸ìŠ¤íŠ¸ë§Œ
+        _lobbyBtn.SetActive(true);          // ë¡œë¹„ëŠ” ëˆ„êµ¬ë‚˜
+        _hintText.text = isHost ? "" : "ë‹¤ìŒ ìŠ¤í…Œì´ì§€ëŠ” í˜¸ìŠ¤íŠ¸ê°€ ì§„í–‰í•©ë‹ˆë‹¤";
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -127,10 +134,11 @@ public class GameEndController : MonoBehaviour
         _root.SetActive(true);
 
         _titleText.text = "ALL CLEAR!";
-        _timeText.text = "ÇÕ»ê ±â·Ï  " + FormatTime(totalTime);
+        _timeText.text = "ê¸°ë¡  " + FormatTime(totalTime);
         _nextBtn.SetActive(false);
         _lobbyBtn.SetActive(false);
         _hintText.text = "";
+        ApplyRecord();   // ìˆœìœ„ë¥¼ ì´ë¯¸ ë°›ì•˜ìœ¼ë©´ New Record ì¤„ í‘œì‹œ (ì—†ìœ¼ë©´ ìˆ¨ê¹€)
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -140,27 +148,42 @@ public class GameEndController : MonoBehaviour
         catch (Exception e) { Debug.LogException(e); }
     }
 
+    // RankingManager ê°€ TOP5 ì§„ì…ì„ ì•Œë ¤ì£¼ë©´ ìˆœìœ„ë¥¼ ì €ì¥í•˜ê³ , ìµœì¢… ì¹´ë“œê°€ ë–  ìˆìœ¼ë©´ ì¦‰ì‹œ í‘œì‹œ.
+    private void OnTopRank(int rank, float time)
+    {
+        _pendingRecordRank = rank;
+        if (_shownPhase == NetworkTimer.PhaseFinished) ApplyRecord();
+    }
+
+    private void ApplyRecord()
+    {
+        if (_recordText == null) return;
+        bool top = _pendingRecordRank >= 1 && _pendingRecordRank <= 5;
+        if (top) _recordText.text = "â˜… NEW RECORD ãƒ» " + _pendingRecordRank + "ìœ„ â˜…";
+        _recordText.gameObject.SetActive(top);
+    }
+
     private void Hide()
     {
         _shownPhase = -1;
         if (_root != null) _root.SetActive(false);
     }
 
-    // ---------- ¹öÆ° ÇÚµé·¯ ----------
+    // ---------- ë²„íŠ¼ í•¸ë“¤ëŸ¬ ----------
     private void OnNext()
     {
         var runner = FindFirstObjectByType<NetworkRunner>();
-        if (runner == null || !runner.IsServer) return; // ¾À ·Îµå´Â È£½ºÆ®¸¸
+        if (runner == null || !runner.IsServer) return; // ì”¬ ë¡œë“œëŠ” í˜¸ìŠ¤íŠ¸ë§Œ
 
         string next = RunManager.PendingNextScene;
         if (string.IsNullOrEmpty(next))
         {
-            Debug.LogWarning("<color=yellow>[Ending]</color> ´ÙÀ½ ¾À ÀÌ¸§ÀÌ ºñ¾î ÀÖ½À´Ï´Ù.");
+            Debug.LogWarning("<color=yellow>[Ending]</color> ë‹¤ìŒ ì”¬ ì´ë¦„ì´ ë¹„ì–´ ìˆìŠµë‹ˆë‹¤.");
             return;
         }
 
         CheckpointManager.ResetCheckpoint();
-        SaveDataManager.UpdateProgress(next);
+        SaveDataManager.SaveProgressWithTime(next, RunManager.AccumulatedTime);
         Hide();
 
         int idx = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{next}.unity");
@@ -193,7 +216,7 @@ public class GameEndController : MonoBehaviour
         return runner != null && runner.IsServer;
     }
 
-    // ---------- ·±Å¸ÀÓ UI »ı¼º (legacy uGUI) ----------
+    // ---------- ëŸ°íƒ€ì„ UI ìƒì„± (legacy uGUI) ----------
     private void EnsureUI()
     {
         if (_root != null) return;
@@ -204,7 +227,9 @@ public class GameEndController : MonoBehaviour
             DontDestroyOnLoad(es);
         }
 
-        Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        // í•œê¸€ ì§€ì› í°íŠ¸(Sunflower) ìš°ì„  ë¡œë“œ. Arial(LegacyRuntime)ì€ í•œê¸€ ê¸€ë¦¬í”„ê°€ ì—†ì–´ ì¹´ë“œ í•œê¸€ì´ ê¹¨ì§„ë‹¤.
+        Font font = Resources.Load<Font>("Sunflower-Medium");
+        if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
         _root = new GameObject("EndingCanvas");
@@ -232,10 +257,16 @@ public class GameEndController : MonoBehaviour
             new Vector2(0.5f, 0.44f), new Vector2(1500, 80), "");
         _hintText.color = new Color(1f, 1f, 1f, 0.7f);
 
+        // New Record ì¤„ (ìµœì¢… ì¹´ë“œ ìƒë‹¨, ê³¨ë“œ). ê¸°ë³¸ ìˆ¨ê¹€.
+        _recordText = CreateText("Record", _root.transform, font, 64, FontStyle.Bold,
+            new Vector2(0.5f, 0.85f), new Vector2(1600, 130), "");
+        _recordText.color = new Color(1f, 0.92f, 0.35f);
+        _recordText.gameObject.SetActive(false);
+
         _nextBtn = CreateButton("NextButton", new Vector2(0.5f, 0.28f), new Vector2(200f, 0f),
-            new Color(0.98f, 0.82f, 0.42f), new Color(0.12f, 0.07f, 0.02f), "´ÙÀ½ ½ºÅ×ÀÌÁö", font, OnNext);
+            new Color(0.98f, 0.82f, 0.42f), new Color(0.12f, 0.07f, 0.02f), "ë‹¤ìŒ ìŠ¤í…Œì´ì§€", font, OnNext);
         _lobbyBtn = CreateButton("LobbyButton", new Vector2(0.5f, 0.28f), new Vector2(-200f, 0f),
-            new Color(0.55f, 0.6f, 0.66f), new Color(0.1f, 0.1f, 0.12f), "·Îºñ·Î", font, OnLobby);
+            new Color(0.55f, 0.6f, 0.66f), new Color(0.1f, 0.1f, 0.12f), "ë¡œë¹„ë¡œ", font, OnLobby);
 
         _root.SetActive(false);
     }

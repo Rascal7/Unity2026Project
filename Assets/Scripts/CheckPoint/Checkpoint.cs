@@ -5,8 +5,8 @@ public class Checkpoint : MonoBehaviour
     private Animator animator;
     private bool isActivated = false;
 
-    [Header("¿£µù ¼³Á¤")]
-    public bool isEndGoal = false; // ¸¶Áö¸· ½ºÅ×ÀÌÁöÀÇ ÃÖÁ¾ ÁöÁ¡ÀÌ¸é ÀÎ½ºÆåÅÍ¿¡¼­ Ã¼Å©
+    [Header("ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½")]
+    public bool isEndGoal = false; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ì¸ï¿½ ï¿½Î½ï¿½ï¿½ï¿½ï¿½Í¿ï¿½ï¿½ï¿½ Ã¼Å©
 
     private void Awake()
     {
@@ -15,18 +15,22 @@ public class Checkpoint : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        // 1. ÇÃ·¹ÀÌ¾î ÅÂ±× È®ÀÎ ¹× Áßº¹ ¹æÁö
+        // 1. ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½Â±ï¿½ È®ï¿½ï¿½ ï¿½ï¿½ ï¿½ßºï¿½ ï¿½ï¿½ï¿½ï¿½
         if (other.CompareTag("Player") && !isActivated)
         {
-            // 2. Ã¼Å©Æ÷ÀÎÆ® À§Ä¡ ÀúÀå
+            // 2. Ã¼Å©ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½ï¿½
             CheckpointManager.lastCheckpointPosition = transform.position;
             CheckpointManager.hasCheckpoint = true;
-            Debug.Log($"<color=green>[Checkpoint]</color> À§Ä¡ ÀúÀå: {transform.position}");
+            Debug.Log($"<color=green>[Checkpoint]</color> ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½ï¿½: {transform.position}");
 
-            // 3. ¸¶Áö¸· ¸ñÀûÁö(ÃÖÁ¾ °ñ)ÀÎÁö È®ÀÎ
+            // 3. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½)ï¿½ï¿½ï¿½ï¿½ È®ï¿½ï¿½
             if (isEndGoal)
             {
                 HandleFinalClear();
+            }
+            else
+            {
+                SaveCheckpointProgress();
             }
 
             isActivated = true;
@@ -38,25 +42,39 @@ public class Checkpoint : MonoBehaviour
         }
     }
 
-    // ÃÖÁ¾ °ñ: ¸¶Áö¸· ±¸°£À» ´©Àû¿¡ ´õÇØ "ÇÕ»ê ½Ã°£"À» ·©Å·¿¡ ¿Ã¸®°í, Á¾·á È­¸éÀ» ¶ç¿î´Ù.
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ "ï¿½Õ»ï¿½ ï¿½Ã°ï¿½"ï¿½ï¿½ ï¿½ï¿½Å·ï¿½ï¿½ ï¿½Ã¸ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ È­ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½.
+    // Phase2: mid-stage checkpoint. Persist current position + timer for continue-from-checkpoint.
+    // Host only, and only while the run timer is actually running.
+    private void SaveCheckpointProgress()
+    {
+        var nt = NetworkTimer.Instance;
+        if (nt == null || nt.Phase != NetworkTimer.PhaseRunning) return;
+
+        var runner = FindFirstObjectByType<Fusion.NetworkRunner>();
+        if (runner != null && !runner.IsServer) return;
+
+        string scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        SaveDataManager.SaveCheckpoint(scene, RunManager.AccumulatedTime, nt.ElapsedTime, transform.position);
+    }
+
     private void HandleFinalClear()
     {
         var nt = NetworkTimer.Instance;
         if (nt == null || nt.Phase != NetworkTimer.PhaseRunning) return;
 
-        // Á¤Áö/ÀúÀåÀº È£½ºÆ®¸¸. Á¾·á È­¸éÀº °¢ ÇÇ¾îÀÇ GameEndController °¡ Phase ¸¦ º¸°í Ç¥½Ã.
+        // ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ È£ï¿½ï¿½Æ®ï¿½ï¿½. ï¿½ï¿½ï¿½ï¿½ È­ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ç¾ï¿½ï¿½ï¿½ GameEndController ï¿½ï¿½ Phase ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Ç¥ï¿½ï¿½.
         var runner = FindFirstObjectByType<Fusion.NetworkRunner>();
         if (runner != null && !runner.IsServer) return;
 
-        float seg = nt.ElapsedTime;                        // ÀÌ ¸¶Áö¸· ½ºÅ×ÀÌÁö ±¸°£
-        float total = RunManager.AccumulatedTime + seg;    // ¾Õ ½ºÅ×ÀÌÁöµé + ¸¶Áö¸· ±¸°£ = ÇÕ»ê
-        nt.FinishRun(total);                               // Phase=Finished, FinalTime=ÇÕ»ê (Àü ÇÇ¾î µ¿±âÈ­)
+        float seg = nt.ElapsedTime;                        // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+        float total = RunManager.AccumulatedTime + seg;    // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ + ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ = ï¿½Õ»ï¿½
+        nt.FinishRun(total);                               // Phase=Finished, FinalTime=ï¿½Õ»ï¿½ (ï¿½ï¿½ ï¿½Ç¾ï¿½ ï¿½ï¿½ï¿½ï¿½È­)
 
         var ranking = RankingManager.GetOrCreate();
         if (ranking != null) ranking.SaveScore(total);
-        else Debug.LogError("<color=red>[Critical]</color> RankingManager ¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù!");
+        else Debug.LogError("<color=red>[Critical]</color> RankingManager ï¿½ï¿½ Ã£ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½!");
 
         RunManager.ResetRun();
-        Debug.Log($"<color=lime>[Success]</color> ALL CLEAR! ÇÕ»ê ±â·Ï: {total:0.00}ÃÊ");
+        Debug.Log($"<color=lime>[Success]</color> ALL CLEAR! ï¿½Õ»ï¿½ ï¿½ï¿½ï¿½: {total:0.00}ï¿½ï¿½");
     }
 }

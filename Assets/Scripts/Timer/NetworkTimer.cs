@@ -49,7 +49,7 @@ public class NetworkTimer : NetworkBehaviour
                 if (IntroRemaining <= 0f)
                 {
                     IntroRemaining = 0f;
-                    ElapsedTime = 0f;
+                    // Keep ElapsedTime at the start offset set by StartWithIntro (resume support); do not reset to 0.
                     IsRunning = true;
                     Phase = PhaseRunning;
                 }
@@ -75,10 +75,10 @@ public class NetworkTimer : NetworkBehaviour
 
     // Begin the stage with a short STAGE-card intro. Timer stays at 0 until IntroRemaining hits 0.
     // introSeconds <= 0 starts the run immediately (same as StartTimer).
-    public void StartWithIntro(float introSeconds)
+    public void StartWithIntro(float introSeconds, float startElapsed = 0f)
     {
         if (!HasStateAuthority) return;
-        ElapsedTime = 0f;
+        ElapsedTime = startElapsed < 0f ? 0f : startElapsed;   // resume offset (0 for a fresh stage)
         FinalTime = 0f;
         IsFinished = false;
         if (introSeconds > 0f)

@@ -164,7 +164,7 @@ public class TutorialFlowController : MonoBehaviour
 
         _busy = true;
         CheckpointManager.ResetCheckpoint();
-        SaveDataManager.UpdateProgress(sceneName);
+        SaveDataManager.SaveProgressWithTime(sceneName, RunManager.AccumulatedTime);
         HideAll();
 
         int idx = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{sceneName}.unity");

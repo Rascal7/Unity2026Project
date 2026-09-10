@@ -1,19 +1,19 @@
 using UnityEngine;
-using TMPro; // TextMeshPro »ç¿ëÀ» À§ÇØ ÇÊ¼ö
+using TMPro; // TextMeshPro ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ê¼ï¿½
 
 public class TimerManager : MonoBehaviour
 {
     public static TimerManager Instance;
 
     [Header("Status")]
-    public float elapsedTime = 0f;    // ´©Àû ½Ã°£ (ÃÊ ´ÜÀ§)
+    public float elapsedTime = 0f;    // ï¿½ï¿½ï¿½ï¿½ ï¿½Ã°ï¿½ (ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
     public bool isTimerRunning = false;
 
-    private TextMeshProUGUI timerText; // È­¸é¿¡ ½Ã°£À» Ç¥½ÃÇÒ UI
+    private TextMeshProUGUI timerText; // È­ï¿½é¿¡ ï¿½Ã°ï¿½ï¿½ï¿½ Ç¥ï¿½ï¿½ï¿½ï¿½ UI
 
     private void Awake()
     {
-        // ½Ì±ÛÅæ ÆÐÅÏ: ¾ÀÀÌ ¹Ù²î¾îµµ ÇÏ³ª¸¸ Á¸ÀçÇÏ°Ô À¯Áö
+        // ï¿½Ì±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½ ï¿½Ù²ï¿½îµµ ï¿½Ï³ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½ ï¿½ï¿½ï¿½ï¿½
         if (Instance == null)
         {
             Instance = this;
@@ -27,15 +27,23 @@ public class TimerManager : MonoBehaviour
 
     private void Update()
     {
-        // ³×Æ®¿öÅ© Å¸ÀÌ¸Ó°¡ ÀÖÀ¸¸é ±× °ªÀ» Ç¥½Ã (Àü ÇÇ¾î µ¿ÀÏ°ª)
+        // ï¿½ï¿½Æ®ï¿½ï¿½Å© Å¸ï¿½Ì¸Ó°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Ç¥ï¿½ï¿½ (ï¿½ï¿½ ï¿½Ç¾ï¿½ ï¿½ï¿½ï¿½Ï°ï¿½)
         var nt = NetworkTimer.Instance;
         if (nt != null)
         {
-            SetDisplayTime(nt.IsFinished ? nt.FinalTime : nt.ElapsedTime);
+            // Cumulative display: previous stages (RunManager.AccumulatedTime) + this stage's elapsed.
+            // - Finished: FinalTime already is the full total (AccumulatedTime was reset right after).
+            // - AwaitingChoice: the just-finished segment is already folded into AccumulatedTime, so don't add ElapsedTime.
+            // - Intro/Running: show accumulated + current elapsed (intro holds elapsed at 0).
+            float shown;
+            if (nt.IsFinished) shown = nt.FinalTime;
+            else if (nt.Phase == NetworkTimer.PhaseAwaitingChoice) shown = RunManager.AccumulatedTime;
+            else shown = RunManager.AccumulatedTime + nt.ElapsedTime;
+            SetDisplayTime(shown);
             return;
         }
 
-        // Æú¹é: ³×Æ®¿öÅ© Å¸ÀÌ¸Ó°¡ ¾øÀ» ¶§(¿¡µðÅÍ ´Üµ¶ ½ÇÇà µî) ·ÎÄÃ ´©Àû
+        // ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½Æ®ï¿½ï¿½Å© Å¸ï¿½Ì¸Ó°ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Üµï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½) ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         if (isTimerRunning)
         {
             elapsedTime += Time.deltaTime;
@@ -43,7 +51,7 @@ public class TimerManager : MonoBehaviour
         }
     }
 
-    // ÃÊ ´ÜÀ§ ½Ã°£À» 00:00.00 Çü½ÄÀ¸·Î È­¸é¿¡ Ç¥½Ã
+    // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ã°ï¿½ï¿½ï¿½ 00:00.00 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ È­ï¿½é¿¡ Ç¥ï¿½ï¿½
     public void SetDisplayTime(float t)
     {
         if (timerText == null) return;
@@ -54,10 +62,10 @@ public class TimerManager : MonoBehaviour
         timerText.text = string.Format("{0:00}:{1:00}.{2:00}", minutes, seconds, centiseconds);
     }
 
-    // »õ·Î¿î ¸ÊÀÌ ·ÎµåµÉ ¶§¸¶´Ù ÇØ´ç ¸ÊÀÇ UI¸¦ Ã£¾Æ ¿¬°áÇÏ´Â ÇÔ¼ö
+    // ï¿½ï¿½ï¿½Î¿ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Îµï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ø´ï¿½ ï¿½ï¿½ï¿½ï¿½ UIï¿½ï¿½ Ã£ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½Ô¼ï¿½
     public void FindTimerUI()
     {
-        GameObject uiObj = GameObject.Find("TimerText"); // ¾À ³» "TimerText"¶ó´Â ÀÌ¸§ÀÇ ¿ÀºêÁ§Æ® °Ë»ö
+        GameObject uiObj = GameObject.Find("TimerText"); // ï¿½ï¿½ ï¿½ï¿½ "TimerText"ï¿½ï¿½ï¿½ ï¿½Ì¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½Ë»ï¿½
         if (uiObj != null)
         {
             timerText = uiObj.GetComponent<TextMeshProUGUI>();
@@ -68,7 +76,7 @@ public class TimerManager : MonoBehaviour
     {
         if (timerText != null)
         {
-            // 00:00.00 Çü½Ä (ºÐ:ÃÊ.¹Ð¸®ÃÊ)
+            // 00:00.00 ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½:ï¿½ï¿½.ï¿½Ð¸ï¿½ï¿½ï¿½)
             int minutes = Mathf.FloorToInt(elapsedTime / 60);
             int seconds = Mathf.FloorToInt(elapsedTime % 60);
             float milliseconds = (elapsedTime % 1) * 100;
@@ -81,12 +89,12 @@ public class TimerManager : MonoBehaviour
     public void StopTimer()
     {
         isTimerRunning = false;
-        UpdateTimerUI(); // Á¤Áö ½ÃÁ¡ÀÇ elapsedTimeÀ» È­¸é¿¡ ±×´ë·Î ¹Ý¿µ(ÀúÀå°ª°ú Ç¥½Ã°ª ÀÏÄ¡)
+        UpdateTimerUI(); // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ elapsedTimeï¿½ï¿½ È­ï¿½é¿¡ ï¿½×´ï¿½ï¿½ ï¿½Ý¿ï¿½(ï¿½ï¿½ï¿½å°ªï¿½ï¿½ Ç¥ï¿½Ã°ï¿½ ï¿½ï¿½Ä¡)
     }
 
     public void ResetTimer()
     {
         elapsedTime = 0f;
-        UpdateTimerUI(); // 00:00.00 À¸·Î ÃÊ±âÈ­
+        UpdateTimerUI(); // 00:00.00 ï¿½ï¿½ï¿½ï¿½ ï¿½Ê±ï¿½È­
     }
 }

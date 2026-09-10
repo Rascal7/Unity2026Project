@@ -9,6 +9,9 @@ public class RankingManager : MonoBehaviour
     public static RankingManager Instance;
     private bool _isAutoInstance = false;
 
+    // TOP5 진입 시 (순위, 기록초) 브로드캐스트 — NewRecordUI 가 구독해 축하 연출.
+    public static event System.Action<int, float> OnTopRankAchieved;
+
     [Header("Firebase Realtime Database")]
     [SerializeField]
     private string _firebaseBaseUrl = "https://unity-93c2a-default-rtdb.asia-southeast1.firebasedatabase.app/";
@@ -50,7 +53,7 @@ public class RankingManager : MonoBehaviour
         p1 = string.IsNullOrWhiteSpace(p1) ? "Player1" : p1.Trim();
         p2 = string.IsNullOrWhiteSpace(p2) ? "Player2" : p2.Trim();
         Debug.Log($"<color=cyan>[Ranking]</color> 클리어 {time:F2}초 랭킹 등록 시도 ({p1} & {p2})");
-        StartCoroutine(PostRankingData(p1, p2, time));
+        StartCoroutine(SaveAndEvaluateRoutine(p1, p2, time));
     }
 
     // 씬의 PlayerNameTag에서 닉네임 수집
@@ -75,6 +78,77 @@ public class RankingManager : MonoBehaviour
         string baseUrl = _firebaseBaseUrl.Trim();
         if (!baseUrl.EndsWith("/")) baseUrl += "/";
         return baseUrl + pathAndQuery;
+    }
+
+    // 최근 리더보드(상위 5) 캐시 — 클리어 즉시 순위 판정용. Prefetch 로 미리 채운다.
+    private static List<RankData> _cachedTop = null;
+
+    // 스테이지 진입 등에서 미리 호출해두면, 클리어 순간 네트워크 대기 없이 순위를 계산할 수 있다.
+    public static void PrefetchLeaderboard()
+    {
+        var rm = GetOrCreate();
+        if (rm != null) rm.StartCoroutine(rm.FetchTopRoutine());
+    }
+
+    private IEnumerator FetchTopRoutine()
+    {
+        string url = GetFirebaseEndpoint("ranks.json?orderBy=\"clearTime\"&limitToFirst=5");
+        using (UnityWebRequest req = UnityWebRequest.Get(url))
+        {
+            yield return req.SendWebRequest();
+            if (req.result == UnityWebRequest.Result.Success)
+                _cachedTop = ParseFirebaseRanks(req.downloadHandler.text);
+        }
+    }
+
+    private static int ComputeRank(List<RankData> top, float time)
+    {
+        if (top == null) return -1;
+        int faster = 0;
+        foreach (var r in top) if (r.clearTime < (double)time) faster++;
+        return faster + 1; // 나보다 빠른 기록 수 + 1
+    }
+
+    private void FireIfTop(int rank, float time)
+    {
+        if (rank >= 1 && rank <= 5)
+        {
+            Debug.Log($"<color=magenta>[Ranking]</color> NEW RECORD! {rank}위 ({time:F2}s)");
+            try { OnTopRankAchieved?.Invoke(rank, time); }
+            catch (System.Exception e) { Debug.LogException(e); }
+        }
+    }
+
+    // 클리어 즉시(캐시가 있으면) 순위를 판정해 축하 이벤트를 먼저 쏘고, 그 다음 기록을 저장한다.
+    IEnumerator SaveAndEvaluateRoutine(string p1, string p2, float time)
+    {
+        int rank;
+        if (_cachedTop != null)
+        {
+            // 캐시로 즉시 판정 → 깨자마자 New Record 표시 (네트워크 대기 없음)
+            rank = ComputeRank(_cachedTop, time);
+            FireIfTop(rank, time);
+        }
+        else
+        {
+            // 캐시가 없으면 지금 조회 후 판정 (약간의 지연)
+            yield return StartCoroutine(FetchTopRoutine());
+            rank = ComputeRank(_cachedTop, time);
+            FireIfTop(rank, time);
+        }
+
+        // 기록 저장 (POST)
+        yield return StartCoroutine(PostRankingData(p1, p2, time));
+
+        // 다음 판정을 위해 캐시 갱신
+        yield return StartCoroutine(FetchTopRoutine());
+
+        // 임시(auto) 인스턴스 정리
+        if (_isAutoInstance)
+        {
+            if (Instance == this) Instance = null;
+            Destroy(gameObject);
+        }
     }
 
     IEnumerator PostRankingData(string p1, string p2, float time)
@@ -111,12 +185,6 @@ public class RankingManager : MonoBehaviour
             }
         }
 
-        // 임시(auto) 인스턴스는 저장이 끝나면 스스로 정리
-        if (_isAutoInstance)
-        {
-            if (Instance == this) Instance = null;
-            Destroy(gameObject);
-        }
     }
 
     [System.Serializable]
