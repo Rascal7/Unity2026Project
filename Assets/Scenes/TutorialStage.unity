@@ -14605,7 +14605,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1574597132
 RectTransform:
   m_ObjectHideFlags: 0
@@ -15084,12 +15084,16 @@ MonoBehaviour:
   target: {fileID: 0}
   offset: {x: 0, y: 0, z: -10}
   smoothSpeed: 0.125
+  ySmoothSpeed: 0.15
   verticalOffset: 2
-  verticalDeadZone: 3
+  lookUp: 3.5
+  lookDown: 0.5
   autoClampToBackground: 1
   useManualBounds: 0
   minY: -100
   maxY: 100
+  onScreenMargin: 0.6
+  impulseDamping: 14
 --- !u!114 &1632813213
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15182,6 +15186,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b39816fafd6b1a47a693636ef07260c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BasicLauncher
+  _useIMGUIMenu: 0
 --- !u!114 &1814651297
 MonoBehaviour:
   m_ObjectHideFlags: 0

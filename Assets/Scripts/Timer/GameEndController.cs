@@ -5,26 +5,29 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-// 클리어(NetworkTimer.IsFinished) 시 엔딩 화면을 띄우고 이벤트를 브로드캐스트한다.
-// 씬에 아무것도 배치할 필요 없이 스스로 부트스트랩된다. UI 도 코드로 생성한다.
+// NetworkTimer.Phase 를 보고 종료 화면을 띄운다. 씬에 배치할 필요 없이 스스로 부트스트랩된다.
+//   AwaitingChoice(중간 골) → "STAGE CLEAR" + [다음 스테이지]/[로비] 선택 (다음은 호스트만)
+//   Finished(최종 골)        → "ALL CLEAR" + 합산 기록 표시 + 자동 로비 복귀
 public class GameEndController : MonoBehaviour
 {
     public static GameEndController Instance { get; private set; }
 
-    // 다른 시스템(사운드/연출/업적 등)이 자유롭게 구독. 모든 피어에서 호출됨.
-    public static event Action<float> OnGameCleared;
+    public static event Action<float> OnRunFinished; // 최종 클리어(합산시간) 시 브로드캐스트
 
     [Header("옵션")]
     public string lobbySceneName = "Lobby";
-    public float autoReturnDelay = 10f; // 0 이하면 자동 복귀 안 함
+    public float autoReturnDelay = 10f; // 최종 클리어 후 자동 로비 복귀까지 (초)
 
-    private bool _shown;
+    private int _shownPhase = -1;   // 현재 화면에 표시 중인 Phase (-1 = 숨김)
     private bool _returning;
     private float _shownAtUnscaled;
+
     private GameObject _root;
     private Text _titleText;
     private Text _timeText;
     private Text _hintText;
+    private GameObject _nextBtn;
+    private GameObject _lobbyBtn;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void Bootstrap()
@@ -50,8 +53,7 @@ public class GameEndController : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        // 새 씬이 로드되면 엔딩 상태 초기화
-        _shown = false;
+        _shownPhase = -1;
         _returning = false;
         if (_root != null) _root.SetActive(false);
     }
@@ -61,69 +63,121 @@ public class GameEndController : MonoBehaviour
         if (_returning) return;
 
         var nt = NetworkTimer.Instance;
-
-        // 클리어 감지 (모든 피어: 동기화된 IsFinished 플래그 기반)
-        if (!_shown && nt != null && nt.IsFinished)
-            ShowEnding(nt.FinalTime);
-
-        if (!_shown) return;
-
-        if (_timeText != null && nt != null)
-            _timeText.text = "CLEAR TIME   " + FormatTime(nt.IsFinished ? nt.FinalTime : nt.ElapsedTime);
-
-        float elapsed = Time.unscaledTime - _shownAtUnscaled;
-
-        if (_hintText != null)
+        if (nt == null)
         {
-            if (autoReturnDelay > 0f)
-            {
-                int left = Mathf.Max(0, Mathf.CeilToInt(autoReturnDelay - elapsed));
-                _hintText.text = left + "초 후 로비로 이동    ·    [R] 지금 이동";
-            }
-            else
-            {
-                _hintText.text = "[R] 로비로 이동";
-            }
+            if (_shownPhase != -1) Hide();
+            return;
         }
 
-        if (Input.GetKeyDown(KeyCode.R)) { ReturnToLobby(); return; }
-        if (autoReturnDelay > 0f && elapsed >= autoReturnDelay) ReturnToLobby();
+        int phase = nt.Phase;
+
+        // 진행 중이면 화면 숨김 (다음 스테이지 시작 등)
+        if (phase == NetworkTimer.PhaseRunning)
+        {
+            if (_shownPhase != -1) Hide();
+            return;
+        }
+
+        // 표시할 단계가 바뀌었으면 화면 갱신
+        if (phase != _shownPhase)
+        {
+            if (phase == NetworkTimer.PhaseAwaitingChoice) ShowChoice(nt.FinalTime);
+            else if (phase == NetworkTimer.PhaseFinished) ShowFinal(nt.FinalTime);
+        }
+
+        // 최종 클리어: 자동 로비 복귀 카운트다운
+        if (_shownPhase == NetworkTimer.PhaseFinished)
+        {
+            float elapsed = Time.unscaledTime - _shownAtUnscaled;
+            if (_hintText != null && autoReturnDelay > 0f)
+            {
+                int left = Mathf.Max(0, Mathf.CeilToInt(autoReturnDelay - elapsed));
+                _hintText.text = left + "초 후 로비로 이동   ·   [R] 지금 이동";
+            }
+            if (Input.GetKeyDown(KeyCode.R)) { OnLobby(); return; }
+            if (autoReturnDelay > 0f && elapsed >= autoReturnDelay) OnLobby();
+        }
     }
 
-    public void ShowEnding(float clearTime)
+    // ---------- 화면 표시 ----------
+    private void ShowChoice(float segmentTime)
     {
-        if (_shown) return;
-        _shown = true;
-        _shownAtUnscaled = Time.unscaledTime;
-
         EnsureUI();
+        _shownPhase = NetworkTimer.PhaseAwaitingChoice;
+        _shownAtUnscaled = Time.unscaledTime;
         _root.SetActive(true);
-        if (_titleText != null) _titleText.text = "STAGE CLEAR!";
-        if (_timeText != null) _timeText.text = "CLEAR TIME   " + FormatTime(clearTime);
+
+        _titleText.text = "STAGE CLEAR!";
+        _timeText.text = "이번 구간 " + FormatTime(segmentTime) + "     누적 " + FormatTime(RunManager.AccumulatedTime);
+
+        bool isHost = IsHost();
+        _nextBtn.SetActive(isHost);         // 다음 스테이지는 호스트만
+        _lobbyBtn.SetActive(true);          // 로비는 누구나
+        _hintText.text = isHost ? "" : "다음 스테이지는 호스트가 선택합니다";
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    private void ShowFinal(float totalTime)
+    {
+        EnsureUI();
+        _shownPhase = NetworkTimer.PhaseFinished;
+        _shownAtUnscaled = Time.unscaledTime;
+        _root.SetActive(true);
+
+        _titleText.text = "ALL CLEAR!";
+        _timeText.text = "합산 기록  " + FormatTime(totalTime);
+        _nextBtn.SetActive(false);
+        _lobbyBtn.SetActive(false);
+        _hintText.text = "";
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        Debug.Log($"<color=lime>[Ending]</color> STAGE CLEAR  -  {FormatTime(clearTime)}");
-
-        try { OnGameCleared?.Invoke(clearTime); }
+        Debug.Log($"<color=lime>[Ending]</color> ALL CLEAR - {FormatTime(totalTime)}");
+        try { OnRunFinished?.Invoke(totalTime); }
         catch (Exception e) { Debug.LogException(e); }
     }
 
-    public async void ReturnToLobby()
+    private void Hide()
+    {
+        _shownPhase = -1;
+        if (_root != null) _root.SetActive(false);
+    }
+
+    // ---------- 버튼 핸들러 ----------
+    private void OnNext()
+    {
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        if (runner == null || !runner.IsServer) return; // 씬 로드는 호스트만
+
+        string next = RunManager.PendingNextScene;
+        if (string.IsNullOrEmpty(next))
+        {
+            Debug.LogWarning("<color=yellow>[Ending]</color> 다음 씬 이름이 비어 있습니다.");
+            return;
+        }
+
+        CheckpointManager.ResetCheckpoint();
+        SaveDataManager.UpdateProgress(next);
+        Hide();
+
+        int idx = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{next}.unity");
+        runner.LoadScene(SceneRef.FromIndex(idx));
+    }
+
+    private async void OnLobby()
     {
         if (_returning) return;
         _returning = true;
-        _shown = false;
-        if (_root != null) _root.SetActive(false);
+        Hide();
+        RunManager.ResetRun();
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        // 남아있는 러너를 모두 완전히 종료하고 GameObject 까지 정리한다.
-        // (셧다운된 러너를 안은 persistent BasicLauncher 가 로비로 따라오면
-        //  런처/러너가 중복되고, 다음 스크립트 재컴파일 때 Fusion 이 예외를 던진다.)
-        foreach (var runner in FindObjectsByType<NetworkRunner>(UnityEngine.FindObjectsSortMode.None))
+        foreach (var runner in FindObjectsByType<NetworkRunner>(FindObjectsSortMode.None))
         {
             if (runner == null) continue;
             await runner.Shutdown();
@@ -133,7 +187,13 @@ public class GameEndController : MonoBehaviour
         SceneManager.LoadScene(lobbySceneName);
     }
 
-    // ---------- 런타임 UI 생성 (legacy uGUI, 폰트 에셋 불필요) ----------
+    private bool IsHost()
+    {
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        return runner != null && runner.IsServer;
+    }
+
+    // ---------- 런타임 UI 생성 (legacy uGUI) ----------
     private void EnsureUI()
     {
         if (_root != null) return;
@@ -149,7 +209,6 @@ public class GameEndController : MonoBehaviour
 
         _root = new GameObject("EndingCanvas");
         DontDestroyOnLoad(_root);
-
         var canvas = _root.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 32000;
@@ -158,38 +217,47 @@ public class GameEndController : MonoBehaviour
         scaler.referenceResolution = new Vector2(1920, 1080);
         _root.AddComponent<GraphicRaycaster>();
 
-        // 배경 (반투명 검정)
         var bg = CreateChild("BG", _root.transform);
-        var bgImg = bg.AddComponent<Image>();
-        bgImg.color = new Color(0f, 0f, 0f, 0.82f);
+        bg.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.82f);
         Stretch(bg.GetComponent<RectTransform>());
 
-        _titleText = CreateText("Title", _root.transform, font, 96, FontStyle.Bold,
-            new Vector2(0.5f, 0.68f), new Vector2(1400, 200), "STAGE CLEAR!");
+        _titleText = CreateText("Title", _root.transform, font, 92, FontStyle.Bold,
+            new Vector2(0.5f, 0.70f), new Vector2(1500, 180), "STAGE CLEAR!");
         _titleText.color = new Color(1f, 0.92f, 0.35f);
 
-        _timeText = CreateText("Time", _root.transform, font, 60, FontStyle.Normal,
-            new Vector2(0.5f, 0.5f), new Vector2(1400, 140), "CLEAR TIME   00:00.00");
+        _timeText = CreateText("Time", _root.transform, font, 52, FontStyle.Normal,
+            new Vector2(0.5f, 0.54f), new Vector2(1500, 120), "");
 
-        _hintText = CreateText("Hint", _root.transform, font, 32, FontStyle.Normal,
-            new Vector2(0.5f, 0.34f), new Vector2(1400, 90), "");
+        _hintText = CreateText("Hint", _root.transform, font, 30, FontStyle.Normal,
+            new Vector2(0.5f, 0.44f), new Vector2(1500, 80), "");
         _hintText.color = new Color(1f, 1f, 1f, 0.7f);
 
-        // 로비 이동 버튼
-        var btnGo = CreateChild("ReturnButton", _root.transform);
-        var btnRect = btnGo.GetComponent<RectTransform>();
-        btnRect.anchorMin = btnRect.anchorMax = new Vector2(0.5f, 0.2f);
-        btnRect.sizeDelta = new Vector2(360, 96);
-        btnRect.anchoredPosition = Vector2.zero;
-        var btnImg = btnGo.AddComponent<Image>();
-        btnImg.color = new Color(0.2f, 0.55f, 1f, 0.95f);
-        var btn = btnGo.AddComponent<Button>();
-        btn.onClick.AddListener(ReturnToLobby);
-        var btnLabel = CreateText("Label", btnGo.transform, font, 34, FontStyle.Bold,
-            new Vector2(0.5f, 0.5f), new Vector2(360, 96), "로비로 나가기");
-        Stretch(btnLabel.GetComponent<RectTransform>());
+        _nextBtn = CreateButton("NextButton", new Vector2(0.5f, 0.28f), new Vector2(200f, 0f),
+            new Color(0.98f, 0.82f, 0.42f), new Color(0.12f, 0.07f, 0.02f), "다음 스테이지", font, OnNext);
+        _lobbyBtn = CreateButton("LobbyButton", new Vector2(0.5f, 0.28f), new Vector2(-200f, 0f),
+            new Color(0.55f, 0.6f, 0.66f), new Color(0.1f, 0.1f, 0.12f), "로비로", font, OnLobby);
 
         _root.SetActive(false);
+    }
+
+    private GameObject CreateButton(string name, Vector2 anchor, Vector2 offset, Color face, Color textColor,
+        string label, Font font, UnityEngine.Events.UnityAction onClick)
+    {
+        var go = CreateChild(name, _root.transform);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = anchor;
+        rt.sizeDelta = new Vector2(360, 100);
+        rt.anchoredPosition = offset;
+        var img = go.AddComponent<Image>();
+        img.color = face;
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        btn.onClick.AddListener(onClick);
+        var lbl = CreateText("Label", go.transform, font, 36, FontStyle.Bold,
+            new Vector2(0.5f, 0.5f), new Vector2(360, 100), label);
+        lbl.color = textColor;
+        Stretch(lbl.GetComponent<RectTransform>());
+        return go;
     }
 
     private static GameObject CreateChild(string name, Transform parent)

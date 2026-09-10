@@ -104,7 +104,8 @@ public class PlayerMovement : NetworkBehaviour
             transform.position = new Vector3(transform.position.x, transform.position.y, 0f);
         }
 
-        if (GetInput(out NetworkInputData data))
+        bool introLocked = IsIntroLocked();
+        if (!introLocked && GetInput(out NetworkInputData data))
         {
             HandleLadder(data);
             Move(data);
@@ -116,6 +117,11 @@ public class PlayerMovement : NetworkBehaviour
             NetworkInputData emptyData = default;
             HandleLadder(emptyData);
             UpdateAnimation(emptyData);
+
+            // During the STAGE intro the timer hasn't started yet: freeze horizontal motion
+            // so players can't get a head start before the run begins.
+            if (introLocked && !IsClimbing)
+                _rb.linearVelocity = new Vector2(0f, _rb.linearVelocity.y);
         }
 
         UpdateSkillAirborne();
@@ -126,6 +132,13 @@ public class PlayerMovement : NetworkBehaviour
     {
         if (SkillAirborne && IsGrounded && _rb.linearVelocity.y <= 0.1f)
             SkillAirborne = false;
+    }
+
+    // True while the STAGE intro card is showing (NetworkTimer in PhaseIntro, before the run starts).
+    private bool IsIntroLocked()
+    {
+        var nt = NetworkTimer.Instance;
+        return nt != null && nt.Phase == NetworkTimer.PhaseIntro;
     }
 
     private void Move(NetworkInputData data)

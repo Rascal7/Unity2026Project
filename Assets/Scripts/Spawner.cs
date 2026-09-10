@@ -13,7 +13,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     public NetworkObject player2Prefab;
     private Dictionary<PlayerRef, NetworkObject> _spawnedCharacters = new Dictionary<PlayerRef, NetworkObject>();
 
-    // 인게임 스테이지로 취급할 씬 이름들 (여기에 새 스테이지 추가하면 됨)
+    // ?�게???�테?��?�?취급?????�름??(?�기?????�테?��? 추�??�면 ??
     private static readonly string[] InGameStageNames = { "TutorialStage", "Main Stage1", "Main Stage2" };
 
     private bool IsInGameStage(string sceneName)
@@ -48,7 +48,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         {
             runner.RemoveCallbacks(this);
             runner.AddCallbacks(this);
-            Debug.Log("<color=green>[Spawner]</color> 콜백 등록 완료!");
+            Debug.Log("<color=green>[Spawner]</color> 콜백 ?�록 ?�료!");
         }
     }
 
@@ -59,7 +59,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
         string currentScene = SceneManager.GetActiveScene().name;
 
-        // 1. 캐릭터 선택 씬
+        // 1. 캐릭???�택 ??
         if (currentScene == "CharacterSelect")
         {
             var oldItems = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
@@ -73,25 +73,29 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
                 runner.Spawn(sessionItemPrefab, Vector3.zero, Quaternion.identity, p);
             }
         }
-        // 2. 인게임 스테이지 (Tutorial, Stage1, Stage2 공통 처리)
+        // 2. ?�게???�테?��? (Tutorial, Stage1, Stage2 공통 처리)
         else if (IsInGameStage(currentScene))
         {
-            Debug.Log($"<color=yellow>[Spawner]</color> 씬 로드 완료: {currentScene}. 플레이어 스폰 시작!");
+            Debug.Log($"<color=yellow>[Spawner]</color> ??로드 ?�료: {currentScene}. ?�레?�어 ?�폰 ?�작!");
 
-            // 네트워크 타이머 생성 + 시작 (호스트만, 스테이지마다 새로 생성됨)
-            if (NetworkTimer.Instance == null)
+            // ?�트?�크 ?�?�머 ?�성 + ?�작 (?�스?�만, ?�테?��?마다 ?�로 ?�성??
+            if (currentScene == "TutorialStage")
+            {
+                RunManager.ResetRun(); // �� �� ����: ���� �ʱ�ȭ (Ʃ�丮���� Ÿ�̸� ����)
+            }
+            else if (NetworkTimer.Instance == null)
             {
                 var timerPrefab = Resources.Load<NetworkObject>("NetworkTimer");
                 if (timerPrefab != null)
                 {
                     var timerObj = runner.Spawn(timerPrefab);
                     var nt = timerObj != null ? timerObj.GetComponent<NetworkTimer>() : null;
-                    if (nt != null) nt.StartTimer();
-                    Debug.Log("<color=orange>[Timer]</color> NetworkTimer 생성 및 시작 완료!");
+                    if (nt != null) nt.StartWithIntro(2f);
+                    Debug.Log("<color=orange>[Timer]</color> NetworkTimer ?�성 �??�작 ?�료!");
                 }
                 else
                 {
-                    Debug.LogError("<color=red>[Spawner]</color> Resources/NetworkTimer 찾을 수 없습니다! 로컬 타이머로 대체합니다.");
+                    Debug.LogError("<color=red>[Spawner]</color> Resources/NetworkTimer 찾을 ???�습?�다! 로컬 ?�?�머�??�체합?�다.");
                     if (TimerManager.Instance != null)
                     {
                         TimerManager.Instance.ResetTimer();
@@ -122,25 +126,25 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             }
         }
 
-        // StartPoint 오브젝트 찾기
-        Vector3 spawnPos = new Vector3(-20f, -7f, 0f); // 기본값
+        // StartPoint ?�브?�트 찾기
+        Vector3 spawnPos = new Vector3(-20f, -7f, 0f); // 기본�?
         GameObject startPoint = GameObject.Find("StartPoint");
 
         if (startPoint != null)
         {
             spawnPos = startPoint.transform.position;
-            // 플레이어끼리 겹치지 않게 살짝 이동
+            // ?�레?�어?�리 겹치지 ?�게 ?�짝 ?�동
             if (player.PlayerId % 2 == 0) spawnPos.x += 1.5f;
         }
 
         NetworkObject prefabToSpawn = (selectedIndex == 0) ? player1Prefab : player2Prefab;
 
-        Debug.Log($"<color=green>[Spawn]</color> 플레이어 {player} (인덱스:{selectedIndex}) 스폰 완료");
+        Debug.Log($"<color=green>[Spawn]</color> ?�레?�어 {player} (?�덱??{selectedIndex}) ?�폰 ?�료");
         runner.Spawn(prefabToSpawn, spawnPos, Quaternion.identity, player);
-        // 타이머는 OnSceneLoadDone 에서 NetworkTimer 로 처리한다.
+        // ?�?�머??OnSceneLoadDone ?�서 NetworkTimer �?처리?�다.
     }
 
-    // --- 입력 처리 ---
+    // --- ?�력 처리 ---
     public void OnInput(NetworkRunner runner, NetworkInput input)
     {
         var data = new NetworkInputData();
@@ -149,7 +153,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         data.direction.y = Input.GetAxisRaw("Vertical");
         data.isJumpPressed = Input.GetButton("Jump") || Input.GetKey(KeyCode.Space);
 
-        // 스킬 입력: 키보드(LeftShift) 또는 음성 키워드 인식
+        // ?�킬 ?�력: ?�보??LeftShift) ?�는 ?�성 ?�워???�식
         data.isSkillPressed = Input.GetKey(KeyCode.LeftShift) || VoiceSkillInput.IsSkillRequested;
 
         input.Set(data);
@@ -163,7 +167,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             {
                 if (networkObject != null) runner.Despawn(networkObject);
                 _spawnedCharacters.Remove(player);
-                Debug.Log($"<color=red>[Spawner]</color> 플레이어 {player} 퇴장, 캐릭터 제거");
+                Debug.Log($"<color=red>[Spawner]</color> ?�레?�어 {player} ?�장, 캐릭???�거");
             }
         }
     }
@@ -173,9 +177,9 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         if (!runner.IsServer) return;
 
         string currentScene = SceneManager.GetActiveScene().name;
-        Debug.Log($"<color=cyan>[Spawner]</color> 플레이어 {player} 참가! 현재 씬: {currentScene}");
+        Debug.Log($"<color=cyan>[Spawner]</color> ?�레?�어 {player} 참�?! ?�재 ?? {currentScene}");
 
-        // 1. 캐릭터 선택 씬에서 새 플레이어가 들어온 경우
+        // 1. 캐릭???�택 ?�에?????�레?�어가 ?�어??경우
         if (currentScene == "CharacterSelect")
         {
             bool alreadyExists = false;
@@ -191,11 +195,11 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
             if (!alreadyExists && sessionItemPrefab != null)
             {
-                Debug.Log($"<color=lime>[Spawner]</color> 참가한 플레이어 {player}를 위한 SessionPlayerItem 생성 완료!");
+                Debug.Log($"<color=lime>[Spawner]</color> 참�????�레?�어 {player}�??�한 SessionPlayerItem ?�성 ?�료!");
                 runner.Spawn(sessionItemPrefab, Vector3.zero, Quaternion.identity, player);
             }
         }
-        // 2. 인게임 스테이지에서 중간 참가한 경우 (Tutorial, Stage1, Stage2 공통 처리)
+        // 2. ?�게???�테?��??�서 중간 참�???경우 (Tutorial, Stage1, Stage2 공통 처리)
         else if (IsInGameStage(currentScene))
         {
             if (!_spawnedCharacters.ContainsKey(player))

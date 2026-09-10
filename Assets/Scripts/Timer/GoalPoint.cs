@@ -1,41 +1,42 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
+// 최종 골(마지막 스테이지의 마지막 지점)용. Checkpoint(isEndGoal)와 동일한 최종 처리.
+// 중간 스테이지 진행은 EndPoint 가 담당한다.
 public class GoalPoint : MonoBehaviour
 {
     [Header("Settings")]
-    public string currentMapName = "TutorialStage"; // 현재 맵 이름
-    public bool isFinalGoal = true;                // 지금은 튜토리얼이 유일하므로 true
+    public string currentMapName = "";
+    public bool isFinalGoal = true; // 최종 골이면 true
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        // 1. 플레이어가 닿았는지 확인
         if (collision.CompareTag("Player"))
         {
             Debug.Log($"<color=cyan>[Goal]</color> 플레이어 {collision.name} 도착!");
-
-            // 2. 마지막 골인 지점이라면?
             if (isFinalGoal)
             {
-                HandleGameClear();
+                HandleFinalClear();
             }
         }
     }
 
-    private void HandleGameClear()
+    // 최종 골: 마지막 구간을 누적에 더해 "합산 시간"을 랭킹에 올리고, 종료 화면을 띄운다.
+    private void HandleFinalClear()
     {
         var nt = NetworkTimer.Instance;
-        if (nt == null || !nt.IsRunning) return;
+        if (nt == null || nt.Phase != NetworkTimer.PhaseRunning) return;
 
-        // 정지/저장은 호스트만. 엔딩 화면은 GameEndController 가 동기화 플래그를 보고 자동 표시.
         var runner = FindFirstObjectByType<Fusion.NetworkRunner>();
         if (runner != null && !runner.IsServer) return;
 
-        float finalTime = nt.StopTimer();
-        Debug.Log($"<color=lime>[Success]</color> 클리어! 최종 기록: {finalTime}초");
+        float seg = nt.ElapsedTime;
+        float total = RunManager.AccumulatedTime + seg;
+        nt.FinishRun(total);
 
         var ranking = RankingManager.GetOrCreate();
-        if (ranking != null)
-            ranking.SaveScore(finalTime);
+        if (ranking != null) ranking.SaveScore(total);
+
+        RunManager.ResetRun();
+        Debug.Log($"<color=lime>[Success]</color> ALL CLEAR! 합산 기록: {total:0.00}초");
     }
 }
