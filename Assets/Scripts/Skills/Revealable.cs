@@ -1,0 +1,97 @@
+using Fusion;
+using UnityEngine;
+
+/// <summary>
+/// 여우 Sniff 로 드러나는 숨김 오브젝트의 베이스 (B안: 드러난 동안만 보이고 상호작용 가능).
+/// - 평소: SpriteRenderer OFF + Collider OFF (안 보이고 못 만짐). GameObject 는 활성 유지(감지/틱).
+/// - Sniff: 호스트가 Reveal(sec) → [Networked] RevealTimer 설정 → 모든 클라이언트가 드러남.
+/// - 드러날 때 테두리 발광(글로우 실루엣 복제본) + 등장 플래시 + 펄스 연출. (콜라이더엔 영향 없음)
+/// NetworkObject 가 필요하며, 씬에 배치하면 Fusion 씬 오브젝트로 동작(호스트 권한).
+/// </summary>
+[RequireComponent(typeof(NetworkObject))]
+public class Revealable : NetworkBehaviour
+{
+    [Networked] public TickTimer RevealTimer { get; set; }
+
+    [Header("Glow (발광 테두리)")]
+    public Color glowColor = new Color(0.45f, 0.95f, 1f, 1f);
+    [Tooltip("글로우 실루엣 크기 배수 (1보다 크게 → 테두리처럼 삐져나옴)")]
+    public float glowScale = 1.16f;
+    public float glowPulseSpeed = 6f;
+    [Tooltip("등장 플래시/팝 지속(초)")]
+    public float appearTime = 0.28f;
+
+    private SpriteRenderer _sr;    // 메인
+    private SpriteRenderer _glow;  // 발광 테두리(실루엣 복제)
+    private Collider2D _col;
+    private bool _wasRevealed;
+    private float _appearT;
+
+    public bool IsRevealed => Runner != null && !RevealTimer.ExpiredOrNotRunning(Runner);
+
+    public override void Spawned()
+    {
+        _sr = GetComponent<SpriteRenderer>();
+        _col = GetComponent<Collider2D>();
+
+        if (_sr != null)
+        {
+            var g = new GameObject("Glow");
+            g.transform.SetParent(transform, false);
+            g.transform.localScale = Vector3.one * glowScale;
+            _glow = g.AddComponent<SpriteRenderer>();
+            _glow.sprite = _sr.sprite;
+            _glow.sortingLayerID = _sr.sortingLayerID;
+            _glow.sortingOrder = _sr.sortingOrder - 1; // 메인 뒤
+            _glow.color = glowColor;
+            // 스프라이트 원래 색과 무관하게 순수 글로우색 실루엣으로 출력
+            var glowMat = Resources.Load<Material>("GlowSilhouette");
+            if (glowMat != null) _glow.sharedMaterial = glowMat;
+            _glow.enabled = false;
+        }
+        Apply(false);
+    }
+
+    /// <summary>호스트가 이 오브젝트를 N초간 드러낸다.</summary>
+    public void Reveal(float seconds)
+    {
+        if (Object != null && Object.HasStateAuthority)
+            RevealTimer = TickTimer.CreateFromSeconds(Runner, seconds);
+    }
+
+    public override void Render()
+    {
+        bool revealed = IsRevealed;
+        if (revealed && !_wasRevealed) _appearT = 0f; // 드러나는 순간(엣지)
+        _wasRevealed = revealed;
+
+        Apply(revealed);
+
+        if (_glow != null)
+        {
+            _glow.enabled = revealed;
+            if (revealed)
+            {
+                if (_sr != null && _glow.sprite != _sr.sprite) _glow.sprite = _sr.sprite;
+                _appearT += Time.deltaTime;
+                float appear = Mathf.Clamp01(_appearT / Mathf.Max(0.01f, appearTime)); // 0→1
+
+                // 펄스(은은한 발광) + 등장 플래시(초반 밝게)
+                float pulse = 0.4f + 0.3f * Mathf.Sin(Time.time * glowPulseSpeed);
+                float flash = 1f - appear; // 등장 순간 최대 → 감쇠
+                var c = glowColor; c.a = Mathf.Clamp01(pulse + flash * 0.7f);
+                _glow.color = c;
+
+                // 등장 시 살짝 크게 퍼졌다 정착 + 미세 펄스
+                float sc = glowScale + Mathf.Lerp(0.5f, 0f, appear) + 0.04f * Mathf.Sin(Time.time * glowPulseSpeed);
+                _glow.transform.localScale = Vector3.one * sc;
+            }
+        }
+    }
+
+    protected virtual void Apply(bool revealed)
+    {
+        if (_sr != null) _sr.enabled = revealed;
+        if (_col != null) _col.enabled = revealed; // B안: 드러난 동안만 상호작용
+    }
+}

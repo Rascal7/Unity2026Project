@@ -29,10 +29,15 @@ public class VoiceSkillInput : MonoBehaviour
     // 이 시각까지 스킬 입력이 활성 상태로 간주됨
     private float _activeUntil = -1f;
     private string _lastKeyword = "";
+    private int _requestedSlot = 0;
 
     /// <summary>현재 음성으로 스킬이 요청된 상태인가.</summary>
     public static bool IsSkillRequested =>
         Instance != null && Time.time <= Instance._activeUntil;
+
+    /// <summary>현재 음성으로 요청된 스킬 슬롯(1/2/3), 없으면 0.</summary>
+    public static int RequestedSlot =>
+        (Instance != null && Time.time <= Instance._activeUntil) ? Instance._requestedSlot : 0;
 
     /// <summary>마지막으로 인식된 키워드(디버그/캐릭터별 분기용).</summary>
     public static string LastKeyword => Instance != null ? Instance._lastKeyword : "";
@@ -126,7 +131,7 @@ public class VoiceSkillInput : MonoBehaviour
             _model = new Model(modelPath);
 
             // 단어 제한 문법 (타겟 단어와 [unk]만 등록하여 잡음 오인식 방지)
-            string grammar = "[\"점프\", \"대시\", \"[unk]\"]";
+            string grammar = "[\"점프\", \"대시\", \"킁킁\", \"당근\", \"[unk]\"]";
             _recognizer = new VoskRecognizer(_model, SAMPLE_RATE, grammar);
             _recognizer.SetWords(false);
 
@@ -190,8 +195,29 @@ public class VoiceSkillInput : MonoBehaviour
         {
             return "대시";
         }
+        if (json.Contains("\"킁킁\"") || json.Contains(": \"킁킁"))
+        {
+            return "킁킁";
+        }
+        if (json.Contains("\"당근\"") || json.Contains(": \"당근"))
+        {
+            return "당근";
+        }
 
         return null;
+    }
+
+    /// <summary>키워드 → 스킬 슬롯 매핑. (여우 대시/토끼 당근=1, 여우 킁킁/토끼 점프=2)</summary>
+    private static int KeywordToSlot(string kw)
+    {
+        switch (kw)
+        {
+            case "대시": return 1; // 여우 ch1
+            case "당근": return 1; // 토끼 ch1
+            case "킁킁": return 2; // 여우 ch2
+            case "점프": return 2; // 토끼 ch2
+            default: return 0;
+        }
     }
 
     private void Update()
@@ -204,7 +230,8 @@ public class VoiceSkillInput : MonoBehaviour
                 _lastKeyword = _pendingKeyword;
                 _pendingKeyword = null;
                 _activeUntil = Time.time + activeWindow;
-                Debug.Log($"<color=lime>[VoiceSkillInput]</color> Vosk 키워드 인식 성공: '{_lastKeyword}'");
+                _requestedSlot = KeywordToSlot(_lastKeyword);
+                Debug.Log($"<color=lime>[VoiceSkillInput]</color> Vosk 키워드 인식 성공: '{_lastKeyword}' (슬롯 {_requestedSlot})");
             }
         }
 

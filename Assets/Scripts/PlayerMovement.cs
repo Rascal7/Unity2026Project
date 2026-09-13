@@ -11,13 +11,19 @@ public class PlayerMovement : NetworkBehaviour
     public float speed = 5f;
     public float jumpForce = 10f;
 
-    // 캐릭터별 고유 스킬 종류. 프리팹에서 지정한다. (여우=FoxDash, 토끼=RabbitJump)
-    public enum CharacterSkill { None, FoxDash, RabbitJump }
+    // 캐릭터 스킬 종류 (챕터별). 프리팹에서 슬롯에 지정한다.
+    public enum CharacterSkill { None, FoxDash, FoxSniff, FoxShadow, RabbitCarrot, RabbitJump, RabbitStomp }
 
-    [Header("Skill Settings")]
-    public CharacterSkill skill = CharacterSkill.None;
-    [Tooltip("스킬 재사용 대기시간(초)")]
-    public float skillCooldown = 1.5f;
+    [Header("Skill Slots (챕터별)")]
+    public CharacterSkill skillCh1 = CharacterSkill.None; // 슬롯1 (여우 대시 / 토끼 당근)
+    public CharacterSkill skillCh2 = CharacterSkill.None; // 슬롯2 (여우 킁킁 / 토끼 점프)
+    public CharacterSkill skillCh3 = CharacterSkill.None; // 슬롯3 (여우 그림자 / 토끼 스톰프)
+
+    [Header("Cooldowns (초)")]
+    public float dashCooldown = 1.5f;
+    public float jumpCooldown = 1.5f;
+    public float sniffCooldown = 6f;
+    public float carrotCooldown = 3f;
 
     [Header("Fox Dash")]
     [Tooltip("대시 속도")]
@@ -28,6 +34,14 @@ public class PlayerMovement : NetworkBehaviour
     [Header("Rabbit Jump")]
     [Tooltip("강한 도약 점프력 (기본 점프보다 크게)")]
     public float superJumpForce = 18f;
+
+    [Header("Fox Sniff (숨김 오브젝트 감지)")]
+    public float sniffRadius = 5f;
+    public float sniffRevealDuration = 4.5f;
+
+    [Header("Rabbit Carrot (벽 고정 발판)")]
+    public NetworkObject carrotPrefab;
+    public float carrotForwardOffset = 0.6f;
 
     [Header("Ground Check")]
     public Transform groundCheck;
@@ -50,7 +64,9 @@ public class PlayerMovement : NetworkBehaviour
     [Networked] private NetworkBool IsGrounded { get; set; }
 
     // 스킬 관련 네트워크 상태
-    [Networked] private TickTimer SkillCooldownTimer { get; set; } // 스킬 쿨다운
+    [Networked] private TickTimer SkillCd1 { get; set; }           // 슬롯별 쿨다운
+    [Networked] private TickTimer SkillCd2 { get; set; }
+    [Networked] private TickTimer SkillCd3 { get; set; }
     [Networked] private TickTimer DashTimer { get; set; }          // 대시 지속시간
     [Networked] private NetworkBool FacingRight { get; set; }      // 바라보는 방향 (대시 방향 결정)
 
@@ -195,26 +211,86 @@ public class PlayerMovement : NetworkBehaviour
     /// </summary>
     private bool TryUseSkill(NetworkInputData data)
     {
-        if (!data.isSkillPressed) return false;
+        int slot = data.skillSlot;
+        if (slot < 1 || slot > 3) return false;
         if (IsClimbing) return false;
-        if (!SkillCooldownTimer.ExpiredOrNotRunning(Runner)) return false; // 쿨다운 중
 
-        switch (skill)
+        CharacterSkill active = SlotSkill(slot);
+        if (active == CharacterSkill.None) return false;
+        if (!SlotReady(slot)) return false; // 해당 슬롯 쿨다운 중
+
+        switch (active)
         {
             case CharacterSkill.FoxDash:
                 DashTimer = TickTimer.CreateFromSeconds(Runner, dashDuration);
-                SkillCooldownTimer = TickTimer.CreateFromSeconds(Runner, skillCooldown);
+                SetSlotCd(slot, dashCooldown);
                 return false;
 
             case CharacterSkill.RabbitJump:
                 if (!IsGrounded) return false; // 땅에 있을 때만 도약
-                SkillCooldownTimer = TickTimer.CreateFromSeconds(Runner, skillCooldown);
+                SetSlotCd(slot, jumpCooldown);
                 SkillAirborne = true; // 연출: 도약 시작
                 return true;
+
+            case CharacterSkill.FoxSniff:
+                SetSlotCd(slot, sniffCooldown);
+                DoSniff();
+                return false;
+
+            case CharacterSkill.RabbitCarrot:
+                SetSlotCd(slot, carrotCooldown);
+                DoCarrot();
+                return false;
 
             default:
                 return false;
         }
+    }
+
+    private CharacterSkill SlotSkill(int slot)
+    {
+        switch (slot) { case 1: return skillCh1; case 2: return skillCh2; case 3: return skillCh3; default: return CharacterSkill.None; }
+    }
+    private bool SlotReady(int slot)
+    {
+        switch (slot)
+        {
+            case 1: return SkillCd1.ExpiredOrNotRunning(Runner);
+            case 2: return SkillCd2.ExpiredOrNotRunning(Runner);
+            case 3: return SkillCd3.ExpiredOrNotRunning(Runner);
+            default: return false;
+        }
+    }
+    private void SetSlotCd(int slot, float sec)
+    {
+        var t = TickTimer.CreateFromSeconds(Runner, sec);
+        switch (slot) { case 1: SkillCd1 = t; break; case 2: SkillCd2 = t; break; case 3: SkillCd3 = t; break; }
+    }
+
+    // 근방의 숨김 오브젝트(Revealable)를 드러낸다. 호스트가 씬 오브젝트 권한을 가지므로 호스트에서 실행.
+    private void DoSniff()
+    {
+        if (!Runner.IsServer) return;
+        var all = FindObjectsByType<Revealable>(FindObjectsSortMode.None);
+        float r2 = sniffRadius * sniffRadius;
+        Vector2 origin = transform.position;
+        foreach (var rv in all)
+        {
+            if (((Vector2)rv.transform.position - origin).sqrMagnitude <= r2)
+                rv.Reveal(sniffRevealDuration);
+        }
+    }
+
+    // 정면으로 당근 발사 (호스트가 네트워크 오브젝트 스폰)
+    private void DoCarrot()
+    {
+        if (!Runner.IsServer) return;
+        if (carrotPrefab == null) return;
+        float dir = FacingRight ? 1f : -1f;
+        Vector3 pos = transform.position + new Vector3(dir * carrotForwardOffset, 0f, 0f);
+        var obj = Runner.Spawn(carrotPrefab, pos, Quaternion.identity, Object.InputAuthority);
+        var carrot = obj != null ? obj.GetComponent<CarrotProjectile>() : null;
+        if (carrot != null) carrot.Launch(FacingRight);
     }
 
     private void HandleLadder(NetworkInputData data)

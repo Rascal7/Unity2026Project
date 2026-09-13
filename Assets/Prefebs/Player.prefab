@@ -595,11 +595,20 @@ MonoBehaviour:
   ladderJumpHorizontalForce: 5
   speed: 5
   jumpForce: 10
-  skill: 1
-  skillCooldown: 1.5
+  skillCh1: 1
+  skillCh2: 2
+  skillCh3: 0
+  dashCooldown: 1.5
+  jumpCooldown: 1.5
+  sniffCooldown: 6
+  carrotCooldown: 3
   dashSpeed: 18
   dashDuration: 0.2
   superJumpForce: 18
+  sniffRadius: 8
+  sniffRevealDuration: 7
+  carrotPrefab: {fileID: 0}
+  carrotForwardOffset: 0.6
   groundCheck: {fileID: 165237684612126761}
   groundCheckRadius: 0.5
   groundLayer:
