@@ -127,7 +127,7 @@ Transform:
   m_GameObject: {fileID: 7194616707419261829}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.5, z: 0}
+  m_LocalPosition: {x: 0, y: -0.34, z: 0}
   m_LocalScale: {x: 0.5, y: 0.15, z: 0.5}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -307,7 +307,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -20.9765, y: -7.7782, z: 0}
-  m_LocalScale: {x: 1.6018637, y: 1.6, z: 1.5532473}
+  m_LocalScale: {x: 1.6, y: 1.6, z: 1}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 165237684612126761}
@@ -389,7 +389,7 @@ Rigidbody2D:
   m_LinearDamping: 0
   m_AngularDamping: 0.05
   m_GravityScale: 2
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 6200000, guid: f1c7e0b3a9d4c5e4a8b2d6f0e3c1a7b9, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -398,7 +398,7 @@ Rigidbody2D:
     m_Bits: 0
   m_Interpolate: 0
   m_SleepingMode: 0
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
   m_Constraints: 4
 --- !u!114 &2581050888385874361
 MonoBehaviour:
@@ -588,11 +588,13 @@ MonoBehaviour:
   carrotPrefab: {fileID: 278087493942239387, guid: f658aae83357e6c4d904ba74fca0e83a, type: 3}
   carrotForwardOffset: 0.6
   groundCheck: {fileID: 165237684612126761}
-  groundCheckRadius: 0.4
+  groundCheckRadius: 0.12
   groundLayer:
     serializedVersion: 2
     m_Bits: 8
-  fallDeathY: -40
+  fallDeathY: -60
+  fallDeathMargin: 10
+  respawnGraceSeconds: 0.5
 --- !u!114 &1841361652320191767
 MonoBehaviour:
   m_ObjectHideFlags: 0
