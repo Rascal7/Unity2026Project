@@ -1,4 +1,5 @@
 using Fusion;
+using Fusion.Addons.Physics;
 using UnityEngine;
 
 public class PlayerMovement : NetworkBehaviour
@@ -55,13 +56,25 @@ public class PlayerMovement : NetworkBehaviour
 
     // Ŭ���� ��ܿ� ���� �߰�
     [Header("Death Settings")]
+    [Tooltip("낙사 판정 Y. Spawned() 에서 스테이지 지형을 읽어 자동으로 덮어쓴다.")]
     public float fallDeathY = -10f;
+    [Tooltip("지형 최하단에서 이만큼 더 내려가야 낙사로 친다.")]
+    public float fallDeathMargin = 10f;
+    [Tooltip("리스폰 직후 무적 시간(초). 같은 지점에서 반복 사망하는 것을 막는다.")]
+    public float respawnGraceSeconds = 0.5f;
 
-    private bool _isDead = false;
+    // 낙사선은 스테이지 지형에 따라 달라지므로 씬 단위로 한 번만 계산해 캐시한다.
+    private static string _fallLineScene;
+    private static float _fallLineY;
+
+    private NetworkRigidbody2D _nrb;
+    private bool _respawnRequested;
 
     // ��Ʈ��ũ ����ȭ ����
     [Networked] private NetworkBool IsClimbing { get; set; }
     [Networked] private NetworkBool IsGrounded { get; set; }
+    [Networked] private NetworkBool IsDead { get; set; }
+    [Networked] private TickTimer RespawnGrace { get; set; }
 
     // 스킬 관련 네트워크 상태
     [Networked] private TickTimer SkillCd1 { get; set; }           // 슬롯별 쿨다운
@@ -93,6 +106,8 @@ public class PlayerMovement : NetworkBehaviour
             return;
         }
         _originalGravity = _rb.gravityScale;
+        _nrb = GetComponent<NetworkRigidbody2D>();
+        fallDeathY = ResolveFallDeathY();
 
         // 초기 방향은 오른쪽
         if (Object.HasStateAuthority)
@@ -112,15 +127,23 @@ public class PlayerMovement : NetworkBehaviour
 
         CheckGround();
 
-        CheckGround();
-        CheckFallDeath();
-
         if (transform.position.z != 0f)
         {
             transform.position = new Vector3(transform.position.x, transform.position.y, 0f);
         }
 
         bool introLocked = IsIntroLocked();
+
+        // 인트로 카드가 떠 있는 동안에는 낙사 판정을 돌리지 않는다.
+        if (!introLocked) CheckFallDeath();
+
+        // 실제 리스폰은 물리 콜백이 아니라 틱 안에서 한 번만 수행한다.
+        if (_respawnRequested)
+        {
+            _respawnRequested = false;
+            Respawn();
+        }
+
         if (!introLocked && GetInput(out NetworkInputData data))
         {
             HandleLadder(data);
@@ -341,9 +364,42 @@ public class PlayerMovement : NetworkBehaviour
     }
 
     // �޼��� �߰�
+    /// <summary>
+    /// 낙사 기준선을 스테이지 지형에서 산출한다.
+    /// groundLayer 에 속한 고정 콜라이더들의 최하단에서 fallDeathMargin 만큼 더 아래가 기준선이다.
+    /// 스테이지마다 맵 깊이가 다르므로(Main Stage1 은 y=-51 까지 내려간다) 인스펙터 고정값을 쓰면 안 된다.
+    /// </summary>
+    private float ResolveFallDeathY()
+    {
+        string scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        if (_fallLineScene == scene) return _fallLineY;
+
+        float minY = float.MaxValue;
+        var all = FindObjectsByType<Collider2D>(FindObjectsSortMode.None);
+        foreach (var col in all)
+        {
+            if (col == null || !col.enabled || col.isTrigger) continue;
+            if ((groundLayer.value & (1 << col.gameObject.layer)) == 0) continue;
+            // 런타임에 스폰되는 네트워크 오브젝트(당근 발판 등)는 지형이 아니다.
+            if (col.GetComponentInParent<NetworkObject>() != null) continue;
+            minY = Mathf.Min(minY, col.bounds.min.y);
+        }
+
+        _fallLineScene = scene;
+        _fallLineY = (minY < float.MaxValue) ? minY - fallDeathMargin : fallDeathY;
+
+        if (minY < float.MaxValue)
+            Debug.Log($"<color=orange>[FallDeath]</color> {scene}: 지형 최하단 {minY:0.0} -> 낙사선 {_fallLineY:0.0}");
+        else
+            Debug.LogWarning($"[FallDeath] {scene}: groundLayer 콜라이더를 찾지 못해 인스펙터 값 {fallDeathY} 를 유지합니다.");
+
+        return _fallLineY;
+    }
+
     private void CheckFallDeath()
     {
-        if (_isDead) return;
+        if (!Object.HasStateAuthority) return;
+        if (IsDead) return;
 
         if (transform.position.y < fallDeathY)
         {
@@ -353,26 +409,34 @@ public class PlayerMovement : NetworkBehaviour
 
     public void Die()
     {
-        if (_isDead) return;
-        _isDead = true;
+        // Trap 트리거는 Spawned() 전에도 들어올 수 있다.
+        if (Object == null || Runner == null) return;
+        if (!Object.HasStateAuthority) return;
+        if (IsDead) return;
+        if (!RespawnGrace.ExpiredOrNotRunning(Runner)) return; // 리스폰 직후 무적
 
-        Debug.Log("�÷��̾� ���!");
-        Respawn();
+        IsDead = true;
+        _respawnRequested = true; // 실제 리스폰은 FixedUpdateNetwork 안에서
+        Debug.Log("<color=red>[PlayerMovement]</color> 플레이어 사망 -> 리스폰");
     }
 
     private void Respawn()
     {
-        if (CheckpointManager.hasCheckpoint)
-        {
-            transform.position = CheckpointManager.lastCheckpointPosition;
-        }
+        Vector3 pos = CheckpointManager.hasCheckpoint
+            ? CheckpointManager.lastCheckpointPosition
+            : Vector3.zero;
+        pos.z = 0f;
+
+        // transform.position 직접 대입은 NetworkRigidbody2D 가 캡처하는 RBPosition 과
+        // 네트워크 상태를 갱신하지 않아 다음 틱에 원위치로 되돌아간다. 반드시 Teleport 를 쓴다.
+        if (_nrb != null)
+            _nrb.Teleport(pos);
         else
-        {
-            transform.position = Vector3.zero; // �⺻ ���� ��ġ
-        }
+            transform.position = pos;
 
         _rb.linearVelocity = Vector2.zero;
-        _isDead = false;
+        RespawnGrace = TickTimer.CreateFromSeconds(Runner, respawnGraceSeconds);
+        IsDead = false;
     }
 
     private void FlipSprite(NetworkInputData data)
