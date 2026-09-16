@@ -300,7 +300,10 @@ public class VoiceSkillInput : MonoBehaviour
         string kw = ExtractKeyword(json, confThreshold);
         if (string.IsNullOrEmpty(kw)) return;
 
-        _recognizer.Reset();
+        // _recognizer.Reset() 제거: 이 json 은 Result()/FinalResult() 에서 온 것이고,
+        // 두 호출 모두 Vosk 내부에서 디코더를 이미 리셋한다. 그 직후 Reset() 을 또 부르면
+        // libvosk 의 FinalizeDecoding 에서 네이티브 크래시(SIGSEGV)가 발생했다.
+        // 중복 발동은 아래 DrainQueue + Update() 의 retriggerGuard(0.35s) 로 충분히 막힌다.
         DrainQueue(); // 남은 잔여 오디오를 비워 연속 오발동을 막습니다
 
         lock (_keywordLock)
