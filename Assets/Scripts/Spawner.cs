@@ -63,6 +63,10 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
         string currentScene = SceneManager.GetActiveScene().name;
 
+        // 씬이 바뀌면 이전 씬의 NetworkObject 는 모두 Despawn 된다.
+        // 여기서 비워두지 않으면 다음 스테이지에서 스폰 가드에 걸려 캐릭터가 안 나온다.
+        _spawnedCharacters.Clear();
+
         // 1. 캐릭???�택 ??
         if (currentScene == "CharacterSelect")
         {
@@ -136,7 +140,14 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
     private void SpawnSelectedPlayer(NetworkRunner runner, PlayerRef player)
     {
-        if (_spawnedCharacters.ContainsKey(player)) return;
+        // 이미 이 플레이어의 캐릭터가 살아있으면 또 스폰하지 않는다.
+        // (중복 스폰되면 같은 InputAuthority 를 가진 캐릭터 둘이 같은 입력을 먹어 스킬/이펙트가 2배로 터진다)
+        if (_spawnedCharacters.TryGetValue(player, out NetworkObject existing))
+        {
+            if (existing != null) return;
+            _spawnedCharacters.Remove(player); // 이미 파괴된 항목은 정리
+        }
+
         int selectedIndex = 0;
         var items = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
 
@@ -158,7 +169,8 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             if (player.PlayerId % 2 == 0) rp.x += 1.5f;
             NetworkObject rpf = (selectedIndex == 0) ? player1Prefab : player2Prefab;
             Debug.Log($"<color=green>[Spawn]</color> resume player {player} @ checkpoint");
-            runner.Spawn(rpf, rp, Quaternion.identity, player);
+            var resumed = runner.Spawn(rpf, rp, Quaternion.identity, player);
+            if (resumed != null) _spawnedCharacters[player] = resumed;
             return;
         }
 
@@ -174,7 +186,8 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         NetworkObject prefabToSpawn = (selectedIndex == 0) ? player1Prefab : player2Prefab;
 
         Debug.Log($"<color=green>[Spawn]</color> ?�레?�어 {player} (?�덱??{selectedIndex}) ?�폰 ?�료");
-        runner.Spawn(prefabToSpawn, spawnPos, Quaternion.identity, player);
+        var spawned = runner.Spawn(prefabToSpawn, spawnPos, Quaternion.identity, player);
+        if (spawned != null) _spawnedCharacters[player] = spawned;
         // ?�?�머??OnSceneLoadDone ?�서 NetworkTimer �?처리?�다.
     }
 
