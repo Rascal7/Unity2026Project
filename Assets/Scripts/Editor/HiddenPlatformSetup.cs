@@ -36,6 +36,20 @@ public static class HiddenPlatformSetup
     [MenuItem("Tools/숨김 발판/2. 변환 실행", priority = 2)]
     public static void Convert() => Run(dryRun: false);
 
+    /// <summary>
+    /// 배치 모드 진입점. 에디터를 닫은 상태에서 커맨드라인으로 돌릴 때 쓴다.
+    ///   Unity.exe -batchmode -quit -projectPath &lt;경로&gt; -executeMethod HiddenPlatformSetup.ConvertBatchMode -logFile -
+    /// 씬을 직접 열고 변환한 뒤 저장한다. (에디터가 켜져 있으면 프로젝트가 잠겨 실행되지 않는다)
+    /// </summary>
+    public static void ConvertBatchMode()
+    {
+        const string scenePath = "Assets/Scenes/Main Stage2.unity";
+        var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+        Run(dryRun: false);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log($"[숨김발판] 배치 변환 후 저장 완료: {scenePath}");
+    }
+
     private static void Run(bool dryRun)
     {
         var ground = Object.FindObjectsByType<Tilemap>(FindObjectsSortMode.None)
