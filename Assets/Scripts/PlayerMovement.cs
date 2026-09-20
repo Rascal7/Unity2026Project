@@ -118,6 +118,13 @@ public class PlayerMovement : NetworkBehaviour
             CameraFollow cam = FindFirstObjectByType<CameraFollow>();
             if (cam != null)
                 cam.SetTarget(transform);
+
+            if (SkillCooldownHUD.Instance == null)
+            {
+                var hudObj = new GameObject("SkillCooldownHUD");
+                DontDestroyOnLoad(hudObj);
+                hudObj.AddComponent<SkillCooldownHUD>();
+            }
         }
     }
 
@@ -268,6 +275,67 @@ public class PlayerMovement : NetworkBehaviour
             default:
                 return false;
         }
+    }
+
+    public struct SkillSlotStatus
+    {
+        public CharacterSkill Skill;
+        public float RemainingSeconds;
+        public float TotalSeconds;
+        public float NormalizedProgress; // 0: 준비완료, 1: 방금 사용
+        public bool IsReady;
+    }
+
+    public CharacterSkill GetSlotSkill(int slot) => SlotSkill(slot);
+
+    public float GetSkillCooldownTotal(CharacterSkill skill)
+    {
+        switch (skill)
+        {
+            case CharacterSkill.FoxDash: return dashCooldown;
+            case CharacterSkill.RabbitJump: return jumpCooldown;
+            case CharacterSkill.FoxSniff: return sniffCooldown;
+            case CharacterSkill.RabbitCarrot: return carrotCooldown;
+            default: return 0f;
+        }
+    }
+
+    public SkillSlotStatus GetSkillSlotStatus(int slot)
+    {
+        CharacterSkill skill = SlotSkill(slot);
+        if (skill == CharacterSkill.None)
+        {
+            return new SkillSlotStatus { Skill = CharacterSkill.None, IsReady = false, RemainingSeconds = 0f, TotalSeconds = 0f, NormalizedProgress = 0f };
+        }
+
+        float total = GetSkillCooldownTotal(skill);
+        if (Runner == null || !Runner.IsRunning)
+        {
+            return new SkillSlotStatus { Skill = skill, IsReady = true, RemainingSeconds = 0f, TotalSeconds = total, NormalizedProgress = 0f };
+        }
+
+        TickTimer timer = default;
+        switch (slot)
+        {
+            case 1: timer = SkillCd1; break;
+            case 2: timer = SkillCd2; break;
+            case 3: timer = SkillCd3; break;
+            default: return new SkillSlotStatus { Skill = CharacterSkill.None };
+        }
+
+        float? rem = timer.RemainingTime(Runner);
+        float remaining = (rem.HasValue && rem.Value > 0f) ? rem.Value : 0f;
+        bool isReady = timer.ExpiredOrNotRunning(Runner);
+        float norm = (total > 0f && !isReady) ? Mathf.Clamp01(remaining / total) : 0f;
+
+        return new SkillSlotStatus
+        {
+            Skill = skill,
+            RemainingSeconds = remaining,
+            TotalSeconds = total,
+            NormalizedProgress = norm,
+            IsReady = isReady
+        };
     }
 
     private CharacterSkill SlotSkill(int slot)
