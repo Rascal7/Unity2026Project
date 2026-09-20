@@ -1,6 +1,7 @@
 using Fusion;
 using Fusion.Addons.Physics;
 using UnityEngine;
+using UnityEngine.Tilemaps;
 
 public class PlayerMovement : NetworkBehaviour
 {
@@ -46,6 +47,14 @@ public class PlayerMovement : NetworkBehaviour
     [Header("Rabbit Carrot (벽 고정 발판)")]
     public NetworkObject carrotPrefab;
     public float carrotForwardOffset = 0.6f;
+
+    [Header("Launcher (점프대)")]
+    [Tooltip("점프대로 쓸 타일. 이 타일 위에서 점프를 누르면 더 높이 뛴다. (올라서기만 해서는 안 튕긴다)")]
+    public TileBase launcherTile;
+    [Tooltip("점프대 위에서의 점프력. jumpForce(기본 10, 높이 2.55) 보다 크게. 13 이면 높이 4.3 정도")]
+    public float launcherJumpForce = 13f;
+    [Tooltip("발밑에서 이만큼 아래 지점의 타일을 점프대인지 검사한다")]
+    public float launcherProbeDepth = 0.15f;
 
     [Header("Ground Check")]
     public Transform groundCheck;
@@ -230,7 +239,8 @@ public class PlayerMovement : NetworkBehaviour
             }
             else if (data.isJumpPressed && IsGrounded)
             {
-                yVelocity = jumpForce;
+                // 점프대 위에서 점프를 누르면 더 높이 뛴다. (올라서기만 해서는 안 튕긴다)
+                yVelocity = IsOnLauncher() ? launcherJumpForce : jumpForce;
             }
         }
 
@@ -436,6 +446,30 @@ public class PlayerMovement : NetworkBehaviour
             groundCheckRadius,
             groundLayer
         ) != null;
+    }
+
+    /// <summary>
+    /// 지금 밟고 있는 칸이 점프대 타일인지. 점프 입력이 들어온 순간에만 검사한다.
+    /// 밟고 있는 콜라이더의 타일맵에서 발밑 셀을 찾아 타일을 비교한다.
+    /// </summary>
+    private bool IsOnLauncher()
+    {
+        if (launcherTile == null || groundCheck == null) return false;
+
+        // 사다리 등 다른 콜라이더가 같이 걸릴 수 있으므로 겹친 것을 모두 본다.
+        var cols = Physics2D.OverlapCircleAll(groundCheck.position, groundCheckRadius, groundLayer);
+        if (cols == null || cols.Length == 0) return false;
+
+        Vector3 probe = groundCheck.position + Vector3.down * launcherProbeDepth;
+        foreach (var col in cols)
+        {
+            if (col == null) continue;
+            // 지형 타일맵은 Tilemap + TilemapCollider2D + CompositeCollider2D 가 한 오브젝트에 있다.
+            var tilemap = col.GetComponent<Tilemap>();
+            if (tilemap == null) continue;
+            if (tilemap.GetTile(tilemap.WorldToCell(probe)) == launcherTile) return true;
+        }
+        return false;
     }
 
     // �޼��� �߰�

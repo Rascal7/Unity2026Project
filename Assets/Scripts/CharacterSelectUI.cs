@@ -37,6 +37,15 @@ public class CharacterSelectUI : MonoBehaviour
     private bool _hasSyncedInitialState = false;
     private int _currentSelectedIndex = -1;
 
+    // 세션 아이템은 네트워크 스폰이라 씬 로드 직후 몇 프레임은 당연히 없다.
+    // 그 동안 매 프레임 에러를 찍지 않도록 폴링 간격/유예 시간을 둔다.
+    private const float ItemPollInterval = 0.25f;
+    private const float ItemSpawnGrace = 5f;   // 이 시간까지는 못 찾아도 정상으로 본다
+    private float _nextPollTime;
+    private float _syncStartTime;
+    private bool _warnedMissingItem;
+    private bool _spawnedFallbackItem;   // 안전장치 스폰은 한 번만
+
     private void Start()
     {
         Debug.Log("<color=cyan>[UI]</color> CharacterSelectUI 초기화 시작");
@@ -104,19 +113,33 @@ public class CharacterSelectUI : MonoBehaviour
 
     private void Update()
     {
-        // 씬 로드 직후 네트워크 스폰된 세션 아이템의 상태를 1회 자동 동기화
-        if (!_hasSyncedInitialState)
+        // 씬 로드 직후 네트워크 스폰된 세션 아이템의 상태를 1회 자동 동기화.
+        // 아이템이 아직 스폰되기 전인 것은 정상이므로, 매 프레임 찾지 않고
+        // 조용히(로그 없이) 간격을 두고 확인한다.
+        if (_hasSyncedInitialState) return;
+        if (_syncStartTime <= 0f) _syncStartTime = Time.time;
+        if (Time.time < _nextPollTime) return;
+        _nextPollTime = Time.time + ItemPollInterval;
+
+        var myItem = FindLocalPlayerItem(verbose: false);
+        if (myItem != null)
         {
-            var myItem = FindLocalPlayerItem();
-            if (myItem != null)
+            if (myItem.SelectedCharacterIndex >= 0)
             {
-                if (myItem.SelectedCharacterIndex >= 0)
-                {
-                    UpdateCharacterSelectionUI(myItem.SelectedCharacterIndex);
-                }
-                UpdateReadyUI(myItem.IsReady);
-                _hasSyncedInitialState = true;
+                UpdateCharacterSelectionUI(myItem.SelectedCharacterIndex);
             }
+            UpdateReadyUI(myItem.IsReady);
+            _hasSyncedInitialState = true;
+            return;
+        }
+
+        // 유예 시간이 지나도 못 찾으면 그때 한 번만 경고한다.
+        if (!_warnedMissingItem && Time.time - _syncStartTime > ItemSpawnGrace)
+        {
+            _warnedMissingItem = true;
+            int count = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None).Length;
+            Debug.LogWarning($"<color=yellow>[UI]</color> {ItemSpawnGrace:0}초가 지나도 내 세션 아이템을 못 찾았습니다. " +
+                             $"(방 안 아이템 {count}개) 호스트가 스폰했는지, Spawner.sessionItemPrefab 이 지정됐는지 확인하세요.");
         }
     }
 
@@ -305,12 +328,19 @@ public class CharacterSelectUI : MonoBehaviour
         }
     }
 
-    private SessionPlayerItem FindLocalPlayerItem()
+    /// <summary>
+    /// 내 Input Authority 를 가진 세션 아이템을 찾는다.
+    /// </summary>
+    /// <param name="verbose">
+    /// 사용자가 버튼을 눌러서 호출한 경우 true. 못 찾으면 로그를 남긴다.
+    /// 씬 로드 직후 폴링처럼 "아직 없는 게 정상"인 경우에는 false 로 조용히 호출한다.
+    /// </param>
+    private SessionPlayerItem FindLocalPlayerItem(bool verbose = true)
     {
         var runner = FindFirstObjectByType<NetworkRunner>();
         if (runner == null)
         {
-            Debug.LogError("<color=red>[UI]</color> NetworkRunner를 찾을 수 없습니다.");
+            if (verbose) Debug.LogError("<color=red>[UI]</color> NetworkRunner를 찾을 수 없습니다.");
             return null;
         }
 
@@ -334,13 +364,16 @@ public class CharacterSelectUI : MonoBehaviour
             }
         }
 
-        // 3단계: 호스트인데 아이템이 없는 경우 즉시 생성 (안전장치)
-        if (runner.IsServer)
+        // 3단계: 호스트인데 아이템이 없는 경우 즉시 생성 (안전장치).
+        // 폴링(verbose=false)에서는 스폰하지 않는다. Fusion 이 정상 스폰하는 중일 수 있는데
+        // 매번 끼어들면 아이템이 중복 생성된다.
+        if (verbose && runner.IsServer && !_spawnedFallbackItem)
         {
             var spawner = FindFirstObjectByType<Spawner>();
             if (spawner != null && spawner.sessionItemPrefab != null)
             {
                 Debug.LogWarning("<color=yellow>[UI]</color> 호스트 세션 아이템이 없어 직접 생성합니다.");
+                _spawnedFallbackItem = true;
                 var newObj = runner.Spawn(spawner.sessionItemPrefab, Vector3.zero, Quaternion.identity, runner.LocalPlayer);
                 if (newObj != null)
                 {
@@ -349,7 +382,15 @@ public class CharacterSelectUI : MonoBehaviour
             }
         }
 
-        Debug.LogError("<color=red>[UI]</color> 방에 아이템은 있으나 내 권한(Input Authority)이 있는 것을 못 찾았습니다.");
+        if (verbose)
+        {
+            // 아이템이 아예 없는 것과, 있는데 내 것이 없는 것은 원인이 다르다.
+            if (allItems.Length == 0)
+                Debug.LogWarning("<color=yellow>[UI]</color> 세션 아이템이 아직 스폰되지 않았습니다. 잠시 후 다시 시도하세요.");
+            else
+                Debug.LogWarning($"<color=yellow>[UI]</color> 방에 아이템 {allItems.Length}개가 있으나 " +
+                                 $"내 권한(Input Authority, LocalPlayer={runner.LocalPlayer})이 있는 것이 없습니다.");
+        }
         return null;
     }
 

@@ -549,6 +549,9 @@ MonoBehaviour:
   sniffRevealDuration: 4.5
   carrotPrefab: {fileID: 278087493942239387, guid: f658aae83357e6c4d904ba74fca0e83a, type: 3}
   carrotForwardOffset: 0.6
+  launcherTile: {fileID: 11400000, guid: 29589996cc6e09d4290a2703a34b2e92, type: 2}
+  launcherJumpForce: 13
+  launcherProbeDepth: 0.15
   groundCheck: {fileID: 165237684612126761}
   groundCheckRadius: 0.12
   groundLayer:

@@ -155,6 +155,11 @@ public static class ColliderProbe
             var gc = go.transform.Find("GroundCheck");
             if (gc != null) Debug.Log($"[진단]   GroundCheck world y={gc.position.y:F4}");
 
+            var pm = go.GetComponent<PlayerMovement>();
+            if (pm != null)
+                Debug.Log($"[진단]   점프대: launcherTile={(pm.launcherTile != null ? pm.launcherTile.name : "(미지정)")} " +
+                          $"launcherJumpForce={pm.launcherJumpForce} jumpForce={pm.jumpForce}");
+
             Object.DestroyImmediate(go);
         }
     }
