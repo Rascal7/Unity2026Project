@@ -289,6 +289,8 @@ public static class SaveDataManager
                 return "스테이지 1 (Stage 1)";
             case "Main Stage2":
                 return "스테이지 2 (Stage 2)";
+            case "Main Stage3":
+                return "스테이지 3 (Stage 3)";
             case "TestStage":
                 return "테스트 스테이지 (Test Stage)";
             default:

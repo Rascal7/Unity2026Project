@@ -378,6 +378,7 @@ public class SettingsMenuUI : MonoBehaviour
         bool isInGameStage = currentScene == "TutorialStage" ||
                              currentScene == "Main Stage1" ||
                              currentScene == "Main Stage2" ||
+                             currentScene == "Main Stage3" ||
                              currentScene == "TestStage" ||
                              currentScene == "GameStage";
         if (isInGameStage)

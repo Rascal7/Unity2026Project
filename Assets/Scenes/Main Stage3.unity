@@ -9391,9 +9391,9 @@ MonoBehaviour:
   offset: {x: 0, y: 0, z: -10}
   smoothSpeed: 0.125
   ySmoothSpeed: 0.15
-  verticalOffset: 2
-  lookUp: 3.5
-  lookDown: 0.5
+  verticalOffset: 1.5
+  lookUp: 3
+  lookDown: 1
   autoClampToBackground: 1
   useManualBounds: 0
   minY: -100

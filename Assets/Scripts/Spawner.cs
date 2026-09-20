@@ -11,6 +11,10 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     public NetworkObject sessionItemPrefab;
     public NetworkObject player1Prefab;
     public NetworkObject player2Prefab;
+
+    [Tooltip("서버 연결이 끊겼을 때 돌아갈 씬 이름")]
+    public string lobbySceneName = "Lobby";
+    private bool _returningToLobby;
     private Dictionary<PlayerRef, NetworkObject> _spawnedCharacters = new Dictionary<PlayerRef, NetworkObject>();
 
     // Phase2: resume-from-checkpoint info for the current stage load (host only, set in OnSceneLoadDone).
@@ -18,7 +22,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     private float _resumeTimerOffset = 0f;
 
     // ?�게???�테?��?�?취급?????�름??(?�기?????�테?��? 추�??�면 ??
-    private static readonly string[] InGameStageNames = { "TutorialStage", "Main Stage1", "Main Stage2" };
+    private static readonly string[] InGameStageNames = { "TutorialStage", "Main Stage1", "Main Stage2", "Main Stage3" };
 
     private bool IsInGameStage(string sceneName)
     {
@@ -31,6 +35,10 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
     private void Awake()
     {
+        // 에디터/빌드가 포커스를 잃어도 네트워크 루프를 계속 돌린다.
+        // 이게 꺼져 있으면 Photon 이 AppOutOfFocusRecent 로 TimeoutDisconnect 를 띄운다.
+        Application.runInBackground = true;
+
         var objs = FindObjectsByType<Spawner>(UnityEngine.FindObjectsSortMode.None);
         if (objs.Length > 1)
         {
@@ -264,7 +272,25 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
     public void OnConnectedToServer(NetworkRunner runner) { }
-    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+    {
+        // 끊긴 채로 죽은 세션에 갇히지 않도록 로비로 되돌린다.
+        Debug.LogWarning($"[Spawner] 서버 연결이 끊겼습니다: {reason}. 로비로 돌아갑니다.");
+        ReturnToLobby(runner);
+    }
+
+    /// <summary>러너를 정리하고 로비 씬으로 돌아간다. 연결 끊김/실패 공용.</summary>
+    private async void ReturnToLobby(NetworkRunner runner)
+    {
+        if (_returningToLobby) return;
+        _returningToLobby = true;
+        if (runner != null)
+        {
+            await runner.Shutdown();
+            if (runner != null) Destroy(runner.gameObject);
+        }
+        SceneManager.LoadScene(lobbySceneName);
+    }
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
     public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
     public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }

@@ -12,6 +12,9 @@ public class PlayerMovement : NetworkBehaviour
     public float speed = 5f;
     public float jumpForce = 10f;
 
+    [Tooltip("최대 낙하 속도(양수). 카메라 낙하 룩어헤드(CameraFollow.fallSpeedForMaxLook)가 따라잡을 수 있도록 제한한다. 0 이면 제한 없음")]
+    public float maxFallSpeed = 16f;
+
     // 캐릭터 스킬 종류 (챕터별). 프리팹에서 슬롯에 지정한다.
     public enum CharacterSkill { None, FoxDash, FoxSniff, FoxShadow, RabbitCarrot, RabbitJump, RabbitStomp }
 
@@ -230,6 +233,10 @@ public class PlayerMovement : NetworkBehaviour
                 yVelocity = jumpForce;
             }
         }
+
+        // 낙하 속도 제한: 카메라가 따라잡지 못할 만큼 빨리 떨어져 아래가 안 보이는 것을 막는다.
+        if (maxFallSpeed > 0f && !IsClimbing && yVelocity < -maxFallSpeed)
+            yVelocity = -maxFallSpeed;
 
         _rb.linearVelocity = new Vector2(xVelocity, yVelocity);
     }
