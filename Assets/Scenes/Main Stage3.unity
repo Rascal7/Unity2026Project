@@ -7531,6 +7531,7 @@ MonoBehaviour:
   sessionItemPrefab: {fileID: 0}
   player1Prefab: {fileID: 0}
   player2Prefab: {fileID: 0}
+  lobbySceneName: Lobby
 --- !u!114 &357617225
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9394,6 +9395,14 @@ MonoBehaviour:
   verticalOffset: 1.5
   lookUp: 3
   lookDown: 1
+  lookAhead: 1
+  fallLookAheadDistance: 3
+  fallSpeedForMaxLook: 16
+  riseLookAheadDistance: 1.5
+  riseSpeedForMaxLook: 18
+  lookAheadMinSpeed: 2
+  lookAheadYSmoothSpeed: 0.35
+  lookAheadResponse: 6
   autoClampToBackground: 1
   useManualBounds: 0
   minY: -100
