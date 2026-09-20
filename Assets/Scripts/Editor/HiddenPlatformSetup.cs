@@ -36,6 +36,63 @@ public static class HiddenPlatformSetup
     [MenuItem("Tools/숨김 발판/2. 변환 실행", priority = 2)]
     public static void Convert() => Run(dryRun: false);
 
+    // ---------------- 후속 정리 도구 ----------------
+
+    private const string GreenTile = "Assets/Tilemap/Day-Platformer/tileset 2_29.asset";
+
+    [MenuItem("Tools/숨김 발판/3. 발판 타일을 초록 풀숲으로 되돌리기", priority = 3)]
+    public static void RetileGreen()
+    {
+        var tile = AssetDatabase.LoadAssetAtPath<TileBase>(GreenTile);
+        if (tile == null) { Debug.LogError($"[숨김발판] 타일 없음: {GreenTile}"); return; }
+
+        int n = 0, maps = 0;
+        foreach (var rt in Object.FindObjectsByType<RevealableTilemap>(FindObjectsSortMode.None))
+        {
+            var tm = rt.GetComponent<Tilemap>();
+            if (tm == null) continue;
+            Undo.RegisterCompleteObjectUndo(tm, "발판 타일 교체");
+            foreach (var pos in tm.cellBounds.allPositionsWithin)
+            {
+                if (tm.GetTile(pos) == null) continue;
+                tm.SetTile(pos, tile);
+                n++;
+            }
+            maps++;
+        }
+        Debug.Log($"[숨김발판] 발판 {maps}개 / {n}칸을 초록 풀숲 타일로 되돌렸습니다.");
+    }
+
+    /// <summary>
+    /// 타일맵이 셀마다 캐싱한 변환 행렬을 타일 에셋 기준으로 다시 굽는다.
+    /// (타일 에셋의 m_Transform 을 바꿔도 이미 놓인 칸은 캐시된 행렬을 쓰기 때문에 필요하다)
+    /// </summary>
+    [MenuItem("Tools/숨김 발판/4. 타일맵 새로고침 (타일 변환 재적용)", priority = 4)]
+    public static void RefreshAll()
+    {
+        int n = 0;
+        foreach (var tm in Object.FindObjectsByType<Tilemap>(FindObjectsSortMode.None))
+        {
+            Undo.RegisterCompleteObjectUndo(tm, "타일맵 새로고침");
+            tm.RefreshAllTiles();
+            n++;
+        }
+        Debug.Log($"[숨김발판] 타일맵 {n}개 새로고침 완료.");
+    }
+
+    /// <summary>배치 모드: Stage1/Stage2 를 열어 새로고침 + 발판 타일 되돌리기 후 저장.</summary>
+    public static void FixupBatchMode()
+    {
+        foreach (var path in new[] { "Assets/Scenes/Main Stage1.unity", "Assets/Scenes/Main Stage2.unity" })
+        {
+            var scene = EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
+            RefreshAll();
+            if (path.EndsWith("Main Stage2.unity")) RetileGreen();
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log($"[숨김발판] 저장 완료: {path}");
+        }
+    }
+
     /// <summary>
     /// 배치 모드 진입점. 에디터를 닫은 상태에서 커맨드라인으로 돌릴 때 쓴다.
     ///   Unity.exe -batchmode -quit -projectPath &lt;경로&gt; -executeMethod HiddenPlatformSetup.ConvertBatchMode -logFile -
