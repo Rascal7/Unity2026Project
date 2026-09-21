@@ -119,12 +119,26 @@ public class TitleScreen : MonoBehaviour
     {
         if (_launcher == null)
         {
-            _launcher = FindObjectOfType<BasicLauncher>();
-            if (_launcher == null)
+            if (BasicLauncher.Instance != null)
             {
-                // 비활성 오브젝트에 있을 수 있으니 포함해서 검색
-                var all = FindObjectsByType<BasicLauncher>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-                if (all != null && all.Length > 0) _launcher = all[0];
+                _launcher = BasicLauncher.Instance;
+            }
+            else
+            {
+                _launcher = FindFirstObjectByType<BasicLauncher>();
+                if (_launcher == null)
+                {
+                    // 비활성 오브젝트에 있을 수 있으니 포함해서 검색
+                    var all = FindObjectsByType<BasicLauncher>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+                    if (all != null && all.Length > 0) _launcher = all[0];
+                }
+
+                if (_launcher == null)
+                {
+                    // 이름으로 직접 오브젝트 검색 폴백
+                    var go = GameObject.Find("NetworkLauncher");
+                    if (go != null) _launcher = go.GetComponent<BasicLauncher>();
+                }
             }
         }
         // 호스팅하려면 런처 오브젝트가 켜져 있어야 한다. (에디트 모드에선 씬을 건드리지 않도록 플레이 중에만)

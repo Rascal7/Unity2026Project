@@ -177,12 +177,19 @@ public class BasicLauncher : MonoBehaviour
 
             if (_runner != null && _runner.gameObject != null)
             {
-                Destroy(_runner.gameObject);
+                if (_runner.gameObject == gameObject)
+                {
+                    Destroy(_runner);
+                }
+                else
+                {
+                    Destroy(_runner.gameObject);
+                }
             }
             _runner = null;
         }
 
-        // 씬 내 잔류 중인 고아 러너가 있다면 일괄 정리
+        // 씬 내 잔류 중인 고아 러너가 있다면 일괄 정리 (단, 본체 GameObject는 파괴하지 않음)
         var runners = FindObjectsByType<NetworkRunner>(FindObjectsSortMode.None);
         foreach (var r in runners)
         {
@@ -196,7 +203,14 @@ public class BasicLauncher : MonoBehaviour
 
                 if (r.gameObject != null)
                 {
-                    Destroy(r.gameObject);
+                    if (r.gameObject == gameObject)
+                    {
+                        Destroy(r);
+                    }
+                    else
+                    {
+                        Destroy(r.gameObject);
+                    }
                 }
             }
         }
