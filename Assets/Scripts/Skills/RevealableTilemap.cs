@@ -5,7 +5,8 @@ using UnityEngine.Tilemaps;
 /// 여우 Sniff 로 드러나는 "숨김 발판 타일맵". <see cref="Revealable"/> 의 타일맵 버전.
 /// - 평소: TilemapRenderer OFF + TilemapCollider2D OFF (안 보이고 밟히지도 않음)
 /// - Sniff: 호스트가 Reveal(sec) → 드러난 동안만 보이고 밟을 수 있다.
-///   드러나는 동안 테두리가 발광하고, 사라지기 직전에는 깜박인다.
+///   드러나는 동안 테두리가 일정한 밝기로 발광하고(맥박 없음),
+///   사라지기 직전에는 테두리만 깜박인다. 발판 본체는 깜박이지 않는다.
 ///
 /// Revealable 을 상속하므로 PlayerMovement.DoSniff 의 FindObjectsByType&lt;Revealable&gt; 에 그대로 잡힌다.
 /// 감지 거리는 <see cref="IsWithinRange"/> 에서 타일의 실제 영역 기준으로 다시 계산한다.
@@ -20,13 +21,16 @@ public class RevealableTilemap : Revealable
     public Color flashColor = new Color(0.72f, 1f, 1f, 1f);
 
     [Header("발광 테두리")]
-    [Tooltip("테두리를 만들지 여부. 같은 타일을 복사한 실루엣을 뒤에 살짝 키워서 그린다")]
+    [Tooltip("테두리를 만들지 여부. 같은 타일을 복사한 실루엣을 뒤에 살짝 키워서 그린다. " +
+             "끄면 사라지기 전 깜박임도 같이 없어진다(깜박이는 주체가 테두리이므로)")]
     public bool drawGlowOutline = true;
     [Tooltip("테두리 두께(월드 유닛). 타일 1칸이 1유닛")]
     public float glowThickness = 0.12f;
+    // 밝기는 glowColor 의 알파를 그대로 쓴다. 상속된 glowScale / glowPulseSpeed 는
+    // 스프라이트용이라 타일맵에서는 쓰지 않는다(맥박 없음, 두께는 glowThickness).
 
-    [Header("사라지기 전 깜박임")]
-    [Tooltip("남은 시간이 이보다 적으면 깜박인다. 0이면 깜박이지 않는다")]
+    [Header("사라지기 전 깜박임 (테두리만)")]
+    [Tooltip("남은 시간이 이보다 적으면 테두리가 깜박인다. 0이면 깜박이지 않는다")]
     public float blinkSeconds = 1.5f;
     [Tooltip("초당 깜박임 횟수. 사라질 때가 가까워지면 더 빨라진다")]
     public float blinkPerSecond = 4f;
@@ -143,21 +147,16 @@ public class RevealableTilemap : Revealable
 
         _flashT += Time.deltaTime;
         float appear = Mathf.Clamp01(_flashT / Mathf.Max(0.01f, appearTime)); // 0→1
-        float blink = BlinkFactor();
 
-        // 본체: 등장 순간 플래시 색 → 원래 색, 사라지기 직전엔 깜박임
-        var c = Color.Lerp(flashColor, _baseColor, appear);
-        c.a = _baseColor.a * blink;
-        _tilemap.color = c;
+        // 본체: 등장 순간만 플래시 색 → 원래 색. 깜박임은 테두리만 한다.
+        _tilemap.color = Color.Lerp(flashColor, _baseColor, appear);
 
-        // 테두리: 은은한 펄스 + 등장 플래시, 깜박임 동기화
+        // 테두리: 맥박 없이 일정한 밝기로 켜 두고, 사라지기 직전에만 깜박인다.
         if (_glowRenderer != null && _glowTilemap != null)
         {
             _glowRenderer.enabled = true;
-            float pulse = 0.45f + 0.3f * Mathf.Sin(Time.time * glowPulseSpeed);
-            float flash = 1f - appear;                       // 등장 순간 최대 → 감쇠
             var g = glowColor;
-            g.a = Mathf.Clamp01(pulse + flash * 0.7f) * blink;
+            g.a = glowColor.a * BlinkFactor();
             _glowTilemap.color = g;
         }
     }
