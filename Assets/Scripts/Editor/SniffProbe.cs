@@ -46,6 +46,31 @@ public static class SniffProbe
             Debug.Log($"[Sniff진단]   반경+5 밖에서 감지 = {farAway}  (false 여야 정상)");
         }
 
+        // 발광 테두리는 런타임(Spawned)에 자식 타일맵으로 만들어진다.
+        // 원점 기준 스케일을 타일 영역 중심 기준으로 보정하는 계산이 맞는지 미리 검산한다.
+        foreach (var rt in items)
+        {
+            var tm = rt.GetComponent<Tilemap>();
+            if (tm == null || !rt.drawGlowOutline) continue;
+
+            Bounds lb = tm.localBounds;
+            float th = rt.glowThickness;
+            float sx = lb.size.x > 0.0001f ? (lb.size.x + 2f * th) / lb.size.x : 1f;
+            float sy = lb.size.y > 0.0001f ? (lb.size.y + 2f * th) / lb.size.y : 1f;
+            var offset = new Vector3(lb.center.x * (1f - sx), lb.center.y * (1f - sy), 0f);
+
+            // 보정 후 테두리 타일맵의 실제 월드 경계
+            Vector2 gMin = new Vector2(offset.x + lb.min.x * sx, offset.y + lb.min.y * sy);
+            Vector2 gMax = new Vector2(offset.x + lb.max.x * sx, offset.y + lb.max.y * sy);
+            float padL = lb.min.x - gMin.x, padR = gMax.x - lb.max.x;
+            float padB = lb.min.y - gMin.y, padT = gMax.y - lb.max.y;
+
+            bool ok = Mathf.Abs(padL - th) < 0.01f && Mathf.Abs(padR - th) < 0.01f
+                   && Mathf.Abs(padB - th) < 0.01f && Mathf.Abs(padT - th) < 0.01f;
+            Debug.Log($"[Sniff진단] {rt.name,-18} 테두리 scale=({sx:F3},{sy:F3}) offset=({offset.x:F2},{offset.y:F2}) " +
+                      $"삐져나온 폭 L/R/B/T = {padL:F3}/{padR:F3}/{padB:F3}/{padT:F3} (목표 {th:F2}) → {(ok ? "OK" : "불일치!")}");
+        }
+
         // 숨김 상태로 시작하는지(렌더러/콜라이더가 꺼지는지)는 런타임 Spawned 에서 처리되므로
         // 여기서는 컴포넌트 구성만 확인한다.
         foreach (var rt in items)
