@@ -15,7 +15,6 @@ public class TitleScreen : MonoBehaviour
     private GameObject _root;
     private Font _pixel;
     private Font _plain;
-    private InputField _nickField;
     private InputField _roomField;
     private Button _hostBtn;
     private Button _joinBtn;
@@ -23,6 +22,21 @@ public class TitleScreen : MonoBehaviour
     private BasicLauncher _launcher;
     private bool _busy;
     private float _busySince;
+
+    // ---- 인증(로그인/회원가입) 통합 상태 ----
+    private enum AuthView { Login, SignUp, Find, Verify }
+    private AuthView _authView = AuthView.Login;
+    private InputField _authEmail, _authPw, _authPw2, _authNick;
+    private string _pendingNote;
+    private bool _pendingNoteErr;
+    private bool _needResend;   // 미인증 로그인 시도 후에만 "인증메일 재발송" 링크 표시
+    private float _verifyPollAt;          // 인증 대기 화면 자동확인 폴링 타이머
+    private Text _nickStatus;             // 회원가입 닉네임 실시간 상태 라벨
+    private string _nickPending;          // 검사 대기 중인 닉네임
+    private float _nickCheckAt;           // 닉네임 디바운스 타이머
+    private UnityEngine.UI.Selectable[] _tabOrder;   // Tab 키 이동 순서(현재 뷰 기준)
+    private static readonly Color ErrCol = new Color(0.96f, 0.55f, 0.45f);
+    private static readonly Color OkCol  = new Color(0.72f, 0.90f, 0.62f);
 
     private RectTransform _char1;
     private RectTransform _char2;
@@ -93,10 +107,12 @@ public class TitleScreen : MonoBehaviour
         _busy = false;
         EnsureLauncher();
         SetInteractable(true);
-        if (_nickField != null)
-            _nickField.text = PlayerPrefs.GetString("PlayerName", "Player" + Random.Range(100, 999));
         if (_noteText != null)
-            _noteText.text = "";
+        {
+            if (!string.IsNullOrEmpty(_pendingNote)) { _noteText.text = _pendingNote; _noteText.color = _pendingNoteErr ? ErrCol : OkCol; }
+            else _noteText.text = "";
+        }
+        _pendingNote = null;
     }
 
     private void EnsureLauncher()
@@ -104,6 +120,18 @@ public class TitleScreen : MonoBehaviour
         if (_launcher == null)
         {
             _launcher = FindObjectOfType<BasicLauncher>();
+            if (_launcher == null)
+            {
+                // 비활성 오브젝트에 있을 수 있으니 포함해서 검색
+                var all = FindObjectsByType<BasicLauncher>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+                if (all != null && all.Length > 0) _launcher = all[0];
+            }
+        }
+        // 호스팅하려면 런처 오브젝트가 켜져 있어야 한다. (에디트 모드에선 씬을 건드리지 않도록 플레이 중에만)
+        if (Application.isPlaying && _launcher != null && !_launcher.gameObject.activeSelf)
+        {
+            Debug.Log("<color=cyan>[TitleScreen]</color> NetworkLauncher 가 비활성이라 활성화합니다.");
+            _launcher.gameObject.SetActive(true);
         }
         RegisterLauncherEvents();
     }
@@ -142,9 +170,11 @@ public class TitleScreen : MonoBehaviour
     {
         _busy = false;
         SetInteractable(true);
+        Debug.LogWarning($"<color=red>[TitleScreen]</color> 접속 실패: {reason}");
         if (_noteText != null)
         {
             _noteText.text = string.IsNullOrEmpty(reason) ? "접속 실패 - 다시 시도하세요" : reason;
+            _noteText.color = ErrCol;
         }
     }
 
@@ -165,6 +195,21 @@ public class TitleScreen : MonoBehaviour
 
         if (!Application.isPlaying) return;
 
+        // Tab / Shift+Tab 으로 입력칸 이동 (레거시 InputField는 자동 이동이 없음)
+        if (_tabOrder != null && _tabOrder.Length > 1 && Input.GetKeyDown(KeyCode.Tab))
+        {
+            var es = EventSystem.current;
+            GameObject cur = es != null ? es.currentSelectedGameObject : null;
+            int idx = -1;
+            for (int i = 0; i < _tabOrder.Length; i++)
+                if (_tabOrder[i] != null && _tabOrder[i].gameObject == cur) { idx = i; break; }
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            int step = shift ? -1 : 1;
+            int next = idx < 0 ? 0 : ((idx + step) % _tabOrder.Length + _tabOrder.Length) % _tabOrder.Length;
+            var field = _tabOrder[next] as InputField;
+            if (field != null) { field.Select(); field.ActivateInputField(); }
+        }
+
         // 비상용 안전 타임아웃 (네트워크 지연을 감안해 15초)
         if (_busy && t - _busySince > 15f)
         {
@@ -172,6 +217,24 @@ public class TitleScreen : MonoBehaviour
             SetInteractable(true);
             if (_noteText != null) _noteText.text = "연결 시간 초과 - 다시 시도하세요";
             if (_launcher != null) _ = _launcher.CleanupRunnerAsync();
+        }
+
+        // 인증 대기: 메일 링크 클릭을 5초 간격으로 자동 감지 → 인증되면 자동 로그인
+        if (_authView == AuthView.Verify && !_busy && AuthManager.Instance != null
+            && !AuthManager.Instance.IsLoggedIn && Time.unscaledTime >= _verifyPollAt)
+        {
+            _verifyPollAt = Time.unscaledTime + 5f;
+            AuthManager.Instance.CheckEmailVerified(
+                () => { _pendingNote = "이메일 인증 완료! 환영합니다."; _pendingNoteErr = false; Rebuild(); },
+                () => { },
+                _ => { });
+        }
+
+        // 회원가입 닉네임 실시간 중복 체크 (디바운스 경과 시 1회 조회)
+        if (_authView == AuthView.SignUp && _nickStatus != null && _nickCheckAt > 0f && Time.unscaledTime >= _nickCheckAt)
+        {
+            _nickCheckAt = 0f;
+            RunNicknameCheck();
         }
     }
 
@@ -185,11 +248,17 @@ public class TitleScreen : MonoBehaviour
     {
         if (!Application.isPlaying || _busy) return;
         EnsureLauncher();
-        if (_launcher == null) return;
+        if (_launcher == null)
+        {
+            if (_noteText != null) { _noteText.text = "런처(NetworkLauncher)를 찾을 수 없습니다."; _noteText.color = ErrCol; }
+            Debug.LogWarning("<color=red>[TitleScreen]</color> BasicLauncher(NetworkLauncher)를 찾지 못했습니다. Lobby 씬에 있는지 확인하세요.");
+            return;
+        }
         _busy = true; _busySince = Time.realtimeSinceStartup;
         SetInteractable(false);
         if (_noteText != null) _noteText.text = "방 만드는 중...";
-        _launcher.RequestHost(_roomField != null ? _roomField.text : "", _nickField != null ? _nickField.text : "");
+        Debug.Log($"<color=cyan>[TitleScreen]</color> RequestHost 호출 room='{(_roomField != null ? _roomField.text : "")}' nick='{ResolveNickname()}'");
+        _launcher.RequestHost(_roomField != null ? _roomField.text : "", ResolveNickname());
     }
 
     private void OnJoin()
@@ -205,7 +274,7 @@ public class TitleScreen : MonoBehaviour
         _busy = true; _busySince = Time.realtimeSinceStartup;
         SetInteractable(false);
         if (_noteText != null) _noteText.text = "접속 중...";
-        _launcher.RequestJoin(_roomField.text, _nickField != null ? _nickField.text : "");
+        _launcher.RequestJoin(_roomField.text, ResolveNickname());
     }
 
     private void OnRanking()
@@ -214,6 +283,300 @@ public class TitleScreen : MonoBehaviour
         var rm = FindObjectOfType<RankingManager>();
         if (rm != null) rm.ToggleBoard();
         else RankingBoardUI.GetOrCreate().Toggle();
+    }
+
+    // ================= 인증/메뉴 패널 =================
+    private bool IsAuthed()
+    {
+        var a = AuthManager.Instance;
+        return Application.isPlaying && a != null && (a.IsLoggedIn || a.IsGuest);
+    }
+
+    private string ResolveNickname()
+    {
+        var a = AuthManager.Instance;
+        if (a != null && !string.IsNullOrEmpty(a.Nickname)) return a.Nickname;
+        return PlayerPrefs.GetString("PlayerName", "Player" + Random.Range(100, 999));
+    }
+
+    private void BuildPanel()
+    {
+        if (IsAuthed()) { BuildGameMenu(); return; }
+        switch (_authView)
+        {
+            case AuthView.SignUp: BuildSignupView(); break;
+            case AuthView.Find: BuildFindView(); break;
+            case AuthView.Verify: BuildVerifyView(); break;
+            default: BuildLoginView(); break;
+        }
+    }
+
+    private Transform MakePanel(Vector2 size, Vector2 offset)
+    {
+        var panel = NewChild("Panel", _root.transform);
+        var pr = panel.GetComponent<RectTransform>();
+        pr.anchorMin = pr.anchorMax = new Vector2(0.5f, 0.5f);
+        pr.pivot = new Vector2(0.5f, 0.5f);
+        pr.sizeDelta = size;
+        pr.anchoredPosition = offset;
+        Framed(panel, WoodFill, WoodDark, WoodLight);
+        return panel.transform;
+    }
+
+    // 로그인/게스트 상태: 환영 + ROOM CODE + HOST/JOIN
+    private void BuildGameMenu()
+    {
+        var panel = MakePanel(new Vector2(720f, 470f), new Vector2(0f, -150f));
+        bool guest = AuthManager.Instance != null && AuthManager.Instance.IsGuest;
+
+        AddLabel(panel, "환영합니다", 24f, new Vector2(0f, 1f), 400f, TextAnchor.UpperLeft, Hint, _plain, new Vector2(48f, -40f));
+        AddLabel(panel, ResolveNickname() + (guest ? "  (게스트)" : ""), 40f, new Vector2(0f, 1f), 624f, TextAnchor.UpperLeft, Gold, _plain, new Vector2(48f, -76f));
+
+        AddLabel(panel, "ROOM CODE", 28f, new Vector2(0f, 1f), 400f, TextAnchor.UpperLeft, Parch, _pixel, new Vector2(48f, -152f));
+        _roomField = MakeInput(panel, new Vector2(48f, -184f), 624f, 74f, "HOST 시 자동 생성");
+        _tabOrder = new UnityEngine.UI.Selectable[] { _roomField };
+
+        _hostBtn = MakeButton(panel, new Vector2(48f, -282f), 300f, 104f, "HOST", Gold, GoldDeep, OnHost);
+        _joinBtn = MakeButton(panel, new Vector2(372f, -282f), 300f, 104f, "JOIN", Stone, new Color(0.13f, 0.13f, 0.15f), OnJoin);
+
+        MakeTextLink(panel, new Vector2(48f, -406f), 400f, 36f, guest ? "로그인 / 회원가입" : "로그아웃", OnLogoutClick);
+        _noteText = AddLabel(panel, "", 21f, new Vector2(0.5f, 0f), 640f, TextAnchor.MiddleCenter, Parch, _plain, new Vector2(0f, 22f));
+    }
+
+    // 로그인 폼
+    private void BuildLoginView()
+    {
+        var panel = MakePanel(new Vector2(720f, 620f), new Vector2(0f, -150f));
+        AddLabel(panel, "LOGIN", 44f, new Vector2(0.5f, 1f), 600f, TextAnchor.UpperCenter, Gold, _pixel, new Vector2(0f, -34f));
+
+        AddLabel(panel, "이메일", 25f, new Vector2(0f, 1f), 400f, TextAnchor.UpperLeft, Parch, _plain, new Vector2(48f, -100f));
+        _authEmail = MakeInput(panel, new Vector2(48f, -132f), 624f, 72f, "you@example.com", 64, false);
+
+        AddLabel(panel, "비밀번호", 25f, new Vector2(0f, 1f), 400f, TextAnchor.UpperLeft, Parch, _plain, new Vector2(48f, -224f));
+        _authPw = MakeInput(panel, new Vector2(48f, -256f), 624f, 72f, "비밀번호", 32, true);
+        _tabOrder = new UnityEngine.UI.Selectable[] { _authEmail, _authPw };
+
+        MakeButton(panel, new Vector2(48f, -352f), 624f, 82f, "로그인", Gold, GoldDeep, OnLoginClick, 40, _plain);
+
+        _noteText = AddLabel(panel, "", 21f, new Vector2(0.5f, 1f), 640f, TextAnchor.MiddleCenter, Parch, _plain, new Vector2(0f, -450f));
+
+        // 하단 링크: 가운데 정렬. 미인증 로그인 시도 시에만 재발송 링크 추가.
+        if (_needResend)
+        {
+            MakeTextLink(panel, new Vector2(-190f, -490f), 150f, 36f, "회원가입", () => SwitchView(AuthView.SignUp), true);
+            MakeTextLink(panel, new Vector2(-20f, -490f), 170f, 36f, "비밀번호 찾기", () => SwitchView(AuthView.Find), true);
+            MakeTextLink(panel, new Vector2(175f, -490f), 200f, 36f, "인증메일 재발송", OnResendClick, true);
+        }
+        else
+        {
+            MakeTextLink(panel, new Vector2(-90f, -490f), 150f, 36f, "회원가입", () => SwitchView(AuthView.SignUp), true);
+            MakeTextLink(panel, new Vector2(90f, -490f), 170f, 36f, "비밀번호 찾기", () => SwitchView(AuthView.Find), true);
+        }
+
+        MakeButton(panel, new Vector2(48f, -536f), 624f, 58f, "게스트로 시작", Stone, new Color(0.13f, 0.13f, 0.15f), OnGuestClick, 30, _plain);
+    }
+
+    // 회원가입 폼
+    private void BuildSignupView()
+    {
+        var panel = MakePanel(new Vector2(720f, 730f), new Vector2(0f, -120f));
+        AddLabel(panel, "SIGN UP", 44f, new Vector2(0.5f, 1f), 600f, TextAnchor.UpperCenter, Gold, _pixel, new Vector2(0f, -32f));
+
+        AddLabel(panel, "이메일", 23f, new Vector2(0f, 1f), 400f, TextAnchor.UpperLeft, Parch, _plain, new Vector2(48f, -92f));
+        _authEmail = MakeInput(panel, new Vector2(48f, -122f), 624f, 66f, "you@example.com", 64, false);
+
+        AddLabel(panel, "비밀번호 (6자 이상)", 23f, new Vector2(0f, 1f), 500f, TextAnchor.UpperLeft, Parch, _plain, new Vector2(48f, -204f));
+        _authPw = MakeInput(panel, new Vector2(48f, -234f), 624f, 66f, "비밀번호", 32, true);
+
+        AddLabel(panel, "비밀번호 확인", 23f, new Vector2(0f, 1f), 500f, TextAnchor.UpperLeft, Parch, _plain, new Vector2(48f, -316f));
+        _authPw2 = MakeInput(panel, new Vector2(48f, -346f), 624f, 66f, "비밀번호 확인", 32, true);
+
+        AddLabel(panel, "닉네임 (2~8자, 중복 불가)", 23f, new Vector2(0f, 1f), 360f, TextAnchor.UpperLeft, Parch, _plain, new Vector2(48f, -428f));
+        _nickStatus = AddLabel(panel, "", 22f, new Vector2(1f, 1f), 280f, TextAnchor.UpperRight, Hint, _plain, new Vector2(-48f, -428f));
+        _authNick = MakeInput(panel, new Vector2(48f, -458f), 624f, 66f, "게임에서 보일 이름", 8, false);
+        _authNick.onValueChanged.AddListener(OnNickChanged);
+        _tabOrder = new UnityEngine.UI.Selectable[] { _authEmail, _authPw, _authPw2, _authNick };
+
+        MakeButton(panel, new Vector2(48f, -552f), 624f, 80f, "가입하기", Gold, GoldDeep, OnSignupClick, 40, _plain);
+        _noteText = AddLabel(panel, "", 21f, new Vector2(0.5f, 1f), 640f, TextAnchor.MiddleCenter, Parch, _plain, new Vector2(0f, -646f));
+        MakeTextLink(panel, new Vector2(48f, -684f), 300f, 36f, "← 로그인으로", () => SwitchView(AuthView.Login));
+    }
+
+    // 비밀번호 찾기 폼
+    private void BuildFindView()
+    {
+        var panel = MakePanel(new Vector2(720f, 450f), new Vector2(0f, -150f));
+        AddLabel(panel, "비밀번호 찾기", 36f, new Vector2(0.5f, 1f), 600f, TextAnchor.UpperCenter, Gold, _plain, new Vector2(0f, -34f));
+        AddLabel(panel, "가입한 이메일로 재설정 링크를 보냅니다.", 21f, new Vector2(0.5f, 1f), 640f, TextAnchor.UpperCenter, Hint, _plain, new Vector2(0f, -90f));
+
+        AddLabel(panel, "이메일", 25f, new Vector2(0f, 1f), 400f, TextAnchor.UpperLeft, Parch, _plain, new Vector2(48f, -146f));
+        _authEmail = MakeInput(panel, new Vector2(48f, -178f), 624f, 74f, "you@example.com", 64, false);
+        _tabOrder = new UnityEngine.UI.Selectable[] { _authEmail };
+
+        MakeButton(panel, new Vector2(48f, -276f), 624f, 82f, "재설정 메일 보내기", Gold, GoldDeep, OnFindClick, 36, _plain);
+        _noteText = AddLabel(panel, "", 21f, new Vector2(0.5f, 1f), 640f, TextAnchor.MiddleCenter, Parch, _plain, new Vector2(0f, -372f));
+        MakeTextLink(panel, new Vector2(48f, -404f), 300f, 36f, "← 로그인으로", () => SwitchView(AuthView.Login));
+    }
+
+    // 이메일 인증 대기 화면 (가입 직후). 링크 클릭을 자동 감지(폴링)해 로그인까지 진행.
+    private void BuildVerifyView()
+    {
+        var panel = MakePanel(new Vector2(720f, 440f), new Vector2(0f, -150f));
+        _tabOrder = null;
+        AddLabel(panel, "이메일 인증", 36f, new Vector2(0.5f, 1f), 600f, TextAnchor.UpperCenter, Gold, _plain, new Vector2(0f, -34f));
+
+        string em = AuthManager.Instance != null ? AuthManager.Instance.PendingEmail : "";
+        AddLabel(panel, string.IsNullOrEmpty(em) ? "인증 메일을 보냈습니다." : em, 25f, new Vector2(0.5f, 1f), 660f, TextAnchor.UpperCenter, Parch, _plain, new Vector2(0f, -96f));
+        AddLabel(panel, "메일함에서 인증 링크를 누르면 자동으로 확인됩니다.", 20f, new Vector2(0.5f, 1f), 660f, TextAnchor.UpperCenter, Hint, _plain, new Vector2(0f, -134f));
+
+        MakeButton(panel, new Vector2(48f, -200f), 624f, 78f, "인증 완료했어요 · 새로고침", Gold, GoldDeep, OnVerifyRefreshClick, 30, _plain);
+
+        _noteText = AddLabel(panel, "", 21f, new Vector2(0.5f, 1f), 640f, TextAnchor.MiddleCenter, Hint, _plain, new Vector2(0f, -300f));
+
+        MakeTextLink(panel, new Vector2(0f, -340f), 240f, 36f, "인증메일 재발송", OnResendPendingClick, true);
+        MakeTextLink(panel, new Vector2(0f, -382f), 240f, 36f, "← 로그인으로", () => SwitchView(AuthView.Login), true);
+    }
+
+    private void SwitchView(AuthView v) { _needResend = false; _authView = v; Rebuild(); }
+
+    private void SetNote(string msg, bool error)
+    {
+        if (_noteText != null) { _noteText.text = msg; _noteText.color = error ? ErrCol : Parch; }
+    }
+
+    // ---- 인증 액션 ----
+    private void OnLoginClick()
+    {
+        if (!Application.isPlaying || _busy) return;
+        if (AuthManager.Instance == null) { SetNote("인증 모듈을 찾을 수 없습니다.", true); return; }
+        _needResend = false;
+        _busy = true; SetNote("로그인 중...", false);
+        AuthManager.Instance.Login(_authEmail != null ? _authEmail.text : "", _authPw != null ? _authPw.text : "",
+            () => { _busy = false; _pendingNote = "환영합니다!"; _pendingNoteErr = false; Rebuild(); },
+            msg => { _busy = false; SetNote(msg, true); },
+            () => { _busy = false; _needResend = true; _pendingNote = "이메일 인증이 필요합니다. 메일함을 확인하거나 인증메일을 재발송하세요."; _pendingNoteErr = true; Rebuild(); });
+    }
+
+    private void OnSignupClick()
+    {
+        if (!Application.isPlaying || _busy) return;
+        if (AuthManager.Instance == null) { SetNote("인증 모듈을 찾을 수 없습니다.", true); return; }
+        _busy = true; SetNote("가입 처리 중...", false);
+        AuthManager.Instance.SignUp(
+            _authEmail != null ? _authEmail.text : "", _authPw != null ? _authPw.text : "",
+            _authPw2 != null ? _authPw2.text : "", _authNick != null ? _authNick.text : "",
+            () => { _busy = false; _authView = AuthView.Verify; _verifyPollAt = Time.unscaledTime + 5f; _pendingNote = "인증 대기 중 · 메일의 링크를 눌러주세요"; _pendingNoteErr = false; Rebuild(); },
+            msg => { _busy = false; SetNote(msg, true); });
+    }
+
+    private void OnFindClick()
+    {
+        if (!Application.isPlaying || _busy) return;
+        if (AuthManager.Instance == null) { SetNote("인증 모듈을 찾을 수 없습니다.", true); return; }
+        _busy = true; SetNote("메일 발송 중...", false);
+        AuthManager.Instance.SendPasswordReset(_authEmail != null ? _authEmail.text : "",
+            () => { _busy = false; _authView = AuthView.Login; _pendingNote = "비밀번호 재설정 메일을 보냈습니다. 메일함을 확인하세요."; _pendingNoteErr = false; Rebuild(); },
+            msg => { _busy = false; SetNote(msg, true); });
+    }
+
+    private void OnResendClick()
+    {
+        if (!Application.isPlaying || _busy) return;
+        if (AuthManager.Instance == null) { SetNote("인증 모듈을 찾을 수 없습니다.", true); return; }
+        _busy = true; SetNote("인증메일 재발송 중...", false);
+        AuthManager.Instance.ResendVerification(_authEmail != null ? _authEmail.text : "", _authPw != null ? _authPw.text : "",
+            () => { _busy = false; SetNote("인증메일을 다시 보냈습니다. 메일함을 확인하세요.", false); },
+            msg => { _busy = false; SetNote(msg, true); });
+    }
+
+    private void OnGuestClick()
+    {
+        if (!Application.isPlaying || _busy) return;
+        if (AuthManager.Instance != null) AuthManager.Instance.PlayAsGuest(null);
+        Rebuild();
+    }
+
+    private void OnLogoutClick()
+    {
+        if (!Application.isPlaying) return;
+        if (AuthManager.Instance != null) AuthManager.Instance.Logout();
+        _authView = AuthView.Login;
+        Rebuild();
+    }
+
+    private void OnVerifyRefreshClick()
+    {
+        if (!Application.isPlaying || _busy) return;
+        if (AuthManager.Instance == null) return;
+        _busy = true; SetNote("확인 중...", false);
+        AuthManager.Instance.CheckEmailVerified(
+            () => { _busy = false; _pendingNote = "이메일 인증 완료! 환영합니다."; _pendingNoteErr = false; Rebuild(); },
+            () => { _busy = false; SetNote("아직 인증 전이에요. 메일의 링크를 눌렀는지 확인해 주세요.", true); },
+            msg => { _busy = false; SetNote(msg, true); });
+    }
+
+    private void OnResendPendingClick()
+    {
+        if (!Application.isPlaying || _busy) return;
+        if (AuthManager.Instance == null) return;
+        _busy = true; SetNote("인증메일 재발송 중...", false);
+        AuthManager.Instance.ResendPendingVerification(
+            () => { _busy = false; SetNote("인증메일을 다시 보냈습니다. 메일함을 확인하세요.", false); },
+            msg => { _busy = false; SetNote(msg, true); });
+    }
+
+    private void OnNickChanged(string v)
+    {
+        _nickPending = v;
+        _nickCheckAt = Time.unscaledTime + 0.5f; // 디바운스
+        if (_nickStatus != null) _nickStatus.text = "";
+    }
+
+    private void RunNicknameCheck()
+    {
+        if (_nickStatus == null) return;
+        string nick = (_nickPending ?? "").Trim();
+        if (nick.Length == 0) { SetNickStatus("", Hint); return; }
+        if (nick.Length < 2 || nick.Length > 8) { SetNickStatus("2~8자", ErrCol); return; }
+        SetNickStatus("확인 중...", Hint);
+        if (AuthManager.Instance == null) { SetNickStatus("", Hint); return; }
+        AuthManager.Instance.CheckNicknameAvailable(nick, ok =>
+        {
+            if (_authNick != null && _authNick.text.Trim() == nick)
+                SetNickStatus(ok ? "사용 가능" : "이미 사용 중", ok ? OkCol : ErrCol);
+        });
+    }
+
+    private void SetNickStatus(string msg, Color c)
+    {
+        if (_nickStatus != null) { _nickStatus.text = msg; _nickStatus.color = c; }
+    }
+
+    private Button MakeTextLink(Transform parent, Vector2 pos, float w, float h, string label,
+        UnityEngine.Events.UnityAction onClick, bool center = false)
+    {
+        var go = NewChild("Link", parent);
+        var rt = go.GetComponent<RectTransform>();
+        var a = center ? new Vector2(0.5f, 1f) : new Vector2(0f, 1f);
+        rt.anchorMin = rt.anchorMax = a;
+        rt.pivot = a;
+        rt.sizeDelta = new Vector2(w, h);
+        rt.anchoredPosition = pos;
+
+        var hit = go.AddComponent<Image>();
+        hit.color = new Color(0f, 0f, 0f, 0f);
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = hit;
+
+        var l = NewChild("L", go.transform);
+        InsetRect(l, 0f, 0f);
+        var lt = l.AddComponent<Text>();
+        lt.font = _plain; lt.fontSize = 24;
+        lt.alignment = center ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft;
+        lt.color = new Color(0.85f, 0.8f, 0.62f, 1f);
+        lt.text = label; lt.raycastTarget = false;
+        btn.onClick.AddListener(onClick);
+        return btn;
     }
 
     // ================= UI 빌드 =================
@@ -264,26 +627,8 @@ public class TitleScreen : MonoBehaviour
         subOut.effectColor = new Color(0.06f, 0.14f, 0.10f, 0.95f);
         subOut.effectDistance = new Vector2(3f, -3f);
 
-        // ---- 메뉴 패널 ----
-        var panel = NewChild("Panel", _root.transform);
-        var pr = panel.GetComponent<RectTransform>();
-        pr.anchorMin = pr.anchorMax = new Vector2(0.5f, 0.5f);
-        pr.pivot = new Vector2(0.5f, 0.5f);
-        pr.sizeDelta = new Vector2(760f, 540f);
-        pr.anchoredPosition = new Vector2(0f, -150f);
-        Framed(panel, WoodFill, WoodDark, WoodLight);
-
-        AddLabel(panel.transform, "NICKNAME", 30f, new Vector2(0f, 1f), 400f, TextAnchor.UpperLeft, Parch, _pixel, new Vector2(52f, -44f));
-        _nickField = MakeInput(panel.transform, new Vector2(52f, -92f), 656f, 84f, "이름을 입력하세요");
-
-        AddLabel(panel.transform, "ROOM CODE", 30f, new Vector2(0f, 1f), 400f, TextAnchor.UpperLeft, Parch, _pixel, new Vector2(52f, -206f));
-        _roomField = MakeInput(panel.transform, new Vector2(52f, -254f), 656f, 84f, "HOST 시 자동 생성");
-
-        _hostBtn = MakeButton(panel.transform, new Vector2(52f, -374f), 312f, 112f, "HOST", Gold, GoldDeep, OnHost);
-        _joinBtn = MakeButton(panel.transform, new Vector2(396f, -374f), 312f, 112f, "JOIN", Stone, new Color(0.13f, 0.13f, 0.15f), OnJoin);
-
-        _noteText = AddLabel(_root.transform, "", 26f, new Vector2(0.5f, 0.5f), 1000f, TextAnchor.MiddleCenter,
-            new Color(0.62f, 0.16f, 0.10f), _plain, new Vector2(0f, -452f));
+        // ---- 메뉴/인증 패널 (로그인 상태에 따라 내용이 바뀜) ----
+        BuildPanel();
 
         // ---- 트로피(랭킹) 버튼 ----
         MakeIconButton(_root.transform, "Title/trophy", new Vector2(1f, 1f), new Vector2(-40f, -40f), 92f, OnRanking);
@@ -421,7 +766,7 @@ public class TitleScreen : MonoBehaviour
         return t;
     }
 
-    private InputField MakeInput(Transform panel, Vector2 topLeft, float w, float h, string placeholder)
+    private InputField MakeInput(Transform panel, Vector2 topLeft, float w, float h, string placeholder, int charLimit = 16, bool password = false)
     {
         var go = NewChild("Field", panel);
         var rt = go.GetComponent<RectTransform>();
@@ -462,7 +807,8 @@ public class TitleScreen : MonoBehaviour
         input.customCaretColor = true;
         input.caretWidth = 4;
         input.lineType = InputField.LineType.SingleLine;
-        input.characterLimit = 16;
+        input.characterLimit = charLimit;
+        if (password) input.contentType = InputField.ContentType.Password;
         return input;
     }
 
@@ -475,7 +821,7 @@ public class TitleScreen : MonoBehaviour
     }
 
     private Button MakeButton(Transform parent, Vector2 topLeft, float w, float h, string label,
-        Color face, Color shadow, UnityEngine.Events.UnityAction onClick)
+        Color face, Color shadow, UnityEngine.Events.UnityAction onClick, int fontSize = 46, Font labelFont = null)
     {
         var go = NewChild("Btn_" + label, parent);
         var rt = go.GetComponent<RectTransform>();
@@ -507,8 +853,8 @@ public class TitleScreen : MonoBehaviour
         var l = NewChild("L", faceImg.transform);
         InsetRect(l, 0f, 0f);
         var lt = l.AddComponent<Text>();
-        lt.font = _pixel;
-        lt.fontSize = 46;
+        lt.font = labelFont != null ? labelFont : _pixel;
+        lt.fontSize = fontSize;
         lt.alignment = TextAnchor.MiddleCenter;
         lt.color = Ink;
         lt.text = label;

@@ -3524,17 +3524,28 @@ MonoBehaviour:
   ladderJumpHorizontalForce: 5
   speed: 5
   jumpForce: 7
-  skill: 0
-  skillCooldown: 1.5
+  skillCh1: 0
+  skillCh2: 0
+  skillCh3: 0
+  dashCooldown: 1.5
+  jumpCooldown: 1.5
+  sniffCooldown: 6
+  carrotCooldown: 3
   dashSpeed: 18
   dashDuration: 0.2
   superJumpForce: 18
+  sniffRadius: 5
+  sniffRevealDuration: 4.5
+  carrotPrefab: {fileID: 0}
+  carrotForwardOffset: 0.6
   groundCheck: {fileID: 0}
   groundCheckRadius: 0.15
   groundLayer:
     serializedVersion: 2
     m_Bits: 0
   fallDeathY: -10
+  fallDeathMargin: 10
+  respawnGraceSeconds: 0.5
 --- !u!4 &1359046190
 Transform:
   m_ObjectHideFlags: 0
@@ -5004,6 +5015,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 468363025825559465, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2123242168321655725, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
       propertyPath: m_LocalPosition.x
       value: 5.6
