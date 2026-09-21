@@ -29,6 +29,16 @@ public class Revealable : NetworkBehaviour
 
     public bool IsRevealed => Runner != null && !RevealTimer.ExpiredOrNotRunning(Runner);
 
+    /// <summary>
+    /// 이 오브젝트가 point 로부터 radius 안에 있는지. Sniff 감지 판정에 쓴다.
+    /// 기본은 transform 위치 기준 원. 타일맵처럼 오브젝트 위치와 실제 내용의 위치가
+    /// 다른 경우에는 이 메서드를 재정의해야 한다.
+    /// </summary>
+    public virtual bool IsWithinRange(Vector2 point, float radius)
+    {
+        return ((Vector2)transform.position - point).sqrMagnitude <= radius * radius;
+    }
+
     public override void Spawned()
     {
         _sr = GetComponent<SpriteRenderer>();

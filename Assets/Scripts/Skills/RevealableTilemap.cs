@@ -37,6 +37,27 @@ public class RevealableTilemap : Revealable
         base.Spawned();
     }
 
+    /// <summary>
+    /// 타일맵 오브젝트의 transform 은 보통 Grid 원점(0,0)에 있고 실제 타일은 멀리 떨어져 있다.
+    /// 그래서 transform 위치로 거리를 재면 엉뚱한 곳을 재게 된다.
+    /// 깔려 있는 타일의 실제 영역(경계 상자)까지의 거리로 판정한다.
+    /// </summary>
+    public override bool IsWithinRange(Vector2 point, float radius)
+    {
+        var tm = _tilemap != null ? _tilemap : GetComponent<Tilemap>();
+        if (tm == null) return base.IsWithinRange(point, radius);
+
+        Bounds local = tm.localBounds;
+        var world = new Bounds(tm.transform.TransformPoint(local.center),
+                               Vector3.Scale(local.size, tm.transform.lossyScale));
+
+        Vector3 probe = new Vector3(point.x, point.y, world.center.z);
+        Vector3 closest = world.ClosestPoint(probe);
+        float dx = closest.x - point.x;
+        float dy = closest.y - point.y;
+        return dx * dx + dy * dy <= radius * radius;
+    }
+
     /// <summary>스프라이트 대신 타일맵 렌더러/콜라이더를 껐다 켠다.</summary>
     protected override void Apply(bool revealed)
     {
