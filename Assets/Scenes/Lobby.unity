@@ -1766,8 +1766,6 @@ GameObject:
   m_Component:
   - component: {fileID: 771729761}
   - component: {fileID: 771729760}
-  - component: {fileID: 771729759}
-  - component: {fileID: 771729758}
   - component: {fileID: 771729757}
   m_Layer: 0
   m_Name: NetworkLauncher
@@ -1789,33 +1787,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BasicLauncher
   _useIMGUIMenu: 0
---- !u!114 &771729758
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 771729755}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 90a93abf1a391964a94e5c139605105b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Fusion.Unity::Fusion.NetworkSceneManagerDefault
-  IsSceneTakeOverEnabled: 1
-  LogSceneLoadErrors: 1
-  DestroySpawnedPrefabsOnSceneUnload: 1
---- !u!114 &771729759
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 771729755}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: -1199893898, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkRunner
 --- !u!114 &771729760
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1823,7 +1794,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 771729755}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b9a96c3b525e1314c9a2d05bb632525e, type: 3}
   m_Name: 
@@ -1831,6 +1802,7 @@ MonoBehaviour:
   sessionItemPrefab: {fileID: 7461716323109306568, guid: d0b5007e0b8499e4dbb4e266be86a3cc, type: 3}
   player1Prefab: {fileID: -5660461731030084370, guid: 7b856d6c7e35ae5449d517343138ad5d, type: 3}
   player2Prefab: {fileID: -5660461731030084370, guid: ffccbb55e16946e4990cfe4085b43ce7, type: 3}
+  lobbySceneName: Lobby
 --- !u!4 &771729761
 Transform:
   m_ObjectHideFlags: 0
@@ -3535,56 +3507,6 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
---- !u!1 &1359046188
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1359046190}
-  - component: {fileID: 1359046191}
-  m_Layer: 0
-  m_Name: Spawner
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1359046190
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1359046188}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.2472, y: 1.22317, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1359046191
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1359046188}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkObject
-  SortKey: 2367530415
-  ObjectInterest: 1
-  Flags: 262145
-  NestedObjects: []
-  NetworkedBehaviours: []
-  ForceRemoteRenderTimeframe: 0
 --- !u!1 &1371952931
 GameObject:
   m_ObjectHideFlags: 0
@@ -4897,6 +4819,14 @@ MonoBehaviour:
   verticalOffset: 1.5
   lookUp: 3
   lookDown: 1
+  lookAhead: 1
+  fallLookAheadDistance: 3
+  fallSpeedForMaxLook: 16
+  riseLookAheadDistance: 1.5
+  riseSpeedForMaxLook: 18
+  lookAheadMinSpeed: 2
+  lookAheadYSmoothSpeed: 0.35
+  lookAheadResponse: 6
   autoClampToBackground: 1
   useManualBounds: 0
   minY: -100
@@ -5012,75 +4942,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5c2e9a71f3b84d06a1c7e2905b4d8f63, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!1001 &155845283156375587
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 468363025825559465, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_Enabled
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2123242168321655725, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 5.6
-      objectReference: {fileID: 0}
-    - target: {fileID: 2123242168321655725, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.12
-      objectReference: {fileID: 0}
-    - target: {fileID: 2123242168321655725, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2123242168321655725, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 2123242168321655725, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2123242168321655725, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2123242168321655725, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2123242168321655725, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2123242168321655725, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2123242168321655725, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4529795762113344119, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: SortKey
-      value: 1601688306
-      objectReference: {fileID: 0}
-    - target: {fileID: 5588040551303872943, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_Name
-      value: NetworkRunner
-      objectReference: {fileID: 0}
-    - target: {fileID: 5588040551303872943, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
-      propertyPath: m_IsActive
-      value: 1
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: c0450c84c583efd45b3cece88ea88f04, type: 3}
 --- !u!1001 &1309838503772715295
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5183,9 +5044,7 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 2091325785}
-  - {fileID: 155845283156375587}
   - {fileID: 771729761}
-  - {fileID: 1359046190}
   - {fileID: 85016129}
   - {fileID: 1436390564}
   - {fileID: 2069540914}

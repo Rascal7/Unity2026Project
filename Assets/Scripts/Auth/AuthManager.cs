@@ -53,6 +53,30 @@ public class AuthManager : MonoBehaviour
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        StartCoroutine(WarmupRoutine());
+    }
+
+    // 에디터에서 Play 진입 후 '첫 HTTPS 요청'은 인증서 검사(revocation) 등으로 15~20초 지연될 수 있다.
+    // (그래서 첫 회원가입/로그인만 '시간초과'가 뜨고, 이후엔 캐시되어 빨라진다.)
+    // 로비 진입 시 두 백엔드 호스트로 가벼운 요청을 미리 던져 그 지연을 눈에 안 띄게 먼저 지불한다.
+    private IEnumerator WarmupRoutine()
+    {
+        if (!HasApiKey) yield break;
+        // 두 백엔드 호스트를 '동시에' 예열한다. (순차로 하면 인증서버가 데워질 때까지
+        //  DB가 차가워, 회원가입 첫 요청인 닉네임 중복확인(DB)이 여전히 느려진다.)
+        StartCoroutine(WarmupOne("https://identitytoolkit.googleapis.com/", "인증서버"));
+        StartCoroutine(WarmupOne(RtdbUrl(".info/server/warmup"), "DB"));
+        yield break;
+    }
+
+    private IEnumerator WarmupOne(string url, string label)
+    {
+        using (var req = UnityWebRequest.Get(url))
+        {
+            req.timeout = 25;
+            yield return req.SendWebRequest();
+        }
+        Debug.Log($"<color=grey>[Auth]</color> 네트워크 워밍업 완료 ({label})");
     }
 
     private bool HasApiKey => !string.IsNullOrEmpty(WEB_API_KEY) && WEB_API_KEY != "PASTE_YOUR_WEB_API_KEY_HERE";
@@ -248,6 +272,9 @@ public class AuthManager : MonoBehaviour
 
         if (!verified)
         {
+            // 인증 대기 화면(자동 감지·재발송)에서 재입력 없이 쓰도록 자격을 보관한다.
+            _pendingEmail = email; _pendingPassword = password;
+            _pendingNickname = displayName; _pendingUid = uid;
             if (onEmailNotVerified != null) onEmailNotVerified.Invoke();
             else onError?.Invoke("이메일 인증이 필요합니다. 메일함의 인증 링크를 확인해 주세요.");
             yield break;
@@ -325,6 +352,7 @@ public class AuthManager : MonoBehaviour
             req.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(json));
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
+            req.timeout = 25;
             yield return req.SendWebRequest();
 
             if (req.result == UnityWebRequest.Result.Success)
