@@ -380,13 +380,19 @@ public class PlayerMovement : NetworkBehaviour
     {
         if (!Runner.IsServer) return;
         var all = FindObjectsByType<Revealable>(FindObjectsSortMode.None);
-        float r2 = sniffRadius * sniffRadius;
         Vector2 origin = transform.position;
+        int revealed = 0;
         foreach (var rv in all)
         {
-            if (((Vector2)rv.transform.position - origin).sqrMagnitude <= r2)
+            // 거리 판정은 Revealable 이 직접 한다. 타일맵 숨김 발판처럼 오브젝트 위치와
+            // 실제 내용의 위치가 다른 경우가 있어서 여기서 transform 으로 재면 안 된다.
+            if (rv.IsWithinRange(origin, sniffRadius))
+            {
                 rv.Reveal(sniffRevealDuration);
+                revealed++;
+            }
         }
+        Debug.Log($"<color=cyan>[Sniff]</color> 반경 {sniffRadius} 안 {revealed}/{all.Length}개를 드러냈습니다.");
     }
 
     // 정면으로 당근 발사 (호스트가 네트워크 오브젝트 스폰)
