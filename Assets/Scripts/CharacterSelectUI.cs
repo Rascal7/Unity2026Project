@@ -34,17 +34,27 @@ public class CharacterSelectUI : MonoBehaviour
     public Color selectedColor = Color.yellow;
     public Color readyColor = Color.green;
 
-    private bool _hasSyncedInitialState = false;
+    public static CharacterSelectUI Instance { get; private set; }
+
     private int _currentSelectedIndex = -1;
 
-    // 세션 아이템은 네트워크 스폰이라 씬 로드 직후 몇 프레임은 당연히 없다.
-    // 그 동안 매 프레임 에러를 찍지 않도록 폴링 간격/유예 시간을 둔다.
-    private const float ItemPollInterval = 0.25f;
-    private const float ItemSpawnGrace = 5f;   // 이 시간까지는 못 찾아도 정상으로 본다
+    // 세션 아이템 폴링 및 실시간 동기화 주기
+    private const float ItemPollInterval = 0.15f;
+    private const float ItemSpawnGrace = 5f;
     private float _nextPollTime;
     private float _syncStartTime;
     private bool _warnedMissingItem;
-    private bool _spawnedFallbackItem;   // 안전장치 스폰은 한 번만
+    private bool _spawnedFallbackItem;
+
+    private void Awake()
+    {
+        Instance = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
 
     private void Start()
     {
@@ -109,38 +119,22 @@ public class CharacterSelectUI : MonoBehaviour
         // 초기 시각 상태 적용
         UpdateCharacterSelectionUI(-1);
         UpdateReadyUI(false);
+        RefreshAllPlayersUI();
+    }
+
+    public void NotifySessionChanged()
+    {
+        RefreshAllPlayersUI();
     }
 
     private void Update()
     {
-        // 씬 로드 직후 네트워크 스폰된 세션 아이템의 상태를 1회 자동 동기화.
-        // 아이템이 아직 스폰되기 전인 것은 정상이므로, 매 프레임 찾지 않고
-        // 조용히(로그 없이) 간격을 두고 확인한다.
-        if (_hasSyncedInitialState) return;
         if (_syncStartTime <= 0f) _syncStartTime = Time.time;
         if (Time.time < _nextPollTime) return;
         _nextPollTime = Time.time + ItemPollInterval;
 
-        var myItem = FindLocalPlayerItem(verbose: false);
-        if (myItem != null)
-        {
-            if (myItem.SelectedCharacterIndex >= 0)
-            {
-                UpdateCharacterSelectionUI(myItem.SelectedCharacterIndex);
-            }
-            UpdateReadyUI(myItem.IsReady);
-            _hasSyncedInitialState = true;
-            return;
-        }
-
-        // 유예 시간이 지나도 못 찾으면 그때 한 번만 경고한다.
-        if (!_warnedMissingItem && Time.time - _syncStartTime > ItemSpawnGrace)
-        {
-            _warnedMissingItem = true;
-            int count = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None).Length;
-            Debug.LogWarning($"<color=yellow>[UI]</color> {ItemSpawnGrace:0}초가 지나도 내 세션 아이템을 못 찾았습니다. " +
-                             $"(방 안 아이템 {count}개) 호스트가 스폰했는지, Spawner.sessionItemPrefab 이 지정됐는지 확인하세요.");
-        }
+        // 양 화면에서 상대방과 나의 선택 및 준비 상태를 실시간 동기화 표시
+        RefreshAllPlayersUI();
     }
 
     /// <summary>
@@ -295,6 +289,24 @@ public class CharacterSelectUI : MonoBehaviour
 
         if (myItem != null)
         {
+            // 준비 완료 상태에서는 캐릭터 변경 차단
+            if (myItem.IsReady)
+            {
+                Debug.LogWarning("<color=yellow>[UI]</color> 준비 완료 상태에서는 캐릭터를 변경할 수 없습니다. 먼저 준비를 취소하세요.");
+                return;
+            }
+
+            // 중복 픽 방지: 상대방이 이미 선택한 캐릭터인지 클라이언트 단에서 사전 차단
+            var allItems = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
+            foreach (var item in allItems)
+            {
+                if (item != myItem && item.SelectedCharacterIndex == index && index != -1)
+                {
+                    Debug.LogWarning($"<color=yellow>[UI]</color> 상대방이 이미 선택한 캐릭터({index})이므로 중복 선택할 수 없습니다.");
+                    return;
+                }
+            }
+
             if (myItem.HasInputAuthority || (myItem.Runner != null && myItem.Object.InputAuthority == myItem.Runner.LocalPlayer))
             {
                 Debug.Log($"<color=lime>[UI]</color> {index}번 캐릭터 선택 요청 전송!");
@@ -317,6 +329,13 @@ public class CharacterSelectUI : MonoBehaviour
         var myItem = FindLocalPlayerItem();
         if (myItem != null)
         {
+            // 캐릭터 미선택 상태에서 준비 완료 방지
+            if (myItem.SelectedCharacterIndex < 0 && !myItem.IsReady)
+            {
+                Debug.LogWarning("<color=yellow>[UI]</color> 먼저 캐릭터를 선택해야 준비 완료할 수 있습니다!");
+                return;
+            }
+
             Debug.Log($"<color=lime>[UI]</color> 레디 버튼 클릭! 현재 상태: {myItem.IsReady} -> {!myItem.IsReady}");
             bool nextReadyState = !myItem.IsReady;
             myItem.RPC_SetReady(nextReadyState);
@@ -397,24 +416,46 @@ public class CharacterSelectUI : MonoBehaviour
     private void UpdateCharacterSelectionUI(int selectedIndex)
     {
         _currentSelectedIndex = selectedIndex;
+        RefreshAllPlayersUI();
+    }
 
-        // 1. 외곽선 골드 테두리만 켜기/끄기 (내부는 투명하여 내용이 다 보임)
-        if (selectHighlights != null)
+    /// <summary>
+    /// 방에 있는 모든 플레이어(나 및 상대방)의 캐릭터 선택 상태와 준비 상태를 양쪽 화면에 실시간으로 표시합니다.
+    /// </summary>
+    public void RefreshAllPlayersUI()
+    {
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        var allItems = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
+
+        SessionPlayerItem myItem = null;
+        SessionPlayerItem remoteItem = null;
+
+        if (runner != null)
         {
-            for (int i = 0; i < selectHighlights.Length; i++)
+            foreach (var item in allItems)
             {
-                if (selectHighlights[i] != null)
+                if (item.Object == null) continue;
+                if (item.Object.HasInputAuthority || (item.Runner != null && item.Object.InputAuthority == item.Runner.LocalPlayer))
                 {
-                    // 혹시라도 루트 Image가 노란색으로 채워져 있을 경우를 대비해 투명화 보장
-                    var rootImg = selectHighlights[i].GetComponent<Image>();
-                    if (rootImg != null) rootImg.color = Color.clear;
-
-                    selectHighlights[i].SetActive(i == selectedIndex);
+                    myItem = item;
+                }
+                else
+                {
+                    remoteItem = item;
                 }
             }
         }
+        else if (allItems.Length > 0)
+        {
+            myItem = allItems[0];
+            if (allItems.Length > 1) remoteItem = allItems[1];
+        }
 
-        // 2. 카드 베벨 테두리 골드 하이라이트 연동
+        int myIndex = myItem != null ? myItem.SelectedCharacterIndex : _currentSelectedIndex;
+        int remoteIndex = remoteItem != null ? remoteItem.SelectedCharacterIndex : -1;
+        bool myReady = myItem != null && myItem.IsReady;
+        bool remoteReady = remoteItem != null && remoteItem.IsReady;
+
         Transform[] cardRoots = new Transform[] {
             transform.Find("SlotsContainer/Card_Fox"),
             transform.Find("SlotsContainer/Card_Rabbit")
@@ -423,34 +464,132 @@ public class CharacterSelectUI : MonoBehaviour
         for (int i = 0; i < cardRoots.Length; i++)
         {
             if (cardRoots[i] == null) continue;
-            bool isThisSelected = (i == selectedIndex);
+            bool isMine = (myIndex == i);
+            bool isRemote = (remoteIndex == i);
 
+            // 1. 카드 외곽선 골드 테두리 (내 선택 우선)
+            if (selectHighlights != null && i < selectHighlights.Length && selectHighlights[i] != null)
+            {
+                var rootImg = selectHighlights[i].GetComponent<Image>();
+                if (rootImg != null) rootImg.color = Color.clear;
+                selectHighlights[i].SetActive(isMine);
+            }
+
+            // 2. 카드 베벨 테두리 색상: 내가 고르면 골드, 상대방이 고르면 청록(민트), 없으면 우드 기본
             Transform bevel = cardRoots[i].Find("_Bevel");
             if (bevel != null)
             {
                 var bImg = bevel.GetComponent<Image>();
-                if (bImg != null) bImg.color = isThisSelected ? LobbyUITheme.Gold : LobbyUITheme.WoodLight;
+                if (bImg != null)
+                {
+                    if (isMine) bImg.color = LobbyUITheme.Gold;
+                    else if (isRemote) bImg.color = new Color(0.36f, 0.88f, 0.90f);
+                    else bImg.color = LobbyUITheme.WoodLight;
+                }
             }
-        }
 
-        // 3. 선택 버튼 상태를 로비 3D 픽셀 버튼으로 전환 ("선택완료!" vs "선택하기")
-        if (selectButtons != null)
-        {
-            for (int i = 0; i < selectButtons.Length; i++)
+            // 3. 선택 버튼 상태 (중복 픽 방지)
+            if (selectButtons != null && i < selectButtons.Length && selectButtons[i] != null)
             {
-                if (selectButtons[i] == null) continue;
-                bool isThisSelected = (i == selectedIndex);
-
-                if (isThisSelected)
+                if (isMine)
                 {
                     LobbyUITheme.StylePixelButton(selectButtons[i], LobbyUITheme.ButtonType.Gold, "선택완료!", 24);
+                    selectButtons[i].interactable = !myReady;
+                }
+                else if (isRemote)
+                {
+                    // 상대방이 이미 선점한 캐릭터: 중복 선택 불가 (클릭 비활성화)
+                    LobbyUITheme.StylePixelButton(selectButtons[i], LobbyUITheme.ButtonType.Stone, "선점됨", 24);
+                    selectButtons[i].interactable = false;
                 }
                 else
                 {
+                    // 선택 가능한 캐릭터
                     LobbyUITheme.StylePixelButton(selectButtons[i], LobbyUITheme.ButtonType.Stone, "선택하기", 24);
+                    selectButtons[i].interactable = !myReady;
                 }
             }
+
+            // 4. 카드 내 실시간 선택자 뱃지 텍스트
+            UpdateCardPlayerBadge(cardRoots[i], isMine, myReady, isRemote, remoteReady);
         }
+
+        // 5. 내 레디 버튼 비주얼 갱신
+        UpdateReadyUI(myReady);
+
+        // 6. 상단 서브타이틀에 양쪽 플레이어 현황 종합 표시
+        UpdateStatusSubtitle(myIndex, myReady, remoteItem != null, remoteIndex, remoteReady);
+    }
+
+    private void UpdateCardPlayerBadge(Transform cardTrans, bool isMine, bool myReady, bool isRemote, bool remoteReady)
+    {
+        Transform badgeTrans = cardTrans.Find("PlayerBadgeText");
+        TextMeshProUGUI badgeTmp = null;
+
+        if (badgeTrans == null)
+        {
+            GameObject badgeGo = new GameObject("PlayerBadgeText", typeof(RectTransform), typeof(TextMeshProUGUI));
+            badgeGo.transform.SetParent(cardTrans, false);
+            badgeTrans = badgeGo.transform;
+
+            var rt = badgeGo.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0f);
+            rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = new Vector2(0f, 65f); // 선택하기 버튼 바로 위
+            rt.sizeDelta = new Vector2(240f, 32f);
+
+            badgeTmp = badgeGo.GetComponent<TextMeshProUGUI>();
+            var titleTmp = transform.Find("TitleText")?.GetComponent<TextMeshProUGUI>();
+            if (titleTmp != null && titleTmp.font != null) badgeTmp.font = titleTmp.font;
+            badgeTmp.alignment = TextAlignmentOptions.Center;
+            badgeTmp.fontSize = 18f;
+            badgeTmp.fontStyle = FontStyles.Bold;
+        }
+        else
+        {
+            badgeTmp = badgeTrans.GetComponent<TextMeshProUGUI>();
+        }
+
+        if (badgeTmp == null) return;
+
+        if (isMine && isRemote)
+        {
+            badgeTmp.text = "<color=#FAD16B>[나]</color> & <color=#5CE1E6>[상대방]</color> 선택";
+        }
+        else if (isMine)
+        {
+            string readyStr = myReady ? " <color=#74D974>(준비완료!)</color>" : "";
+            badgeTmp.text = $"<color=#FAD16B>★ 내가 선택함</color>{readyStr}";
+        }
+        else if (isRemote)
+        {
+            string readyStr = remoteReady ? " <color=#74D974>(준비완료!)</color>" : " (선점됨)";
+            badgeTmp.text = $"<color=#5CE1E6>● 상대방 선점</color>{readyStr}";
+        }
+        else
+        {
+            badgeTmp.text = "";
+        }
+    }
+
+    private void UpdateStatusSubtitle(int myIdx, bool myReady, bool hasRemote, int remoteIdx, bool remoteReady)
+    {
+        Transform subObj = transform.Find("SubtitleText") ?? transform.Find("TitleText/SubtitleText");
+        if (subObj == null) return;
+
+        var subTmp = subObj.GetComponent<TextMeshProUGUI>();
+        if (subTmp == null) return;
+
+        string CharName(int idx) => (idx == 0) ? "여우" : (idx == 1) ? "토끼" : "미선택";
+        string ReadyTag(bool ready) => ready ? "<color=#74D974>준비완료</color>" : "<color=#D0C0A8>선택중</color>";
+
+        string myStr = $"<color=#FAD16B>[나]</color> {CharName(myIdx)} [{ReadyTag(myReady)}]";
+        string remoteStr = hasRemote
+            ? $"<color=#5CE1E6>[상대방]</color> {CharName(remoteIdx)} [{ReadyTag(remoteReady)}]"
+            : "<color=#8C7B6B>[상대방] 접속 대기 중...</color>";
+
+        subTmp.text = $"원하는 캐릭터를 선택하고 준비를 완료하세요\n<size=19>{myStr}   |   {remoteStr}</size>";
     }
 
     private void UpdateReadyUI(bool isReady)

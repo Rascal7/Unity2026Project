@@ -109,7 +109,14 @@ public class TitleScreen : MonoBehaviour
         SetInteractable(true);
         if (_noteText != null)
         {
-            if (!string.IsNullOrEmpty(_pendingNote)) { _noteText.text = _pendingNote; _noteText.color = _pendingNoteErr ? ErrCol : OkCol; }
+            if (PlayerPrefs.HasKey("DisconnectNotice"))
+            {
+                string notice = PlayerPrefs.GetString("DisconnectNotice");
+                PlayerPrefs.DeleteKey("DisconnectNotice");
+                _noteText.text = notice;
+                _noteText.color = ErrCol;
+            }
+            else if (!string.IsNullOrEmpty(_pendingNote)) { _noteText.text = _pendingNote; _noteText.color = _pendingNoteErr ? ErrCol : OkCol; }
             else _noteText.text = "";
         }
         _pendingNote = null;

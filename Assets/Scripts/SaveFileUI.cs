@@ -59,13 +59,15 @@ public class SaveFileUI : MonoBehaviour
 
     private SlotActionType _currentAction = SlotActionType.NewGame;
     private Action _pendingConfirmAction = null;
+    private GameObject _waitingPanelGo;
+    private TextMeshProUGUI _waitingSubtitleText;
+    private TextMeshProUGUI _waitingInfoText;
 
     private void Start()
     {
         ApplyLobbyTheme();
         BindEvents();
         CheckNetworkAuthority();
-        ShowModeSelect();
     }
 
     /// <summary>
@@ -316,28 +318,164 @@ public class SaveFileUI : MonoBehaviour
         }
     }
 
+    private void Update()
+    {
+        // 멀티플레이 클라이언트인지 지속 확인하여 세이브 파일 패널이 뜨지 않도록 방어
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        if (runner != null && runner.IsRunning && !runner.IsServer)
+        {
+            if (_waitingPanelGo == null || !_waitingPanelGo.activeSelf)
+            {
+                ShowClientWaitingView();
+            }
+        }
+    }
+
     private void CheckNetworkAuthority()
     {
         var runner = FindFirstObjectByType<NetworkRunner>();
         bool isMultiplayer = runner != null && runner.IsRunning;
         bool isHost = isMultiplayer ? runner.IsServer : true;
 
-        if (clientNoticeText != null)
+        if (isMultiplayer && !isHost)
         {
-            if (isMultiplayer && !isHost)
+            // join 인원(클라이언트): 세이브 파일 선택 화면을 패스하고 대기화면으로 직행
+            ShowClientWaitingView();
+        }
+        else
+        {
+            // 호스트 또는 싱글플레이: 세이브 파일 모드 선택 화면 표시
+            if (_waitingPanelGo != null) _waitingPanelGo.SetActive(false);
+            ShowModeSelect();
+        }
+    }
+
+    private void ShowClientWaitingView()
+    {
+        EnsureWaitingPanel();
+
+        if (_waitingPanelGo != null) _waitingPanelGo.SetActive(true);
+        if (modeSelectPanel != null) modeSelectPanel.SetActive(false);
+        if (slotSelectPanel != null) slotSelectPanel.SetActive(false);
+        CloseConfirmModal();
+        CloseNoticeModal();
+
+        UpdateWaitingInfo();
+    }
+
+    private void EnsureWaitingPanel()
+    {
+        if (_waitingPanelGo != null) return;
+
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas == null) canvas = GetComponent<Canvas>();
+        Transform parentTrans = (canvas != null) ? canvas.transform : transform;
+
+        GameObject panel = new GameObject("ClientWaitingPanel", typeof(RectTransform));
+        panel.transform.SetParent(parentTrans, false);
+        _waitingPanelGo = panel;
+
+        var rt = panel.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = new Vector2(920f, 500f);
+        rt.anchoredPosition = Vector2.zero;
+
+        LobbyUITheme.StyleWoodPanel(panel, LobbyUITheme.WoodFill, 8f, 6f);
+
+        // 1. 타이틀
+        GameObject titleGo = new GameObject("WaitingTitle", typeof(RectTransform), typeof(TextMeshProUGUI));
+        titleGo.transform.SetParent(panel.transform, false);
+        var trt = titleGo.GetComponent<RectTransform>();
+        trt.anchorMin = new Vector2(0.5f, 1f);
+        trt.anchorMax = new Vector2(0.5f, 1f);
+        trt.pivot = new Vector2(0.5f, 1f);
+        trt.sizeDelta = new Vector2(860f, 65f);
+        trt.anchoredPosition = new Vector2(0f, -40f);
+        var tTmp = titleGo.GetComponent<TextMeshProUGUI>();
+        LobbyUITheme.StyleTitle(tTmp, "방장 대기 중 (WAITING FOR HOST)", 48f);
+
+        // 2. 서브타이틀
+        GameObject subGo = new GameObject("WaitingSubtitle", typeof(RectTransform), typeof(TextMeshProUGUI));
+        subGo.transform.SetParent(panel.transform, false);
+        var srt = subGo.GetComponent<RectTransform>();
+        srt.anchorMin = new Vector2(0.5f, 1f);
+        srt.anchorMax = new Vector2(0.5f, 1f);
+        srt.pivot = new Vector2(0.5f, 1f);
+        srt.sizeDelta = new Vector2(860f, 40f);
+        srt.anchoredPosition = new Vector2(0f, -115f);
+        _waitingSubtitleText = subGo.GetComponent<TextMeshProUGUI>();
+        if (tTmp.font != null) _waitingSubtitleText.font = tTmp.font;
+        LobbyUITheme.StyleSubtitle(_waitingSubtitleText, "방장(Host)이 세이브 파일 및 게임 모드를 선택하고 있습니다.", 22f);
+
+        // 3. 중앙 인셋 박스
+        GameObject inset = new GameObject("WaitingInset", typeof(RectTransform), typeof(Image));
+        inset.transform.SetParent(panel.transform, false);
+        var irt = inset.GetComponent<RectTransform>();
+        irt.anchorMin = new Vector2(0.5f, 0.5f);
+        irt.anchorMax = new Vector2(0.5f, 0.5f);
+        irt.pivot = new Vector2(0.5f, 0.5f);
+        irt.sizeDelta = new Vector2(800f, 190f);
+        irt.anchoredPosition = new Vector2(0f, -15f);
+        LobbyUITheme.StyleInsetBox(inset, LobbyUITheme.FieldBg, LobbyUITheme.WoodDark, 4f);
+
+        // 4. 인셋 내부 정보 텍스트
+        GameObject infoGo = new GameObject("WaitingInfoText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        infoGo.transform.SetParent(inset.transform, false);
+        var infort = infoGo.GetComponent<RectTransform>();
+        infort.anchorMin = new Vector2(0f, 0f);
+        infort.anchorMax = new Vector2(1f, 1f);
+        infort.sizeDelta = new Vector2(-40f, -20f);
+        infort.anchoredPosition = Vector2.zero;
+        _waitingInfoText = infoGo.GetComponent<TextMeshProUGUI>();
+        if (tTmp.font != null) _waitingInfoText.font = tTmp.font;
+        _waitingInfoText.fontSize = 22f;
+        _waitingInfoText.alignment = TextAlignmentOptions.Center;
+
+        // 5. 하단 안내 팁
+        GameObject tipGo = new GameObject("WaitingTip", typeof(RectTransform), typeof(TextMeshProUGUI));
+        tipGo.transform.SetParent(panel.transform, false);
+        var tiprt = tipGo.GetComponent<RectTransform>();
+        tiprt.anchorMin = new Vector2(0.5f, 0f);
+        tiprt.anchorMax = new Vector2(0.5f, 0f);
+        tiprt.pivot = new Vector2(0.5f, 0f);
+        tiprt.sizeDelta = new Vector2(860f, 35f);
+        tiprt.anchoredPosition = new Vector2(0f, 25f);
+        var tipTmp = tipGo.GetComponent<TextMeshProUGUI>();
+        if (tTmp.font != null) tipTmp.font = tTmp.font;
+        LobbyUITheme.StyleSubtitle(tipTmp, "Tip: 선택이 완료되면 자동으로 인게임으로 전환됩니다.", 19f);
+    }
+
+    private void UpdateWaitingInfo()
+    {
+        if (_waitingInfoText == null) return;
+
+        string roomCode = BasicLauncher.Instance != null ? BasicLauncher.Instance.RoomCode : "";
+        string codeStr = !string.IsNullOrEmpty(roomCode) ? $"<color=#FAD16B>방 코드: {roomCode}</color>\n" : "";
+
+        string myCharStr = "";
+        var items = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        if (runner != null)
+        {
+            foreach (var item in items)
             {
-                clientNoticeText.gameObject.SetActive(true);
-                clientNoticeText.text = "방장(Host)이 세이브 파일을 선택하는 중입니다...";
-            }
-            else
-            {
-                clientNoticeText.gameObject.SetActive(false);
+                if (item.Object != null && (item.Object.HasInputAuthority || item.Object.InputAuthority == runner.LocalPlayer))
+                {
+                    string charName = (item.SelectedCharacterIndex == 0) ? "여우 (FOXY)" : (item.SelectedCharacterIndex == 1) ? "토끼 (RABBIT)" : "선택됨";
+                    myCharStr = $"<color=#74D974>내 캐릭터: {charName}</color>\n";
+                    break;
+                }
             }
         }
+
+        _waitingInfoText.text = $"{codeStr}{myCharStr}\n<color=#FAF2E3>방장이 세이브 슬롯을 선택하면\n곧바로 스테이지가 시작됩니다. 잠시만 기다려 주세요...</color>";
     }
 
     public void ShowModeSelect()
     {
+        if (_waitingPanelGo != null) _waitingPanelGo.SetActive(false);
         if (modeSelectPanel != null) modeSelectPanel.SetActive(true);
         if (slotSelectPanel != null) slotSelectPanel.SetActive(false);
         CloseConfirmModal();

@@ -117,9 +117,17 @@ public class PlayerMovement : NetworkBehaviour
             Debug.LogError($"[PlayerMovement] {gameObject.name}�� Rigidbody2D�� �����ϴ�! ������Ʈ�� �߰����ּ���.");
             return;
         }
+        // Fusion NetworkRigidbody2D 자체 렌더 보간과의 지터 충돌을 방지하기 위해 내장 interpolation은 None으로 설정
+        _rb.interpolation = RigidbodyInterpolation2D.None;
         _originalGravity = _rb.gravityScale;
         _nrb = GetComponent<NetworkRigidbody2D>();
         fallDeathY = ResolveFallDeathY();
+
+        // 클라이언트 물리 시뮬레이션(움직임 예측) 안전 보장
+        if (Runner != null && Runner.TryGetComponent<RunnerSimulatePhysics2D>(out var sim2d))
+        {
+            sim2d.ClientPhysicsSimulation = ClientPhysicsSimulation.SimulateAlways;
+        }
 
         // 초기 방향은 오른쪽
         if (Object.HasStateAuthority)
@@ -167,14 +175,11 @@ public class PlayerMovement : NetworkBehaviour
         {
             HandleLadder(data);
             Move(data);
-            FlipSprite(data);
-            UpdateAnimation(data);
         }
         else
         {
             NetworkInputData emptyData = default;
             HandleLadder(emptyData);
-            UpdateAnimation(emptyData);
 
             // During the STAGE intro the timer hasn't started yet: freeze horizontal motion
             // so players can't get a head start before the run begins.
@@ -554,34 +559,40 @@ public class PlayerMovement : NetworkBehaviour
         IsDead = false;
     }
 
-    private void FlipSprite(NetworkInputData data)
+    public override void Render()
     {
-        if (_sr == null) return;
-
-        // FacingRight 를 기준으로 뒤집기 (대시 중 정지 상태에서도 방향 유지)
-        _sr.flipX = !FacingRight;
+        UpdateVisuals();
     }
 
-    private void UpdateAnimation(NetworkInputData data)
+    private void UpdateVisuals()
     {
-        if (_anim == null) return;
-
-        if (IsClimbing)
+        // 1. 바라보는 방향에 따라 스프라이트 반전 (호스트/클라이언트 완벽 동기화)
+        if (_sr != null)
         {
-            _anim.SetFloat("Speed", 0f);
-
-            float climbAnimSpeed = Mathf.Abs(_rb.linearVelocity.y) > 0.05f ? 1f : 0f;
-            _anim.SetFloat("ClimbSpeed", climbAnimSpeed);
-        }
-        else
-        {
-            _anim.SetFloat("Speed", Mathf.Abs(data.direction.x));
-            _anim.SetFloat("ClimbSpeed", 0f);
+            _sr.flipX = !FacingRight;
         }
 
-        _anim.SetBool("IsGrounded", IsGrounded);
-        _anim.SetBool("IsClimbing", IsClimbing);
-        _anim.SetFloat("YVelocity", IsClimbing ? 0f : _rb.linearVelocity.y);
+        // 2. 애니메이션 파라미터 갱신 (원격 플레이어와 로컬 플레이어 모두 실제 속도 기반으로 자연스럽게 재생)
+        if (_anim != null && _rb != null)
+        {
+            if (IsClimbing)
+            {
+                _anim.SetFloat("Speed", 0f);
+                float climbAnimSpeed = Mathf.Abs(_rb.linearVelocity.y) > 0.05f ? 1f : 0f;
+                _anim.SetFloat("ClimbSpeed", climbAnimSpeed);
+            }
+            else
+            {
+                float hSpeed = Mathf.Abs(_rb.linearVelocity.x);
+                float animSpeed = hSpeed > 0.1f ? Mathf.Clamp01(hSpeed / speed) : 0f;
+                _anim.SetFloat("Speed", animSpeed);
+                _anim.SetFloat("ClimbSpeed", 0f);
+            }
+
+            _anim.SetBool("IsGrounded", IsGrounded);
+            _anim.SetBool("IsClimbing", IsClimbing);
+            _anim.SetFloat("YVelocity", IsClimbing ? 0f : _rb.linearVelocity.y);
+        }
     }
 
     private void OnTriggerEnter2D(Collider2D other)

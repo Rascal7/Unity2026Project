@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Fusion;
+using Fusion.Addons.Physics;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -46,6 +47,20 @@ public class BasicLauncher : MonoBehaviour
         {
             Instance = null;
         }
+    }
+
+    public string RoomCode => _roomCode;
+
+    private static readonly string[] InGameStageNames = { "TutorialStage", "Main Stage1", "Main Stage2", "Main Stage3" };
+
+    public static bool IsInGameStage()
+    {
+        string currentScene = SceneManager.GetActiveScene().name;
+        foreach (var name in InGameStageNames)
+        {
+            if (currentScene == name) return true;
+        }
+        return false;
     }
 
     private void OnGUI()
@@ -103,7 +118,10 @@ public class BasicLauncher : MonoBehaviour
         }
         else if (_runner != null && (_runner.IsServer || _runner.IsClient))
         {
-            // 게임 접속 중/플레이 중: 화면 상단에 방 코드 안내
+            // 게임 시작(인게임 플레이) 시 방 코드 안 보이게 숨김
+            if (IsInGameStage()) return;
+
+            // 대기실 / 캐릭터 선택 / 세이브파일 화면: 화면 상단에 방 코드 안내
             GUIStyle roomCodeStyle = new GUIStyle(GUI.skin.label);
             roomCodeStyle.fontSize = 22;
             roomCodeStyle.fontStyle = FontStyle.Bold;
@@ -236,6 +254,10 @@ public class BasicLauncher : MonoBehaviour
             var runnerGO = new GameObject("FusionNetworkRunner");
             _runner = runnerGO.AddComponent<NetworkRunner>();
             var sceneManager = runnerGO.AddComponent<NetworkSceneManagerDefault>();
+
+            // 움직임 예측(Client Prediction) 기반 물리 시뮬레이션 활성화
+            var physicsSim2D = runnerGO.AddComponent<RunnerSimulatePhysics2D>();
+            physicsSim2D.ClientPhysicsSimulation = ClientPhysicsSimulation.SimulateAlways;
 
             _runner.ProvideInput = true;
 

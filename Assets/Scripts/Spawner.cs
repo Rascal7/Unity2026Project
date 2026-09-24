@@ -270,26 +270,75 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     }
 
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
-    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
+
+    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
+    {
+        Debug.LogWarning($"<color=red>[Spawner]</color> NetworkRunner Shutdown: {shutdownReason}. 로비로 복귀합니다.");
+        // 정상 로비 이동(Ok) 외의 모든 셧다운(호스트 종료, 타임아웃 등) 시 로비로 안전 복귀
+        ReturnToLobby(runner, $"호스트와의 연결이 종료되었습니다 ({shutdownReason}).");
+    }
+
     public void OnConnectedToServer(NetworkRunner runner) { }
+
     public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
     {
         // 끊긴 채로 죽은 세션에 갇히지 않도록 로비로 되돌린다.
-        Debug.LogWarning($"[Spawner] 서버 연결이 끊겼습니다: {reason}. 로비로 돌아갑니다.");
-        ReturnToLobby(runner);
+        Debug.LogWarning($"<color=red>[Spawner]</color> 서버 연결이 끊겼습니다: {reason}. 로비로 돌아갑니다.");
+        ReturnToLobby(runner, $"호스트와의 연결이 끊어졌습니다 ({reason}).");
     }
 
-    /// <summary>러너를 정리하고 로비 씬으로 돌아간다. 연결 끊김/실패 공용.</summary>
-    private async void ReturnToLobby(NetworkRunner runner)
+    /// <summary>러너를 정리하고 로비 씬으로 돌아간다. 연결 끊김/종료 공용.</summary>
+    private async void ReturnToLobby(NetworkRunner runner, string reasonMessage = null)
     {
         if (_returningToLobby) return;
         _returningToLobby = true;
+
+        Debug.Log($"<color=yellow>[Spawner]</color> ReturnToLobby 실행: {reasonMessage}");
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
         if (runner != null)
         {
-            await runner.Shutdown();
-            if (runner != null) Destroy(runner.gameObject);
+            try
+            {
+                if (runner.IsRunning)
+                {
+                    await runner.Shutdown();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[Spawner] Shutdown 예외 (무시): {ex.Message}");
+            }
+
+            if (runner != null && runner.gameObject != null)
+            {
+                Destroy(runner.gameObject);
+            }
         }
-        SceneManager.LoadScene(lobbySceneName);
+
+        // BasicLauncher의 러너 정리도 함께 수행
+        if (BasicLauncher.Instance != null)
+        {
+            try { await BasicLauncher.Instance.CleanupRunnerAsync(); } catch { }
+        }
+
+        // 안내 메시지가 필요하면 PlayerPrefs에 기록 후 로비에서 표시 가능
+        if (!string.IsNullOrEmpty(reasonMessage))
+        {
+            PlayerPrefs.SetString("DisconnectNotice", reasonMessage);
+        }
+
+        string currentScene = SceneManager.GetActiveScene().name;
+        if (currentScene != lobbySceneName)
+        {
+            SceneManager.LoadScene(lobbySceneName);
+        }
+        else
+        {
+            _returningToLobby = false;
+        }
     }
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
     public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
