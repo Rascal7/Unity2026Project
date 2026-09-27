@@ -17,18 +17,33 @@ public class PlayerMovement : NetworkBehaviour
     public float maxFallSpeed = 16f;
 
     // 캐릭터 스킬 종류 (챕터별). 프리팹에서 슬롯에 지정한다.
-    public enum CharacterSkill { None, FoxDash, FoxSniff, FoxShadow, RabbitCarrot, RabbitJump, RabbitStomp }
+    // 주의: 프리팹에 정수로 직렬화되므로 새 값은 항상 끝에 추가한다.
+    public enum CharacterSkill { None, FoxDash, FoxSniff, FoxShadow, RabbitCarrot, RabbitJump, RabbitStomp, FoxSwap, RabbitPowerUp }
 
     [Header("Skill Slots (챕터별)")]
     public CharacterSkill skillCh1 = CharacterSkill.None; // 슬롯1 (여우 대시 / 토끼 당근)
     public CharacterSkill skillCh2 = CharacterSkill.None; // 슬롯2 (여우 킁킁 / 토끼 점프)
-    public CharacterSkill skillCh3 = CharacterSkill.None; // 슬롯3 (여우 그림자 / 토끼 스톰프)
+    public CharacterSkill skillCh3 = CharacterSkill.None; // 슬롯3 (여우 위치 바꾸기 / 토끼 파워업)
 
     [Header("Cooldowns (초)")]
     public float dashCooldown = 1.5f;
     public float jumpCooldown = 1.5f;
     public float sniffCooldown = 6f;
     public float carrotCooldown = 3f;
+    public float swapCooldown = 5f;
+    public float powerUpCooldown = 8f;
+
+    [Header("Fox Swap (위치 바꾸기)")]
+    [Tooltip("이 거리 안의 다른 플레이어와만 위치를 바꾼다. 0 이면 거리 제한 없음")]
+    public float swapMaxDistance = 0f;
+
+    [Header("Rabbit Power Up (당근 먹고 다음 스킬 강화)")]
+    [Tooltip("강화 상태 유지 시간(초). 이 안에 당근/도약을 쓰지 않으면 사라진다")]
+    public float powerUpDuration = 10f;
+    [Tooltip("강화된 도약 점프력 (superJumpForce 보다 크게)")]
+    public float poweredJumpForce = 15f;
+    [Tooltip("강화된 당근(큰 당근) 크기 배율")]
+    public float bigCarrotScale = 2f;
 
     [Header("Fox Dash")]
     [Tooltip("대시 속도")]
@@ -38,7 +53,7 @@ public class PlayerMovement : NetworkBehaviour
 
     [Header("Rabbit Jump")]
     [Tooltip("강한 도약 점프력 (기본 점프보다 크게)")]
-    public float superJumpForce = 18f;
+    public float superJumpForce = 12f;
 
     [Header("Fox Sniff (숨김 오브젝트 감지)")]
     public float sniffRadius = 5f;
@@ -96,11 +111,25 @@ public class PlayerMovement : NetworkBehaviour
     [Networked] private NetworkBool FacingRight { get; set; }      // 바라보는 방향 (대시 방향 결정)
 
     [Networked] private NetworkBool SkillAirborne { get; set; } // 토끼 도약 중(발사~착지)
+    [Networked] private TickTimer PowerUpTimer { get; set; }    // 토끼 파워업 유지(다음 당근/도약 1회 강화)
+    [Networked] private byte SwapCount { get; set; }            // 위치 바꾸기 횟수(연출 엣지 감지용)
+    [Networked] private Vector2 SwapFrom { get; set; }          // 위치 바꾸기 출발/도착 지점(포털 연출용)
+    [Networked] private Vector2 SwapTo { get; set; }
+    [Networked] private byte SniffCount { get; set; }           // 킁킁 사용 횟수(연출 엣지 감지용)
+    [Networked] private byte PowerSpendCount { get; set; }      // 파워업 소모 횟수(연출 엣지 감지용)
+    [Networked] private NetworkBool PoweredJump { get; set; }   // 이번 도약이 강화 도약인가(발사~착지)
 
     // --- 연출(PlayerSkillVisuals)용 공개 상태 ---
     public bool IsDashingNow => Runner != null && !DashTimer.ExpiredOrNotRunning(Runner);
     public bool IsFacingRight => FacingRight;
     public bool IsSkillAirborne => SkillAirborne;
+    public bool IsPoweredUp => Runner != null && !PowerUpTimer.ExpiredOrNotRunning(Runner);
+    public int SwapCounter => SwapCount;
+    public Vector2 LastSwapFrom => SwapFrom;
+    public Vector2 LastSwapTo => SwapTo;
+    public int SniffCounter => SniffCount;
+    public int PowerSpendCounter => PowerSpendCount;
+    public bool IsPoweredJump => PoweredJump;
 
     // ���� ����
     private bool _isOnLadder;
@@ -194,7 +223,10 @@ public class PlayerMovement : NetworkBehaviour
     private void UpdateSkillAirborne()
     {
         if (SkillAirborne && IsGrounded && _rb.linearVelocity.y <= 0.1f)
+        {
             SkillAirborne = false;
+            PoweredJump = false;
+        }
     }
 
     // True while the STAGE intro card is showing (NetworkTimer in PhaseIntro, before the run starts).
@@ -211,7 +243,8 @@ public class PlayerMovement : NetworkBehaviour
         else if (data.direction.x < -0.01f) FacingRight = false;
 
         // 스킬 발동 시도 (쿨다운이 끝났고 사다리 중이 아닐 때)
-        bool doSuperJump = TryUseSkill(data);
+        float superJumpY = TryUseSkill(data);
+        bool doSuperJump = superJumpY > 0f;
 
         bool isDashing = !DashTimer.ExpiredOrNotRunning(Runner);
 
@@ -239,8 +272,8 @@ public class PlayerMovement : NetworkBehaviour
 
             if (doSuperJump)
             {
-                // 토끼 강한 도약
-                yVelocity = superJumpForce;
+                // 토끼 강한 도약 (파워업 상태면 더 높이)
+                yVelocity = superJumpY;
             }
             else if (data.isJumpPressed && IsGrounded)
             {
@@ -258,45 +291,122 @@ public class PlayerMovement : NetworkBehaviour
 
     /// <summary>
     /// 스킬 입력을 받아 발동을 시도한다.
-    /// 반환값: 이번 틱에 토끼 강한 도약을 발동했으면 true (Move 에서 y속도로 적용).
+    /// 반환값: 이번 틱에 토끼 강한 도약을 발동했으면 적용할 y속도(>0), 아니면 0 (Move 에서 적용).
     /// 여우 대시는 DashTimer 를 세팅해 이후 틱들에서 적용된다.
     /// </summary>
-    private bool TryUseSkill(NetworkInputData data)
+    private float TryUseSkill(NetworkInputData data)
     {
         int slot = data.skillSlot;
-        if (slot < 1 || slot > 3) return false;
-        if (IsClimbing) return false;
+        if (slot < 1 || slot > 3) return 0f;
+        if (!StageSkillRules.IsSlotAllowed(slot)) return 0f; // 스테이지에서 아직 열리지 않은 슬롯
+        if (IsClimbing) return 0f;
 
         CharacterSkill active = SlotSkill(slot);
-        if (active == CharacterSkill.None) return false;
-        if (!SlotReady(slot)) return false; // 해당 슬롯 쿨다운 중
+        if (active == CharacterSkill.None) return 0f;
+        if (!SlotReady(slot)) return 0f; // 해당 슬롯 쿨다운 중
 
         switch (active)
         {
             case CharacterSkill.FoxDash:
                 DashTimer = TickTimer.CreateFromSeconds(Runner, dashDuration);
                 SetSlotCd(slot, dashCooldown);
-                return false;
+                return 0f;
 
             case CharacterSkill.RabbitJump:
-                if (!IsGrounded) return false; // 땅에 있을 때만 도약
+                if (!IsGrounded) return 0f; // 땅에 있을 때만 도약
                 SetSlotCd(slot, jumpCooldown);
                 SkillAirborne = true; // 연출: 도약 시작
-                return true;
+                PoweredJump = ConsumePowerUp();
+                return PoweredJump ? poweredJumpForce : superJumpForce;
 
             case CharacterSkill.FoxSniff:
                 SetSlotCd(slot, sniffCooldown);
+                SniffCount++;
                 DoSniff();
-                return false;
+                return 0f;
 
             case CharacterSkill.RabbitCarrot:
                 SetSlotCd(slot, carrotCooldown);
-                DoCarrot();
-                return false;
+                DoCarrot(ConsumePowerUp());
+                return 0f;
+
+            case CharacterSkill.FoxSwap:
+                var partner = FindSwapPartner();
+                if (partner == null) return 0f; // 바꿀 상대가 없으면 쿨다운 소모 없이 무시
+                SetSlotCd(slot, swapCooldown);
+                DoSwap(partner);
+                return 0f;
+
+            case CharacterSkill.RabbitPowerUp:
+                if (IsPoweredUp) return 0f; // 이미 강화 상태면 중복 사용하지 않는다
+                SetSlotCd(slot, powerUpCooldown);
+                PowerUpTimer = TickTimer.CreateFromSeconds(Runner, powerUpDuration);
+                return 0f;
 
             default:
-                return false;
+                return 0f;
         }
+    }
+
+    // 파워업 상태면 소모하고 true. 다음 당근/도약 한 번만 강화된다.
+    private bool ConsumePowerUp()
+    {
+        if (!IsPoweredUp) return false;
+        PowerUpTimer = TickTimer.None;
+        PowerSpendCount++;
+        return true;
+    }
+
+    // 위치를 바꿀 상대: 가장 가까운 다른 플레이어 (swapMaxDistance > 0 이면 그 거리 안에서만)
+    private PlayerMovement FindSwapPartner()
+    {
+        PlayerMovement best = null;
+        float bestSq = float.MaxValue;
+        float maxSq = swapMaxDistance > 0f ? swapMaxDistance * swapMaxDistance : float.MaxValue;
+
+        foreach (var p in FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None))
+        {
+            if (p == null || p == this) continue;
+            if (p.Object == null || !p.Object.IsValid || p._rb == null) continue;
+            if (p.IsDead) continue;
+
+            float sq = ((Vector2)(p.transform.position - transform.position)).sqrMagnitude;
+            if (sq > maxSq || sq >= bestSq) continue;
+            best = p;
+            bestSq = sq;
+        }
+        return best;
+    }
+
+    // 두 플레이어의 위치를 맞바꾼다. 호스트가 모든 플레이어의 StateAuthority 를 가지므로 호스트에서 실행.
+    private void DoSwap(PlayerMovement other)
+    {
+        if (!Runner.IsServer) return;
+
+        Vector3 myPos = transform.position;
+        Vector3 otherPos = other.transform.position;
+        myPos.z = otherPos.z = 0f;
+
+        TeleportTo(otherPos);
+        other.TeleportTo(myPos);
+
+        SwapFrom = myPos; SwapTo = otherPos;
+        other.SwapFrom = otherPos; other.SwapTo = myPos;
+        SwapCount++;
+        other.SwapCount++;
+        Debug.Log($"<color=cyan>[Swap]</color> {name} <-> {other.name} 위치 교환");
+    }
+
+    private void TeleportTo(Vector3 pos)
+    {
+        // transform.position 직접 대입은 다음 틱에 되돌아가므로 반드시 Teleport 를 쓴다. (Respawn 참고)
+        if (_nrb != null) _nrb.Teleport(pos);
+        else transform.position = pos;
+
+        _rb.linearVelocity = Vector2.zero;
+        DashTimer = TickTimer.None;
+        SkillAirborne = false;
+        PoweredJump = false;
     }
 
     public struct SkillSlotStatus
@@ -318,6 +428,8 @@ public class PlayerMovement : NetworkBehaviour
             case CharacterSkill.RabbitJump: return jumpCooldown;
             case CharacterSkill.FoxSniff: return sniffCooldown;
             case CharacterSkill.RabbitCarrot: return carrotCooldown;
+            case CharacterSkill.FoxSwap: return swapCooldown;
+            case CharacterSkill.RabbitPowerUp: return powerUpCooldown;
             default: return 0f;
         }
     }
@@ -400,14 +512,18 @@ public class PlayerMovement : NetworkBehaviour
         Debug.Log($"<color=cyan>[Sniff]</color> 반경 {sniffRadius} 안 {revealed}/{all.Length}개를 드러냈습니다.");
     }
 
-    // 정면으로 당근 발사 (호스트가 네트워크 오브젝트 스폰)
-    private void DoCarrot()
+    // 정면으로 당근 발사 (호스트가 네트워크 오브젝트 스폰). big = 파워업으로 강화된 큰 당근
+    private void DoCarrot(bool big)
     {
         if (!Runner.IsServer) return;
         if (carrotPrefab == null) return;
         float dir = FacingRight ? 1f : -1f;
-        Vector3 pos = transform.position + new Vector3(dir * carrotForwardOffset, 0f, 0f);
-        var obj = Runner.Spawn(carrotPrefab, pos, Quaternion.identity, Object.InputAuthority);
+        float offset = carrotForwardOffset * (big ? bigCarrotScale : 1f);
+        Vector3 pos = transform.position + new Vector3(dir * offset, 0f, 0f);
+        float scale = big ? bigCarrotScale : 1f;
+        // 크기는 Spawned() 전에 정해야 모든 클라이언트가 첫 프레임부터 같은 크기로 본다.
+        var obj = Runner.Spawn(carrotPrefab, pos, Quaternion.identity, Object.InputAuthority,
+            (runner, no) => { var c = no.GetComponent<CarrotProjectile>(); if (c != null) c.SizeScale = scale; });
         var carrot = obj != null ? obj.GetComponent<CarrotProjectile>() : null;
         if (carrot != null) carrot.Launch(FacingRight);
     }
@@ -535,9 +651,50 @@ public class PlayerMovement : NetworkBehaviour
         if (IsDead) return;
         if (!RespawnGrace.ExpiredOrNotRunning(Runner)) return; // 리스폰 직후 무적
 
+        MarkDead();
+        Debug.Log("<color=red>[PlayerMovement]</color> 플레이어 사망 -> 리스폰");
+
+        // 협동 규칙: 한 명이 죽으면 다른 플레이어도 같이 죽어 체크포인트에서 함께 다시 시작한다.
+        // 동반 사망은 상대의 리스폰 무적과 무관하게 적용한다.
+        foreach (var p in ActivePlayers())
+        {
+            if (p == this || p.IsDead || !p.Object.HasStateAuthority) continue;
+            p.MarkDead();
+            Debug.Log($"<color=red>[PlayerMovement]</color> {p.name} 동반 사망");
+        }
+    }
+
+    private void MarkDead()
+    {
         IsDead = true;
         _respawnRequested = true; // 실제 리스폰은 FixedUpdateNetwork 안에서
-        Debug.Log("<color=red>[PlayerMovement]</color> 플레이어 사망 -> 리스폰");
+    }
+
+    /// <summary>
+    /// 지금 스테이지에 스폰돼 있는 플레이어들. 협동 판정(동반 사망, 체크포인트/골 동시 도달)에 쓴다.
+    /// </summary>
+    public static System.Collections.Generic.List<PlayerMovement> ActivePlayers()
+    {
+        var list = new System.Collections.Generic.List<PlayerMovement>();
+        foreach (var p in FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None))
+        {
+            if (p == null || p.Object == null || !p.Object.IsValid) continue;
+            list.Add(p);
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// reached 에 지금 스테이지의 플레이어가 모두 들어 있으면 true.
+    /// 스테이지에 혼자면(솔로 테스트) 그 한 명만 도달해도 true.
+    /// </summary>
+    public static bool AllPlayersReached(System.Collections.Generic.HashSet<PlayerMovement> reached)
+    {
+        var players = ActivePlayers();
+        if (players.Count == 0) return reached.Count > 0; // 네트워크 없이 돌리는 경우
+        foreach (var p in players)
+            if (!reached.Contains(p)) return false;
+        return true;
     }
 
     private void Respawn()

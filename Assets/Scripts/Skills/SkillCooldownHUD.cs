@@ -109,20 +109,46 @@ public class SkillCooldownHUD : MonoBehaviour
         _hudContainer.sizeDelta = new Vector2(380f, 140f);
 
         _slotUIs.Clear();
-        // 슬롯 1, 2, 3 생성
-        for (int i = 1; i <= 3; i++)
+        _layoutSlotCount = -1;
+        // 슬롯 1, 2, 3 생성 (스테이지별로 보이는 개수는 Update 에서 조정)
+        for (int i = 1; i <= StageSkillRules.MaxSlots; i++)
         {
             var slot = CreateSlotUI(i);
             _slotUIs.Add(slot);
         }
     }
 
+    private const float SlotSize = 96f; // 기존 78f에서 약 23% 확대
+    private const float SlotSpacing = 18f;
+    private int _layoutSlotCount = -1;
+
+    // 보이는 슬롯 수 기준 우측 정렬 (슬롯 1이 왼쪽, 마지막 슬롯이 가장 오른쪽)
+    private static float SlotPosX(int slotIndex, int visibleCount)
+    {
+        return -((visibleCount - slotIndex) * (SlotSize + SlotSpacing));
+    }
+
+    // 스테이지에서 열린 슬롯 수가 바뀌면 빈틈 없이 다시 우측 정렬한다.
+    private void LayoutSlots(int visibleCount)
+    {
+        if (_layoutSlotCount == visibleCount) return;
+        _layoutSlotCount = visibleCount;
+        for (int i = 0; i < _slotUIs.Count; i++)
+        {
+            var s = _slotUIs[i];
+            s.rootTransform.anchoredPosition = new Vector2(SlotPosX(s.slotIndex, visibleCount), 0f);
+        }
+    }
+
+    private static string KeyName(int slotIndex)
+    {
+        return slotIndex == 1 ? "Shift" : (slotIndex == 2 ? "Ctrl" : "Alt");
+    }
+
     private SlotUI CreateSlotUI(int slotIndex)
     {
-        float slotSize = 96f; // 기존 78f에서 약 23% 확대
-        float spacing = 18f;
-        // 3개 슬롯 기준 우측 정렬 (슬롯 1이 왼쪽, 슬롯 2가 중앙, 슬롯 3이 오른쪽)
-        float posX = -((3 - slotIndex) * (slotSize + spacing));
+        float slotSize = SlotSize;
+        float posX = SlotPosX(slotIndex, StageSkillRules.MaxSlots);
 
         var rootGo = new GameObject($"Slot_{slotIndex}", typeof(RectTransform));
         rootGo.transform.SetParent(_hudContainer, false);
@@ -159,8 +185,7 @@ public class SkillCooldownHUD : MonoBehaviour
         keyText.fontSize = 15;
         keyText.alignment = TextAnchor.MiddleCenter;
         keyText.color = LobbyUITheme.Gold;
-        string defaultKey = slotIndex == 1 ? "Shift" : (slotIndex == 2 ? "Ctrl" : "Alt");
-        keyText.text = defaultKey;
+        keyText.text = KeyName(slotIndex);
 
         // --- 슬롯 메인 프레임 (우드 & 골드) ---
         var frameGo = new GameObject("Frame", typeof(RectTransform), typeof(Image));
@@ -324,13 +349,25 @@ public class SkillCooldownHUD : MonoBehaviour
             return;
         }
 
-        if (_hudContainer != null && !_hudContainer.gameObject.activeSelf)
-            _hudContainer.gameObject.SetActive(true);
+        // 2. 스테이지별 사용 가능 슬롯 수 (튜토리얼 0 / 1스테이지 1 / 2스테이지 2 / 3스테이지 3)
+        int maxSlots = StageSkillRules.MaxSkillSlots(currentScene);
+        bool showHud = maxSlots > 0;
+        if (_hudContainer != null && _hudContainer.gameObject.activeSelf != showHud)
+            _hudContainer.gameObject.SetActive(showHud);
+        if (!showHud) return;
 
-        // 2. 각 슬롯 갱신
+        LayoutSlots(maxSlots);
+
+        // 3. 각 슬롯 갱신 (열리지 않은 슬롯은 숨김)
         for (int i = 0; i < _slotUIs.Count; i++)
         {
-            UpdateSlot(_slotUIs[i]);
+            var slot = _slotUIs[i];
+            if (slot.slotIndex > maxSlots)
+            {
+                if (slot.root.activeSelf) slot.root.SetActive(false);
+                continue;
+            }
+            UpdateSlot(slot);
         }
     }
 
@@ -395,15 +432,9 @@ public class SkillCooldownHUD : MonoBehaviour
 
         if (status.Skill == PlayerMovement.CharacterSkill.None)
         {
-            // 3번 슬롯(Alt)이 아직 구현/배정되지 않은 경우: "여기다 넣을 거다" 빈칸/잠김 슬롯으로 표시
-            if (slot.slotIndex == 3)
-            {
-                if (!slot.root.activeSelf) slot.root.SetActive(true);
-                ApplyEmptySlotVisuals(slot);
-                return;
-            }
-
-            slot.root.SetActive(false);
+            // 열린 슬롯인데 캐릭터에 스킬이 배정되지 않은 경우: 빈칸/잠김 슬롯으로 표시
+            if (!slot.root.activeSelf) slot.root.SetActive(true);
+            ApplyEmptySlotVisuals(slot);
             return;
         }
 
@@ -460,6 +491,14 @@ public class SkillCooldownHUD : MonoBehaviour
             float scale = 1f + (Mathf.Sin(t * Mathf.PI) * 0.14f);
             slot.rootTransform.localScale = new Vector3(scale, scale, 1f);
         }
+        else if (_localPlayer.IsPoweredUp &&
+                 (status.Skill == PlayerMovement.CharacterSkill.RabbitCarrot || status.Skill == PlayerMovement.CharacterSkill.RabbitJump))
+        {
+            // 파워업 상태: 다음에 강화될 스킬 슬롯을 주황빛으로 맥박치게 표시
+            float a = 0.45f + 0.45f * Mathf.Sin(Time.unscaledTime * 8f);
+            slot.readyHighlight.color = new Color(1f, 0.55f, 0.1f, a);
+            slot.rootTransform.localScale = Vector3.one;
+        }
         else
         {
             slot.readyHighlight.color = new Color(LobbyUITheme.Gold.r, LobbyUITheme.Gold.g, LobbyUITheme.Gold.b, 0f);
@@ -471,7 +510,7 @@ public class SkillCooldownHUD : MonoBehaviour
 
     private void ApplySkillVisuals(SlotUI slot, PlayerMovement.CharacterSkill skill)
     {
-        string keyBadge = slot.slotIndex == 1 ? "Shift" : (slot.slotIndex == 2 ? "Ctrl" : "Alt");
+        string keyBadge = KeyName(slot.slotIndex);
         string skillName = "";
         string symbol = "";
 
@@ -501,9 +540,19 @@ public class SkillCooldownHUD : MonoBehaviour
                 skillName = "스톰프";
                 symbol = "⇓";
                 break;
+            case PlayerMovement.CharacterSkill.FoxSwap:
+                skillName = "체인지";
+                symbol = "<>";
+                break;
+            case PlayerMovement.CharacterSkill.RabbitPowerUp:
+                skillName = "파워업";
+                symbol = "UP";
+                break;
         }
 
         slot.keyText.text = $"{keyBadge}\n{skillName}";
+        slot.keyText.color = LobbyUITheme.Gold; // 빈 슬롯 표시에서 바뀐 색 복구
+        slot.iconLabel.color = LobbyUITheme.Parch;
 
         // 커스텀 등록 스프라이트 검사
         Sprite custom = GetCustomIcon(skill);
@@ -532,7 +581,8 @@ public class SkillCooldownHUD : MonoBehaviour
 
     private void ApplyEmptySlotVisuals(SlotUI slot)
     {
-        slot.keyText.text = "Alt\n[준비중]";
+        slot.lastSkill = PlayerMovement.CharacterSkill.None;
+        slot.keyText.text = $"{KeyName(slot.slotIndex)}\n[준비중]";
         slot.keyText.color = LobbyUITheme.Hint;
 
         slot.frameImage.color = new Color(0.18f, 0.14f, 0.11f, 0.9f);

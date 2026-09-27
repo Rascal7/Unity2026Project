@@ -1,0 +1,1245 @@
+fileFormatVersion: 2
+guid: 3eb21798aea6fb74eb4ef3eefb7eb0c7
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -2562217972213785183
+    second: fx_powerup_ring_0
+  - first:
+      213: 3402700426936891324
+    second: fx_powerup_ring_1
+  - first:
+      213: -4315348814182690374
+    second: fx_powerup_ring_2
+  - first:
+      213: 1839884981539777968
+    second: fx_powerup_ring_3
+  - first:
+      213: 3348172031113790952
+    second: fx_powerup_ring_4
+  - first:
+      213: -8684196487226898497
+    second: fx_powerup_ring_5
+  - first:
+      213: -5775473740872318449
+    second: fx_powerup_ring_6
+  - first:
+      213: -2089230664071427525
+    second: fx_powerup_ring_7
+  - first:
+      213: 435080260460193960
+    second: fx_powerup_ring_8
+  - first:
+      213: -3364576071959257405
+    second: fx_powerup_ring_9
+  - first:
+      213: -529965807753854026
+    second: fx_powerup_ring_10
+  - first:
+      213: -5025478378062311592
+    second: fx_powerup_ring_11
+  - first:
+      213: -7088366891459811062
+    second: fx_powerup_ring_12
+  - first:
+      213: 7952012153256688696
+    second: fx_powerup_ring_13
+  - first:
+      213: -4861352305378381401
+    second: fx_powerup_ring_14
+  - first:
+      213: 3987015811491797636
+    second: fx_powerup_ring_15
+  - first:
+      213: -5928360776652877468
+    second: fx_powerup_ring_16
+  - first:
+      213: 2698908781683241557
+    second: fx_powerup_ring_17
+  - first:
+      213: 1599915980912699557
+    second: fx_powerup_ring_18
+  - first:
+      213: 4208766742279673514
+    second: fx_powerup_ring_19
+  - first:
+      213: 4532585595678518967
+    second: fx_powerup_ring_20
+  - first:
+      213: 1720751508163954176
+    second: fx_powerup_ring_21
+  - first:
+      213: -2553479959772089877
+    second: fx_powerup_ring_22
+  - first:
+      213: -34253639058235971
+    second: fx_powerup_ring_23
+  - first:
+      213: -1357701704285480022
+    second: fx_powerup_ring_24
+  - first:
+      213: 8664129878637773965
+    second: fx_powerup_ring_25
+  - first:
+      213: -4454741832302904012
+    second: fx_powerup_ring_26
+  - first:
+      213: -7449762685134810829
+    second: fx_powerup_ring_27
+  - first:
+      213: 5785312965120484186
+    second: fx_powerup_ring_28
+  - first:
+      213: -8966902821513368265
+    second: fx_powerup_ring_29
+  - first:
+      213: -3152970216589338024
+    second: fx_powerup_ring_30
+  - first:
+      213: -3532254871519020587
+    second: fx_powerup_ring_31
+  - first:
+      213: -1317668434057205089
+    second: fx_powerup_ring_32
+  - first:
+      213: 4454621034028891851
+    second: fx_powerup_ring_33
+  - first:
+      213: -2377955103860524534
+    second: fx_powerup_ring_34
+  - first:
+      213: -5918333376460877220
+    second: fx_powerup_ring_35
+  - first:
+      213: -4344413796897167211
+    second: fx_powerup_ring_36
+  - first:
+      213: -4414364233403294386
+    second: fx_powerup_ring_37
+  - first:
+      213: 2295734765137649235
+    second: fx_powerup_ring_38
+  - first:
+      213: 849902211482759244
+    second: fx_powerup_ring_39
+  - first:
+      213: 8409143952988033239
+    second: fx_powerup_ring_40
+  - first:
+      213: 588387529899700569
+    second: fx_powerup_ring_41
+  - first:
+      213: -1672481719508360234
+    second: fx_powerup_ring_42
+  - first:
+      213: 6595347260383425175
+    second: fx_powerup_ring_43
+  - first:
+      213: -5033381504099782222
+    second: fx_powerup_ring_44
+  - first:
+      213: -2996543410843715920
+    second: fx_powerup_ring_45
+  - first:
+      213: -1976109418624118444
+    second: fx_powerup_ring_46
+  - first:
+      213: -3039400999885884550
+    second: fx_powerup_ring_47
+  - first:
+      213: -6357940661627434964
+    second: fx_powerup_ring_48
+  - first:
+      213: -4674644676988865796
+    second: fx_powerup_ring_49
+  - first:
+      213: -1949960593950504654
+    second: fx_powerup_ring_50
+  - first:
+      213: 5725661513166812692
+    second: fx_powerup_ring_51
+  - first:
+      213: -7582162972481666090
+    second: fx_powerup_ring_52
+  - first:
+      213: -8530197950982878282
+    second: fx_powerup_ring_53
+  - first:
+      213: -7963468144482774570
+    second: fx_powerup_ring_54
+  - first:
+      213: 6495504765245698954
+    second: fx_powerup_ring_55
+  - first:
+      213: -2859905681248911759
+    second: fx_powerup_ring_56
+  - first:
+      213: 7717158417312250945
+    second: fx_powerup_ring_57
+  - first:
+      213: -2093292059795177841
+    second: fx_powerup_ring_58
+  - first:
+      213: -2706146985072899274
+    second: fx_powerup_ring_59
+  - first:
+      213: 3756747649298974207
+    second: fx_powerup_ring_60
+  - first:
+      213: 7220149208122468876
+    second: fx_powerup_ring_61
+  - first:
+      213: 8260875948134780491
+    second: fx_powerup_ring_62
+  - first:
+      213: 2417886700779584304
+    second: fx_powerup_ring_63
+  - first:
+      213: -6677909160623684889
+    second: fx_powerup_ring_64
+  - first:
+      213: -5139323982081819297
+    second: fx_powerup_ring_65
+  - first:
+      213: 2108583739210986220
+    second: fx_powerup_ring_66
+  - first:
+      213: -329436260694373560
+    second: fx_powerup_ring_67
+  - first:
+      213: -8512434967648593228
+    second: fx_powerup_ring_68
+  - first:
+      213: -6644611174907533059
+    second: fx_powerup_ring_69
+  - first:
+      213: -5408598248809964744
+    second: fx_powerup_ring_70
+  - first:
+      213: 6708219967951605325
+    second: fx_powerup_ring_71
+  - first:
+      213: -6924915698244295660
+    second: fx_powerup_ring_72
+  - first:
+      213: 2067814042956347262
+    second: fx_powerup_ring_73
+  - first:
+      213: -239006312818973254
+    second: fx_powerup_ring_74
+  - first:
+      213: 3127212392369071770
+    second: fx_powerup_ring_75
+  - first:
+      213: 5043863131622539887
+    second: fx_powerup_ring_76
+  - first:
+      213: 8945013768320083833
+    second: fx_powerup_ring_77
+  - first:
+      213: 610744910733553636
+    second: fx_powerup_ring_78
+  - first:
+      213: -1669375024973204397
+    second: fx_powerup_ring_79
+  - first:
+      213: -4538818053513260364
+    second: fx_powerup_ring_80
+  - first:
+      213: -7564619193106122443
+    second: fx_powerup_ring_81
+  - first:
+      213: -8157637355880697955
+    second: fx_powerup_ring_82
+  - first:
+      213: 6203057587648797328
+    second: fx_powerup_ring_83
+  - first:
+      213: 3475536118693278721
+    second: fx_powerup_ring_84
+  - first:
+      213: -7873004951104381549
+    second: fx_powerup_ring_85
+  - first:
+      213: -92164966178129846
+    second: fx_powerup_ring_86
+  - first:
+      213: -8489643950790221098
+    second: fx_powerup_ring_87
+  - first:
+      213: -7456896450707203325
+    second: fx_powerup_ring_88
+  - first:
+      213: -3124005883946928132
+    second: fx_powerup_ring_89
+  - first:
+      213: 716198173791931942
+    second: fx_powerup_ring_90
+  - first:
+      213: -1185410637157631381
+    second: fx_powerup_ring_91
+  - first:
+      213: 8265496689445205255
+    second: fx_powerup_ring_92
+  - first:
+      213: -1553640586334302207
+    second: fx_powerup_ring_93
+  - first:
+      213: -1629950101399479002
+    second: fx_powerup_ring_94
+  - first:
+      213: 3977992523168079082
+    second: fx_powerup_ring_95
+  - first:
+      213: -6444502934189419203
+    second: fx_powerup_ring_96
+  - first:
+      213: -9131294008484830314
+    second: fx_powerup_ring_97
+  - first:
+      213: 5877504227923331224
+    second: fx_powerup_ring_98
+  - first:
+      213: 9092066666909138836
+    second: fx_powerup_ring_99
+  - first:
+      213: -7061484554173361151
+    second: fx_powerup_ring_100
+  - first:
+      213: -8734052619184169267
+    second: fx_powerup_ring_101
+  - first:
+      213: -7683660294120584634
+    second: fx_powerup_ring_102
+  - first:
+      213: -1852539755184475310
+    second: fx_powerup_ring_103
+  - first:
+      213: 5723858078115309825
+    second: fx_powerup_ring_104
+  - first:
+      213: 6144926184451571940
+    second: fx_powerup_ring_105
+  - first:
+      213: -756922872488774685
+    second: fx_powerup_ring_106
+  - first:
+      213: 7280200414593832766
+    second: fx_powerup_ring_107
+  - first:
+      213: -59037459162640097
+    second: fx_powerup_ring_108
+  - first:
+      213: 3677966381909946927
+    second: fx_powerup_ring_109
+  - first:
+      213: 543743062257550650
+    second: fx_powerup_ring_110
+  - first:
+      213: 8401662088595838680
+    second: fx_powerup_ring_111
+  - first:
+      213: 1013488295027302844
+    second: fx_powerup_ring_112
+  - first:
+      213: -2038023511455587111
+    second: fx_powerup_ring_113
+  - first:
+      213: 3702142208184533754
+    second: fx_powerup_ring_114
+  - first:
+      213: -2157546389639712002
+    second: fx_powerup_ring_115
+  - first:
+      213: 1622586371698214805
+    second: fx_powerup_ring_116
+  - first:
+      213: -7438690279447606829
+    second: fx_powerup_ring_117
+  - first:
+      213: 7062676944842347033
+    second: fx_powerup_ring_118
+  - first:
+      213: 4759366342695138139
+    second: fx_powerup_ring_119
+  - first:
+      213: -6896482488942699212
+    second: fx_powerup_ring_120
+  - first:
+      213: 9002967260141237049
+    second: fx_powerup_ring_121
+  - first:
+      213: 3401471048875997059
+    second: fx_powerup_ring_122
+  - first:
+      213: -8201604391511293179
+    second: fx_powerup_ring_123
+  - first:
+      213: 3658119904230254067
+    second: fx_powerup_ring_124
+  - first:
+      213: 838309013354024897
+    second: fx_powerup_ring_125
+  - first:
+      213: -4677465824192674458
+    second: fx_powerup_ring_126
+  - first:
+      213: 6800033248276892173
+    second: fx_powerup_ring_127
+  - first:
+      213: 3592606763281272464
+    second: fx_powerup_ring_128
+  - first:
+      213: 4457171180361567493
+    second: fx_powerup_ring_129
+  - first:
+      213: 249914066041802437
+    second: fx_powerup_ring_130
+  - first:
+      213: -7382223443762716631
+    second: fx_powerup_ring_131
+  - first:
+      213: -1296011091214731924
+    second: fx_powerup_ring_132
+  - first:
+      213: 4060067555762015057
+    second: fx_powerup_ring_133
+  - first:
+      213: -2385794196942021831
+    second: fx_powerup_ring_134
+  - first:
+      213: -2078357403482886980
+    second: fx_powerup_ring_135
+  - first:
+      213: 6544600602161565198
+    second: fx_powerup_ring_136
+  - first:
+      213: 7418470863835881597
+    second: fx_powerup_ring_137
+  - first:
+      213: -9139720431136436722
+    second: fx_powerup_ring_138
+  - first:
+      213: 3681669895582707469
+    second: fx_powerup_ring_139
+  - first:
+      213: -6745567727878329951
+    second: fx_powerup_ring_140
+  - first:
+      213: -8900063551238987805
+    second: fx_powerup_ring_141
+  - first:
+      213: -1054563651523128193
+    second: fx_powerup_ring_142
+  - first:
+      213: -8795444260818525424
+    second: fx_powerup_ring_143
+  - first:
+      213: -1531212815890315846
+    second: fx_powerup_ring_144
+  - first:
+      213: -8524560896421083767
+    second: fx_powerup_ring_145
+  - first:
+      213: 5627221280008016709
+    second: fx_powerup_ring_146
+  - first:
+      213: -4254383850589282315
+    second: fx_powerup_ring_147
+  - first:
+      213: -4999574859353392830
+    second: fx_powerup_ring_148
+  - first:
+      213: -4298607807003034219
+    second: fx_powerup_ring_149
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 32
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 8192
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: fx_powerup_ring_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1ad5319545c217cd0800000000000000
+      internalID: -2562217972213785183
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_1
+      rect:
+        serializedVersion: 2
+        x: 273
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cb7b4a09202d83f20800000000000000
+      internalID: 3402700426936891324
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_2
+      rect:
+        serializedVersion: 2
+        x: 546
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ab1dcb00e1dcc14c0800000000000000
+      internalID: -4315348814182690374
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_3
+      rect:
+        serializedVersion: 2
+        x: 819
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0bd214084a5988910800000000000000
+      internalID: 1839884981539777968
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_4
+      rect:
+        serializedVersion: 2
+        x: 1092
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8e58f6119b8177e20800000000000000
+      internalID: 3348172031113790952
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_5
+      rect:
+        serializedVersion: 2
+        x: 1365
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fb745234e498b7780800000000000000
+      internalID: -8684196487226898497
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_6
+      rect:
+        serializedVersion: 2
+        x: 1638
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f0285b18b3569dfa0800000000000000
+      internalID: -5775473740872318449
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_7
+      rect:
+        serializedVersion: 2
+        x: 1911
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b3a4b2eb7cf8103e0800000000000000
+      internalID: -2089230664071427525
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_8
+      rect:
+        serializedVersion: 2
+        x: 2184
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8a8a3851137b90600800000000000000
+      internalID: 435080260460193960
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_9
+      rect:
+        serializedVersion: 2
+        x: 2457
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3ced61b83ef9e41d0800000000000000
+      internalID: -3364576071959257405
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_10
+      rect:
+        serializedVersion: 2
+        x: 2730
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6b38abdd7ee25a8f0800000000000000
+      internalID: -529965807753854026
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_11
+      rect:
+        serializedVersion: 2
+        x: 3003
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 85f80319a0ae14ab0800000000000000
+      internalID: -5025478378062311592
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_12
+      rect:
+        serializedVersion: 2
+        x: 3276
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a09e5e43edf01ad90800000000000000
+      internalID: -7088366891459811062
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_13
+      rect:
+        serializedVersion: 2
+        x: 3549
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 83c347cfbe83b5e60800000000000000
+      internalID: 7952012153256688696
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_14
+      rect:
+        serializedVersion: 2
+        x: 3822
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7a135e5b5d1098cb0800000000000000
+      internalID: -4861352305378381401
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_15
+      rect:
+        serializedVersion: 2
+        x: 4095
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 48a95d5a1c9b45730800000000000000
+      internalID: 3987015811491797636
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_16
+      rect:
+        serializedVersion: 2
+        x: 4368
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4611f3f884b3abda0800000000000000
+      internalID: -5928360776652877468
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_17
+      rect:
+        serializedVersion: 2
+        x: 4641
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 552796dcc33747520800000000000000
+      internalID: 2698908781683241557
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_18
+      rect:
+        serializedVersion: 2
+        x: 4914
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5a8a5c0ab1b043610800000000000000
+      internalID: 1599915980912699557
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_19
+      rect:
+        serializedVersion: 2
+        x: 5187
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: aa6de089d0b886a30800000000000000
+      internalID: 4208766742279673514
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_20
+      rect:
+        serializedVersion: 2
+        x: 5460
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7be6878a59af6ee30800000000000000
+      internalID: 4532585595678518967
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_21
+      rect:
+        serializedVersion: 2
+        x: 5733
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 00684d6316651e710800000000000000
+      internalID: 1720751508163954176
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_22
+      rect:
+        serializedVersion: 2
+        x: 6006
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: be1b4b86187309cd0800000000000000
+      internalID: -2553479959772089877
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_powerup_ring_23
+      rect:
+        serializedVersion: 2
+        x: 6279
+        y: 0
+        width: 273
+        height: 273
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dbd5bab2f7e468ff0800000000000000
+      internalID: -34253639058235971
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      fx_powerup_ring_0: -2562217972213785183
+      fx_powerup_ring_1: 3402700426936891324
+      fx_powerup_ring_10: -529965807753854026
+      fx_powerup_ring_100: -7061484554173361151
+      fx_powerup_ring_101: -8734052619184169267
+      fx_powerup_ring_102: -7683660294120584634
+      fx_powerup_ring_103: -1852539755184475310
+      fx_powerup_ring_104: 5723858078115309825
+      fx_powerup_ring_105: 6144926184451571940
+      fx_powerup_ring_106: -756922872488774685
+      fx_powerup_ring_107: 7280200414593832766
+      fx_powerup_ring_108: -59037459162640097
+      fx_powerup_ring_109: 3677966381909946927
+      fx_powerup_ring_11: -5025478378062311592
+      fx_powerup_ring_110: 543743062257550650
+      fx_powerup_ring_111: 8401662088595838680
+      fx_powerup_ring_112: 1013488295027302844
+      fx_powerup_ring_113: -2038023511455587111
+      fx_powerup_ring_114: 3702142208184533754
+      fx_powerup_ring_115: -2157546389639712002
+      fx_powerup_ring_116: 1622586371698214805
+      fx_powerup_ring_117: -7438690279447606829
+      fx_powerup_ring_118: 7062676944842347033
+      fx_powerup_ring_119: 4759366342695138139
+      fx_powerup_ring_12: -7088366891459811062
+      fx_powerup_ring_120: -6896482488942699212
+      fx_powerup_ring_121: 9002967260141237049
+      fx_powerup_ring_122: 3401471048875997059
+      fx_powerup_ring_123: -8201604391511293179
+      fx_powerup_ring_124: 3658119904230254067
+      fx_powerup_ring_125: 838309013354024897
+      fx_powerup_ring_126: -4677465824192674458
+      fx_powerup_ring_127: 6800033248276892173
+      fx_powerup_ring_128: 3592606763281272464
+      fx_powerup_ring_129: 4457171180361567493
+      fx_powerup_ring_13: 7952012153256688696
+      fx_powerup_ring_130: 249914066041802437
+      fx_powerup_ring_131: -7382223443762716631
+      fx_powerup_ring_132: -1296011091214731924
+      fx_powerup_ring_133: 4060067555762015057
+      fx_powerup_ring_134: -2385794196942021831
+      fx_powerup_ring_135: -2078357403482886980
+      fx_powerup_ring_136: 6544600602161565198
+      fx_powerup_ring_137: 7418470863835881597
+      fx_powerup_ring_138: -9139720431136436722
+      fx_powerup_ring_139: 3681669895582707469
+      fx_powerup_ring_14: -4861352305378381401
+      fx_powerup_ring_140: -6745567727878329951
+      fx_powerup_ring_141: -8900063551238987805
+      fx_powerup_ring_142: -1054563651523128193
+      fx_powerup_ring_143: -8795444260818525424
+      fx_powerup_ring_144: -1531212815890315846
+      fx_powerup_ring_145: -8524560896421083767
+      fx_powerup_ring_146: 5627221280008016709
+      fx_powerup_ring_147: -4254383850589282315
+      fx_powerup_ring_148: -4999574859353392830
+      fx_powerup_ring_149: -4298607807003034219
+      fx_powerup_ring_15: 3987015811491797636
+      fx_powerup_ring_16: -5928360776652877468
+      fx_powerup_ring_17: 2698908781683241557
+      fx_powerup_ring_18: 1599915980912699557
+      fx_powerup_ring_19: 4208766742279673514
+      fx_powerup_ring_2: -4315348814182690374
+      fx_powerup_ring_20: 4532585595678518967
+      fx_powerup_ring_21: 1720751508163954176
+      fx_powerup_ring_22: -2553479959772089877
+      fx_powerup_ring_23: -34253639058235971
+      fx_powerup_ring_24: -1357701704285480022
+      fx_powerup_ring_25: 8664129878637773965
+      fx_powerup_ring_26: -4454741832302904012
+      fx_powerup_ring_27: -7449762685134810829
+      fx_powerup_ring_28: 5785312965120484186
+      fx_powerup_ring_29: -8966902821513368265
+      fx_powerup_ring_3: 1839884981539777968
+      fx_powerup_ring_30: -3152970216589338024
+      fx_powerup_ring_31: -3532254871519020587
+      fx_powerup_ring_32: -1317668434057205089
+      fx_powerup_ring_33: 4454621034028891851
+      fx_powerup_ring_34: -2377955103860524534
+      fx_powerup_ring_35: -5918333376460877220
+      fx_powerup_ring_36: -4344413796897167211
+      fx_powerup_ring_37: -4414364233403294386
+      fx_powerup_ring_38: 2295734765137649235
+      fx_powerup_ring_39: 849902211482759244
+      fx_powerup_ring_4: 3348172031113790952
+      fx_powerup_ring_40: 8409143952988033239
+      fx_powerup_ring_41: 588387529899700569
+      fx_powerup_ring_42: -1672481719508360234
+      fx_powerup_ring_43: 6595347260383425175
+      fx_powerup_ring_44: -5033381504099782222
+      fx_powerup_ring_45: -2996543410843715920
+      fx_powerup_ring_46: -1976109418624118444
+      fx_powerup_ring_47: -3039400999885884550
+      fx_powerup_ring_48: -6357940661627434964
+      fx_powerup_ring_49: -4674644676988865796
+      fx_powerup_ring_5: -8684196487226898497
+      fx_powerup_ring_50: -1949960593950504654
+      fx_powerup_ring_51: 5725661513166812692
+      fx_powerup_ring_52: -7582162972481666090
+      fx_powerup_ring_53: -8530197950982878282
+      fx_powerup_ring_54: -7963468144482774570
+      fx_powerup_ring_55: 6495504765245698954
+      fx_powerup_ring_56: -2859905681248911759
+      fx_powerup_ring_57: 7717158417312250945
+      fx_powerup_ring_58: -2093292059795177841
+      fx_powerup_ring_59: -2706146985072899274
+      fx_powerup_ring_6: -5775473740872318449
+      fx_powerup_ring_60: 3756747649298974207
+      fx_powerup_ring_61: 7220149208122468876
+      fx_powerup_ring_62: 8260875948134780491
+      fx_powerup_ring_63: 2417886700779584304
+      fx_powerup_ring_64: -6677909160623684889
+      fx_powerup_ring_65: -5139323982081819297
+      fx_powerup_ring_66: 2108583739210986220
+      fx_powerup_ring_67: -329436260694373560
+      fx_powerup_ring_68: -8512434967648593228
+      fx_powerup_ring_69: -6644611174907533059
+      fx_powerup_ring_7: -2089230664071427525
+      fx_powerup_ring_70: -5408598248809964744
+      fx_powerup_ring_71: 6708219967951605325
+      fx_powerup_ring_72: -6924915698244295660
+      fx_powerup_ring_73: 2067814042956347262
+      fx_powerup_ring_74: -239006312818973254
+      fx_powerup_ring_75: 3127212392369071770
+      fx_powerup_ring_76: 5043863131622539887
+      fx_powerup_ring_77: 8945013768320083833
+      fx_powerup_ring_78: 610744910733553636
+      fx_powerup_ring_79: -1669375024973204397
+      fx_powerup_ring_8: 435080260460193960
+      fx_powerup_ring_80: -4538818053513260364
+      fx_powerup_ring_81: -7564619193106122443
+      fx_powerup_ring_82: -8157637355880697955
+      fx_powerup_ring_83: 6203057587648797328
+      fx_powerup_ring_84: 3475536118693278721
+      fx_powerup_ring_85: -7873004951104381549
+      fx_powerup_ring_86: -92164966178129846
+      fx_powerup_ring_87: -8489643950790221098
+      fx_powerup_ring_88: -7456896450707203325
+      fx_powerup_ring_89: -3124005883946928132
+      fx_powerup_ring_9: -3364576071959257405
+      fx_powerup_ring_90: 716198173791931942
+      fx_powerup_ring_91: -1185410637157631381
+      fx_powerup_ring_92: 8265496689445205255
+      fx_powerup_ring_93: -1553640586334302207
+      fx_powerup_ring_94: -1629950101399479002
+      fx_powerup_ring_95: 3977992523168079082
+      fx_powerup_ring_96: -6444502934189419203
+      fx_powerup_ring_97: -9131294008484830314
+      fx_powerup_ring_98: 5877504227923331224
+      fx_powerup_ring_99: 9092066666909138836
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

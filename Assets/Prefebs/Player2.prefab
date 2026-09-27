@@ -466,7 +466,7 @@ BoxCollider2D:
   m_Offset: {x: 0, y: -0.05}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
-    pivot: {x: 0.5, y: 0.5}
+    pivot: {x: 0.5208333, y: 0.49333334}
     oldSize: {x: 0.75, y: 0.9375}
     newSize: {x: 0.75, y: 0.9375}
     adaptiveTilingThreshold: 0.5
@@ -538,14 +538,20 @@ MonoBehaviour:
   maxFallSpeed: 16
   skillCh1: 4
   skillCh2: 5
-  skillCh3: 0
+  skillCh3: 8
   dashCooldown: 1.5
   jumpCooldown: 1.5
   sniffCooldown: 6
   carrotCooldown: 3
+  swapCooldown: 5
+  powerUpCooldown: 8
+  swapMaxDistance: 0
+  powerUpDuration: 10
+  poweredJumpForce: 15
+  bigCarrotScale: 2
   dashSpeed: 18
   dashDuration: 0.2
-  superJumpForce: 18
+  superJumpForce: 12
   sniffRadius: 5
   sniffRevealDuration: 4.5
   carrotPrefab: {fileID: 278087493942239387, guid: f658aae83357e6c4d904ba74fca0e83a, type: 3}
@@ -636,31 +642,39 @@ MonoBehaviour:
   dashDustInterval: 0.03
   dashDustScale: 1.1
   jumpLaunchFrames:
-  - {fileID: -7808597636291067876, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
-  - {fileID: 7721334607561410134, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
-  - {fileID: -2242772661877119312, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
-  - {fileID: -4654318857513309391, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
-  - {fileID: -5621109665231567814, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
-  - {fileID: 5152649840331385086, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
-  - {fileID: 2823272402737709826, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
-  - {fileID: 1130324612296305782, guid: 6abff62bc08163f4980ba3b7e0018bc6, type: 3}
-  jumpLaunchFps: 22
-  jumpLaunchScale: 1.6
+  - {fileID: -3518015213395639033, guid: e335bc987b958424488a3ad66b7286d6, type: 3}
+  - {fileID: -7979452153057558562, guid: e335bc987b958424488a3ad66b7286d6, type: 3}
+  - {fileID: 1695295155982033782, guid: e335bc987b958424488a3ad66b7286d6, type: 3}
+  - {fileID: 681629392868077163, guid: e335bc987b958424488a3ad66b7286d6, type: 3}
+  - {fileID: -255492108795427888, guid: e335bc987b958424488a3ad66b7286d6, type: 3}
+  - {fileID: -7192957856471377729, guid: e335bc987b958424488a3ad66b7286d6, type: 3}
+  - {fileID: -1812822208864059183, guid: e335bc987b958424488a3ad66b7286d6, type: 3}
+  - {fileID: 6476506192829744820, guid: e335bc987b958424488a3ad66b7286d6, type: 3}
+  jumpLaunchFps: 18
+  jumpLaunchScale: 1
   jumpLandFrames:
-  - {fileID: -3757666834431055642, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
-  - {fileID: -3151195825567880470, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
-  - {fileID: -3515243970220461367, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
-  - {fileID: -216875733195619816, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
-  - {fileID: 1618525343133235863, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
-  - {fileID: -3154329818631211778, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
-  - {fileID: 275969281115302137, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
-  - {fileID: 5303531299478335461, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
-  - {fileID: -1995599777882064969, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
-  - {fileID: -9089638283045509904, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
-  - {fileID: -6483419717464838650, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
-  - {fileID: -6802366858308617346, guid: bd24315130561eb4da9e04c90e68b667, type: 3}
-  jumpLandFps: 24
-  jumpLandScale: 1.3
+  - {fileID: 9210678875076619126, guid: ccabb087a636e3845b3135bab941d2b5, type: 3}
+  - {fileID: 5351299961643155187, guid: ccabb087a636e3845b3135bab941d2b5, type: 3}
+  - {fileID: 2964270448924857712, guid: ccabb087a636e3845b3135bab941d2b5, type: 3}
+  - {fileID: -7480041245551724292, guid: ccabb087a636e3845b3135bab941d2b5, type: 3}
+  - {fileID: 1859808160317913238, guid: ccabb087a636e3845b3135bab941d2b5, type: 3}
+  - {fileID: -3105854189270283316, guid: ccabb087a636e3845b3135bab941d2b5, type: 3}
+  - {fileID: -5463252370118810487, guid: ccabb087a636e3845b3135bab941d2b5, type: 3}
+  - {fileID: -4997512481250074956, guid: ccabb087a636e3845b3135bab941d2b5, type: 3}
+  - {fileID: -2186156724105987780, guid: ccabb087a636e3845b3135bab941d2b5, type: 3}
+  jumpLandFps: 18
+  jumpLandScale: 0.9
+  powerUpTint: {r: 1, g: 0.6, b: 0.25, a: 1}
+  powerUpPulseSpeed: 9
+  swapShake: 0.2
+  swapFastFollowSeconds: 0.3
+  swapFarZoomIn: 0.1
+  sniffZoomIn: 0.06
+  jumpLaunchCamKick: 0.3
+  poweredJumpZoomOut: 0.08
+  powerUpZoomIn: 0.08
+  powerUpShake: 0.15
+  bigCarrotCamKick: 0.4
   effectTint: {r: 1, g: 1, b: 1, a: 1}
   effectSortingOrder: 6
   groundOffset: 0

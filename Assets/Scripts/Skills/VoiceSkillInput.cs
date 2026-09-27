@@ -42,6 +42,8 @@ public class VoiceSkillInput : MonoBehaviour
         new KeywordSlot { keyword = "당근", slot = 1 }, // 토끼 ch1
         new KeywordSlot { keyword = "킁킁", slot = 2 }, // 여우 ch2
         new KeywordSlot { keyword = "점프", slot = 2 }, // 토끼 ch2
+        new KeywordSlot { keyword = "체인지", slot = 3 }, // 여우 ch3 (change: 위치 바꾸기)
+        new KeywordSlot { keyword = "파워업", slot = 3 }, // 토끼 ch3 (power up: 다음 스킬 강화)
     };
 
     [Header("인식 판정")]

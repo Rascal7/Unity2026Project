@@ -72,7 +72,11 @@ public class Revealable : NetworkBehaviour
     public override void Render()
     {
         bool revealed = IsRevealed;
-        if (revealed && !_wasRevealed) _appearT = 0f; // 드러나는 순간(엣지)
+        if (revealed && !_wasRevealed)                 // 드러나는 순간(엣지)
+        {
+            _appearT = 0f;
+            SpawnRevealShine();
+        }
         _wasRevealed = revealed;
 
         Apply(revealed);
@@ -96,6 +100,33 @@ public class Revealable : NetworkBehaviour
                 float sc = glowScale + Mathf.Lerp(0.5f, 0f, appear) + 0.04f * Mathf.Sin(Time.time * glowPulseSpeed);
                 _glow.transform.localScale = Vector3.one * sc;
             }
+        }
+    }
+
+    /// <summary>드러남 반짝 이펙트를 뿌릴 영역. 타일맵은 실제 타일 영역으로 재정의한다.</summary>
+    protected virtual Bounds RevealFxBounds()
+    {
+        if (_sr != null && _sr.sprite != null) return _sr.bounds;
+        return new Bounds(transform.position, Vector3.one);
+    }
+
+    protected virtual int RevealFxSortingLayer() => _sr != null ? _sr.sortingLayerID : 0;
+
+    // 드러난 오브젝트 위에 반짝임. 넓은 발판은 폭을 따라 여러 개(최대 4개) 뿌린다.
+    private void SpawnRevealShine()
+    {
+        var fx = SkillFxLibrary.Instance;
+        if (fx == null || fx.revealShine == null || fx.revealShine.Length == 0) return;
+
+        Bounds b = RevealFxBounds();
+        int count = Mathf.Clamp(Mathf.CeilToInt(b.size.x / 2f), 1, 4);
+        int layer = RevealFxSortingLayer();
+        for (int i = 0; i < count; i++)
+        {
+            float t = count == 1 ? 0.5f : (i + 0.5f) / count;
+            var pos = new Vector3(Mathf.Lerp(b.min.x, b.max.x, t), b.center.y, 0f);
+            SpriteEffect.Spawn(fx.revealShine, pos, fx.revealShineFps, fx.revealShineScale,
+                false, layer, fx.sortingOrder, Color.white);
         }
     }
 
