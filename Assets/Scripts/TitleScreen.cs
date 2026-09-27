@@ -224,13 +224,15 @@ public class TitleScreen : MonoBehaviour
             if (field != null) { field.Select(); field.ActivateInputField(); }
         }
 
-        // 비상용 안전 타임아웃 (네트워크 지연을 감안해 15초)
-        if (_busy && t - _busySince > 15f)
+        // 비상용 안전 타임아웃: '실제 HOST/JOIN 연결이 진행 중'일 때만 발동한다.
+        // (인증 요청은 자체 25초 타임아웃+콜백으로 _busy 를 풀므로, 여기서 오탐으로
+        //  "연결 시간 초과"를 띄우면 안 된다. IsStarting 은 StartGame 동안만 true.)
+        if (_busy && _launcher != null && _launcher.IsStarting && t - _busySince > 20f)
         {
             _busy = false;
             SetInteractable(true);
             if (_noteText != null) _noteText.text = "연결 시간 초과 - 다시 시도하세요";
-            if (_launcher != null) _ = _launcher.CleanupRunnerAsync();
+            _ = _launcher.CleanupRunnerAsync();
         }
 
         // 인증 대기: 메일 링크 클릭을 5초 간격으로 자동 감지 → 인증되면 자동 로그인
@@ -468,7 +470,7 @@ public class TitleScreen : MonoBehaviour
         AuthManager.Instance.Login(_authEmail != null ? _authEmail.text : "", _authPw != null ? _authPw.text : "",
             () => { _busy = false; _pendingNote = "환영합니다!"; _pendingNoteErr = false; Rebuild(); },
             msg => { _busy = false; SetNote(msg, true); },
-            () => { _busy = false; _needResend = true; _pendingNote = "이메일 인증이 필요합니다. 메일함을 확인하거나 인증메일을 재발송하세요."; _pendingNoteErr = true; Rebuild(); });
+            () => { _busy = false; _needResend = false; _authView = AuthView.Verify; _verifyPollAt = Time.unscaledTime + 5f; _pendingNote = "이메일 인증이 필요합니다 · 메일의 링크를 눌러주세요"; _pendingNoteErr = true; Rebuild(); });
     }
 
     private void OnSignupClick()
