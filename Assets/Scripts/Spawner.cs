@@ -208,11 +208,11 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         data.direction.y = Input.GetAxisRaw("Vertical");
         data.isJumpPressed = Input.GetButton("Jump") || Input.GetKey(KeyCode.Space);
 
-        // 스킬 슬롯 입력: 키보드(Shift=1, Ctrl=2, Alt=3) 또는 음성(키워드→슬롯)
+        // 스킬 슬롯 입력: 키보드(ESC 메뉴에서 재설정 가능, 기본 Shift/Ctrl/Alt) 또는 음성(키워드→슬롯)
         byte slot = 0;
-        if (Input.GetKey(KeyCode.LeftShift)) slot = 1;
-        else if (Input.GetKey(KeyCode.LeftControl)) slot = 2;
-        else if (Input.GetKey(KeyCode.LeftAlt)) slot = 3;
+        if (Input.GetKey(SkillKeybinds.GetSlotKey(1))) slot = 1;
+        else if (Input.GetKey(SkillKeybinds.GetSlotKey(2))) slot = 2;
+        else if (Input.GetKey(SkillKeybinds.GetSlotKey(3))) slot = 3;
         if (slot == 0) slot = (byte)VoiceSkillInput.RequestedSlot;
         data.skillSlot = slot;
 

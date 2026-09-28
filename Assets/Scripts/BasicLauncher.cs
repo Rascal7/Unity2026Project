@@ -9,6 +9,9 @@ public class BasicLauncher : MonoBehaviour
 {
     public static BasicLauncher Instance { get; private set; }
 
+    // 한 방의 최대 인원. 이 게임은 2인 협동이라 2명 초과 입장을 막는다.
+    private const int MAX_PLAYERS = 2;
+
     private NetworkRunner _runner;
     private string _roomCode = ""; // 사용자가 입력할 방 코드
     private bool _isStarting = false;
@@ -128,10 +131,11 @@ public class BasicLauncher : MonoBehaviour
             roomCodeStyle.normal.textColor = Color.white;
             roomCodeStyle.alignment = TextAnchor.MiddleCenter;
 
-            float labelWidth = 300f;
-            float labelHeight = 45f;
-            float xPos = (Screen.width - labelWidth) / 2f;
-            float yPos = 30f;
+            // 타이틀(중앙)과 겹치지 않도록 좌상단 구석으로 배치
+            float labelWidth = 230f;
+            float labelHeight = 42f;
+            float xPos = 20f;
+            float yPos = 20f;
 
             GUI.Box(new Rect(xPos, yPos, labelWidth, labelHeight), "");
             GUI.Label(new Rect(xPos, yPos, labelWidth, labelHeight), $"방 코드: {_roomCode}", roomCodeStyle);
@@ -274,6 +278,9 @@ public class BasicLauncher : MonoBehaviour
             {
                 GameMode = mode,
                 SessionName = roomName,
+                // 방 정원 2명. 호스트가 정한 정원을 초과해 들어오려는 클라이언트는
+                // Fusion 이 자동으로 거부한다(ShutdownReason.GameIsFull → "방이 꽉 찼습니다.").
+                PlayerCount = MAX_PLAYERS,
                 Scene = SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex),
                 SceneManager = sceneManager
             });

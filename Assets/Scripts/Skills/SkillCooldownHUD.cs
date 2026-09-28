@@ -63,13 +63,23 @@ public class SkillCooldownHUD : MonoBehaviour
         _whiteFillSprite = CreateSolidSprite();
 
         SceneManager.sceneLoaded += OnSceneLoaded;
+        SkillKeybinds.OnChanged += OnKeybindsChanged;
         EnsureCanvas();
     }
 
     private void OnDestroy()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        SkillKeybinds.OnChanged -= OnKeybindsChanged;
         if (Instance == this) Instance = null;
+    }
+
+    // 단축키가 바뀌면 채워진 슬롯의 라벨도 즉시 갱신되도록 강제 재적용을 유도한다.
+    // (UpdateSlot 은 lastSkill 이 바뀔 때만 라벨을 다시 쓰므로 None 으로 리셋해 재적용시킨다.)
+    private void OnKeybindsChanged()
+    {
+        foreach (var s in _slotUIs)
+            if (s != null) s.lastSkill = PlayerMovement.CharacterSkill.None;
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -142,7 +152,8 @@ public class SkillCooldownHUD : MonoBehaviour
 
     private static string KeyName(int slotIndex)
     {
-        return slotIndex == 1 ? "Shift" : (slotIndex == 2 ? "Ctrl" : "Alt");
+        // ESC 메뉴에서 재설정한 단축키를 반영 (기본 Shift/Ctrl/Alt).
+        return SkillKeybinds.GetLabel(slotIndex);
     }
 
     private SlotUI CreateSlotUI(int slotIndex)

@@ -528,18 +528,31 @@ public class CharacterSelectUI : MonoBehaviour
 
         if (badgeTrans == null)
         {
-            GameObject badgeGo = new GameObject("PlayerBadgeText", typeof(RectTransform), typeof(TextMeshProUGUI));
+            // 컨테이너(어두운 반투명 배경) + 자식 텍스트 구조.
+            // UGUI는 자식이 부모 '위'에 그려지므로, 배경=부모 / 텍스트=자식 이어야 텍스트가 보인다.
+            GameObject badgeGo = new GameObject("PlayerBadgeText", typeof(RectTransform), typeof(Image));
             badgeGo.transform.SetParent(cardTrans, false);
             badgeTrans = badgeGo.transform;
 
             var rt = badgeGo.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0f);
-            rt.anchorMax = new Vector2(0.5f, 0f);
+            // 카드 상단 '바깥'에 배치 (pivot 아래쪽) → 카드 안의 '선택완료!' 버튼과 겹치지 않음
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 0f);
-            rt.anchoredPosition = new Vector2(0f, 65f); // 선택하기 버튼 바로 위
-            rt.sizeDelta = new Vector2(240f, 32f);
+            rt.anchoredPosition = new Vector2(0f, 8f); // 카드 위 가장자리 살짝 위
+            rt.sizeDelta = new Vector2(260f, 34f);
 
-            badgeTmp = badgeGo.GetComponent<TextMeshProUGUI>();
+            var bgImg = badgeGo.GetComponent<Image>();
+            bgImg.color = new Color(0.08f, 0.05f, 0.03f, 0.80f); // 어두운 반투명 배경
+            bgImg.raycastTarget = false;
+
+            GameObject labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+            labelGo.transform.SetParent(badgeGo.transform, false);
+            var lrt = labelGo.GetComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = Vector2.zero; lrt.offsetMax = Vector2.zero;
+
+            badgeTmp = labelGo.GetComponent<TextMeshProUGUI>();
             var titleTmp = transform.Find("TitleText")?.GetComponent<TextMeshProUGUI>();
             if (titleTmp != null && titleTmp.font != null) badgeTmp.font = titleTmp.font;
             badgeTmp.alignment = TextAlignmentOptions.Center;
@@ -548,7 +561,7 @@ public class CharacterSelectUI : MonoBehaviour
         }
         else
         {
-            badgeTmp = badgeTrans.GetComponent<TextMeshProUGUI>();
+            badgeTmp = badgeTrans.GetComponentInChildren<TextMeshProUGUI>();
         }
 
         if (badgeTmp == null) return;
