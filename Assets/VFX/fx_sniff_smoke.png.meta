@@ -1,0 +1,903 @@
+fileFormatVersion: 2
+guid: edcacb8260ca8d9478fb3e6e47152d45
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 6878447483785784720
+    second: fx_sniff_smoke_0
+  - first:
+      213: -3776858413129476608
+    second: fx_sniff_smoke_1
+  - first:
+      213: -1652269039387087169
+    second: fx_sniff_smoke_2
+  - first:
+      213: -6735005245261259407
+    second: fx_sniff_smoke_3
+  - first:
+      213: 8892918657874405922
+    second: fx_sniff_smoke_4
+  - first:
+      213: -4487865196787047894
+    second: fx_sniff_smoke_5
+  - first:
+      213: 7416291843101508368
+    second: fx_sniff_smoke_6
+  - first:
+      213: -2751074073680736545
+    second: fx_sniff_smoke_7
+  - first:
+      213: -6247967412649055338
+    second: fx_sniff_smoke_8
+  - first:
+      213: -2273936745758602784
+    second: fx_sniff_smoke_9
+  - first:
+      213: -1551891551389345699
+    second: fx_sniff_smoke_10
+  - first:
+      213: 1229378663774414986
+    second: fx_sniff_smoke_11
+  - first:
+      213: 4861037907550538610
+    second: fx_sniff_smoke_12
+  - first:
+      213: 7069207189685393982
+    second: fx_sniff_smoke_13
+  - first:
+      213: -5013893633566979296
+    second: fx_sniff_smoke_14
+  - first:
+      213: -7721490852808422997
+    second: fx_sniff_smoke_15
+  - first:
+      213: 233099125059465921
+    second: fx_sniff_smoke_16
+  - first:
+      213: -636523350361672046
+    second: fx_sniff_smoke_17
+  - first:
+      213: 1802660691731747134
+    second: fx_sniff_smoke_18
+  - first:
+      213: -4923851722326332725
+    second: fx_sniff_smoke_19
+  - first:
+      213: 4746618841483226218
+    second: fx_sniff_smoke_20
+  - first:
+      213: 2649449494355755573
+    second: fx_sniff_smoke_21
+  - first:
+      213: -3041442944907541702
+    second: fx_sniff_smoke_22
+  - first:
+      213: 4728786092832728021
+    second: fx_sniff_smoke_23
+  - first:
+      213: -710564564464409779
+    second: fx_sniff_smoke_24
+  - first:
+      213: -5801797109779731602
+    second: fx_sniff_smoke_25
+  - first:
+      213: 7912031683421666385
+    second: fx_sniff_smoke_26
+  - first:
+      213: 3280753233395651287
+    second: fx_sniff_smoke_27
+  - first:
+      213: 3056965328603124442
+    second: fx_sniff_smoke_28
+  - first:
+      213: -5561423603388483287
+    second: fx_sniff_smoke_29
+  - first:
+      213: -4905153198775059013
+    second: fx_sniff_smoke_30
+  - first:
+      213: 7147703409403595246
+    second: fx_sniff_smoke_31
+  - first:
+      213: 9202835104122357254
+    second: fx_sniff_smoke_32
+  - first:
+      213: -1364357443749352488
+    second: fx_sniff_smoke_33
+  - first:
+      213: -4530523514925698789
+    second: fx_sniff_smoke_34
+  - first:
+      213: 3998733227726006871
+    second: fx_sniff_smoke_35
+  - first:
+      213: -8315547440785326914
+    second: fx_sniff_smoke_36
+  - first:
+      213: -2580765574264307573
+    second: fx_sniff_smoke_37
+  - first:
+      213: -3405689691499924236
+    second: fx_sniff_smoke_38
+  - first:
+      213: -4354035575553922044
+    second: fx_sniff_smoke_39
+  - first:
+      213: 8472284227034929333
+    second: fx_sniff_smoke_40
+  - first:
+      213: -1965438320625164056
+    second: fx_sniff_smoke_41
+  - first:
+      213: -7720665840644730944
+    second: fx_sniff_smoke_42
+  - first:
+      213: -2488057225474129604
+    second: fx_sniff_smoke_43
+  - first:
+      213: 1611268692330633592
+    second: fx_sniff_smoke_44
+  - first:
+      213: -5041815539997360056
+    second: fx_sniff_smoke_45
+  - first:
+      213: 3656227927738967169
+    second: fx_sniff_smoke_46
+  - first:
+      213: -7158241542986991073
+    second: fx_sniff_smoke_47
+  - first:
+      213: 5384556336002803881
+    second: fx_sniff_smoke_48
+  - first:
+      213: -3610435068307240356
+    second: fx_sniff_smoke_49
+  - first:
+      213: -191256011392716496
+    second: fx_sniff_smoke_50
+  - first:
+      213: -6479223781199246884
+    second: fx_sniff_smoke_51
+  - first:
+      213: 8924022882160312327
+    second: fx_sniff_smoke_52
+  - first:
+      213: 66400357819582189
+    second: fx_sniff_smoke_53
+  - first:
+      213: -4427223896080750269
+    second: fx_sniff_smoke_54
+  - first:
+      213: 7056635391053357330
+    second: fx_sniff_smoke_55
+  - first:
+      213: -9149987869891949551
+    second: fx_sniff_smoke_56
+  - first:
+      213: 6506625937709243380
+    second: fx_sniff_smoke_57
+  - first:
+      213: -6887505285574464754
+    second: fx_sniff_smoke_58
+  - first:
+      213: 443855889503728025
+    second: fx_sniff_smoke_59
+  - first:
+      213: 4143879631974366438
+    second: fx_sniff_smoke_60
+  - first:
+      213: -8066753825083030720
+    second: fx_sniff_smoke_61
+  - first:
+      213: 5391975158271446464
+    second: fx_sniff_smoke_62
+  - first:
+      213: -8284094878570477883
+    second: fx_sniff_smoke_63
+  - first:
+      213: 8275649528663344120
+    second: fx_sniff_smoke_64
+  - first:
+      213: -3919420279357533780
+    second: fx_sniff_smoke_65
+  - first:
+      213: 7523914467300779965
+    second: fx_sniff_smoke_66
+  - first:
+      213: -4195383408931712724
+    second: fx_sniff_smoke_67
+  - first:
+      213: 623948823414715069
+    second: fx_sniff_smoke_68
+  - first:
+      213: -6694222506447790760
+    second: fx_sniff_smoke_69
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 32
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 8192
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: fx_sniff_smoke_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 09d2b3dfa87257f50800000000000000
+      internalID: 6878447483785784720
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_1
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 006d87ea847e59bc0800000000000000
+      internalID: -3776858413129476608
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_2
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fbee4f11016f119e0800000000000000
+      internalID: -1652269039387087169
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_3
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 17d5fcbb9647882a0800000000000000
+      internalID: -6735005245261259407
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_4
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 22a2c03176ef96b70800000000000000
+      internalID: 8892918657874405922
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_5
+      rect:
+        serializedVersion: 2
+        x: 320
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a226ba99166e7b1c0800000000000000
+      internalID: -4487865196787047894
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_6
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 01341ba5326fbe660800000000000000
+      internalID: 7416291843101508368
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_7
+      rect:
+        serializedVersion: 2
+        x: 448
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fde097fa4b832d9d0800000000000000
+      internalID: -2751074073680736545
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_8
+      rect:
+        serializedVersion: 2
+        x: 512
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 69b26d8cdb2ca49a0800000000000000
+      internalID: -6247967412649055338
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_9
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0e9c95bd39a5170e0800000000000000
+      internalID: -2273936745758602784
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_10
+      rect:
+        serializedVersion: 2
+        x: 640
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d5812853bd2967ae0800000000000000
+      internalID: -1551891551389345699
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_11
+      rect:
+        serializedVersion: 2
+        x: 704
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a88e7b49161af0110800000000000000
+      internalID: 1229378663774414986
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_12
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 27b0247d830e57340800000000000000
+      internalID: 4861037907550538610
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_13
+      rect:
+        serializedVersion: 2
+        x: 832
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e3ad5d81c7eda1260800000000000000
+      internalID: 7069207189685393982
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_14
+      rect:
+        serializedVersion: 2
+        x: 896
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 02bc5a51e421b6ab0800000000000000
+      internalID: -5013893633566979296
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_15
+      rect:
+        serializedVersion: 2
+        x: 960
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ba90de5caf0c7d490800000000000000
+      internalID: -7721490852808422997
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_16
+      rect:
+        serializedVersion: 2
+        x: 1024
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1c2bf925b622c3300800000000000000
+      internalID: 233099125059465921
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_17
+      rect:
+        serializedVersion: 2
+        x: 1088
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2967372a26d9a27f0800000000000000
+      internalID: -636523350361672046
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_18
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e311b352956540910800000000000000
+      internalID: 1802660691731747134
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_19
+      rect:
+        serializedVersion: 2
+        x: 1216
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bca2b0c32f6faabb0800000000000000
+      internalID: -4923851722326332725
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_20
+      rect:
+        serializedVersion: 2
+        x: 1280
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a6ca8ca00b06fd140800000000000000
+      internalID: 4746618841483226218
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_21
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 532c969174cb4c420800000000000000
+      internalID: 2649449494355755573
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: fx_sniff_smoke_22
+      rect:
+        serializedVersion: 2
+        x: 1408
+        y: 0
+        width: 64
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a330b2081cf9ac5d0800000000000000
+      internalID: -3041442944907541702
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      fx_sniff_smoke_0: 6878447483785784720
+      fx_sniff_smoke_1: -3776858413129476608
+      fx_sniff_smoke_10: -1551891551389345699
+      fx_sniff_smoke_11: 1229378663774414986
+      fx_sniff_smoke_12: 4861037907550538610
+      fx_sniff_smoke_13: 7069207189685393982
+      fx_sniff_smoke_14: -5013893633566979296
+      fx_sniff_smoke_15: -7721490852808422997
+      fx_sniff_smoke_16: 233099125059465921
+      fx_sniff_smoke_17: -636523350361672046
+      fx_sniff_smoke_18: 1802660691731747134
+      fx_sniff_smoke_19: -4923851722326332725
+      fx_sniff_smoke_2: -1652269039387087169
+      fx_sniff_smoke_20: 4746618841483226218
+      fx_sniff_smoke_21: 2649449494355755573
+      fx_sniff_smoke_22: -3041442944907541702
+      fx_sniff_smoke_23: 4728786092832728021
+      fx_sniff_smoke_24: -710564564464409779
+      fx_sniff_smoke_25: -5801797109779731602
+      fx_sniff_smoke_26: 7912031683421666385
+      fx_sniff_smoke_27: 3280753233395651287
+      fx_sniff_smoke_28: 3056965328603124442
+      fx_sniff_smoke_29: -5561423603388483287
+      fx_sniff_smoke_3: -6735005245261259407
+      fx_sniff_smoke_30: -4905153198775059013
+      fx_sniff_smoke_31: 7147703409403595246
+      fx_sniff_smoke_32: 9202835104122357254
+      fx_sniff_smoke_33: -1364357443749352488
+      fx_sniff_smoke_34: -4530523514925698789
+      fx_sniff_smoke_35: 3998733227726006871
+      fx_sniff_smoke_36: -8315547440785326914
+      fx_sniff_smoke_37: -2580765574264307573
+      fx_sniff_smoke_38: -3405689691499924236
+      fx_sniff_smoke_39: -4354035575553922044
+      fx_sniff_smoke_4: 8892918657874405922
+      fx_sniff_smoke_40: 8472284227034929333
+      fx_sniff_smoke_41: -1965438320625164056
+      fx_sniff_smoke_42: -7720665840644730944
+      fx_sniff_smoke_43: -2488057225474129604
+      fx_sniff_smoke_44: 1611268692330633592
+      fx_sniff_smoke_45: -5041815539997360056
+      fx_sniff_smoke_46: 3656227927738967169
+      fx_sniff_smoke_47: -7158241542986991073
+      fx_sniff_smoke_48: 5384556336002803881
+      fx_sniff_smoke_49: -3610435068307240356
+      fx_sniff_smoke_5: -4487865196787047894
+      fx_sniff_smoke_50: -191256011392716496
+      fx_sniff_smoke_51: -6479223781199246884
+      fx_sniff_smoke_52: 8924022882160312327
+      fx_sniff_smoke_53: 66400357819582189
+      fx_sniff_smoke_54: -4427223896080750269
+      fx_sniff_smoke_55: 7056635391053357330
+      fx_sniff_smoke_56: -9149987869891949551
+      fx_sniff_smoke_57: 6506625937709243380
+      fx_sniff_smoke_58: -6887505285574464754
+      fx_sniff_smoke_59: 443855889503728025
+      fx_sniff_smoke_6: 7416291843101508368
+      fx_sniff_smoke_60: 4143879631974366438
+      fx_sniff_smoke_61: -8066753825083030720
+      fx_sniff_smoke_62: 5391975158271446464
+      fx_sniff_smoke_63: -8284094878570477883
+      fx_sniff_smoke_64: 8275649528663344120
+      fx_sniff_smoke_65: -3919420279357533780
+      fx_sniff_smoke_66: 7523914467300779965
+      fx_sniff_smoke_67: -4195383408931712724
+      fx_sniff_smoke_68: 623948823414715069
+      fx_sniff_smoke_69: -6694222506447790760
+      fx_sniff_smoke_7: -2751074073680736545
+      fx_sniff_smoke_8: -6247967412649055338
+      fx_sniff_smoke_9: -2273936745758602784
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -47,6 +47,30 @@ public class PlayerSkillVisuals : MonoBehaviour
     public float jumpLandFps = 24f;
     public float jumpLandScale = 1.3f;
 
+    [Header("토끼 파워업 - 강화 상태 발광")]
+    public Color powerUpTint = new Color(1f, 0.6f, 0.25f, 1f);
+    public float powerUpPulseSpeed = 9f;
+
+    [Header("여우 체인지 - 카메라")]
+    public float swapShake = 0.2f;
+    [Tooltip("가까운 교환(화면 안): 이 시간 동안 빠르게 따라간다")]
+    public float swapFastFollowSeconds = 0.3f;
+    [Tooltip("먼 교환(화면 밖): 바로 넘어간 뒤 이 비율만큼 줌인했다 풀린다")]
+    public float swapFarZoomIn = 0.1f;
+
+    [Header("스킬 2·3 카메라")]
+    [Tooltip("여우 킁킁 발동 시 줌인 비율")]
+    public float sniffZoomIn = 0.06f;
+    [Tooltip("토끼 도약 발사 시 화면을 아래로 미는 세기")]
+    public float jumpLaunchCamKick = 0.3f;
+    [Tooltip("토끼 강화 도약 중 줌아웃 비율")]
+    public float poweredJumpZoomOut = 0.08f;
+    [Tooltip("토끼 파워업(당근 먹기) 순간 줌인 비율")]
+    public float powerUpZoomIn = 0.08f;
+    public float powerUpShake = 0.15f;
+    [Tooltip("큰 당근 던질 때 던진 방향 카메라 킥")]
+    public float bigCarrotCamKick = 0.4f;
+
     [Header("이펙트 공통")]
     public Color effectTint = Color.white;
     public int effectSortingOrder = 6;   // 플레이어(4) 앞
@@ -63,12 +87,21 @@ public class PlayerSkillVisuals : MonoBehaviour
     private float _landTimer;
     private float _dashDustTimer;
     private Vector3 _visualScale = Vector3.one;
+    private int _prevSwapCount = -1;
+    private int _prevSniffCount = -1;
+    private int _prevPowerSpend = -1;
+    private bool _wasPoweredUp;
+    private bool _holdingZoom;
+    private Color _baseColor = Color.white;
+    private SpriteRenderer _aura;   // 파워업 유지 중 발밑 불꽃 링(반복 재생)
+    private float _auraT;
 
     private void Awake()
     {
         _pm = GetComponent<PlayerMovement>();
         _no = GetComponent<NetworkObject>();
         _sr = GetComponent<SpriteRenderer>();
+        if (_sr != null) _baseColor = _sr.color;
 
         var go = new GameObject("SkillVisual");
         go.transform.SetParent(transform, false);
@@ -121,6 +154,7 @@ public class PlayerSkillVisuals : MonoBehaviour
             _visualScale = new Vector3(launchStretch.x, launchStretch.y, 1f);
             SpriteEffect.Spawn(jumpLaunchFrames, feet, jumpLaunchFps, jumpLaunchScale,
                 false, slId, effectSortingOrder, effectTint);
+            if (localPlayer && cam != null) cam.AddImpulse(new Vector2(0f, -jumpLaunchCamKick)); // 튕겨 오르는 느낌
         }
         if (!airborne && _prevAirborne)         // 토끼 착지
         {
@@ -130,6 +164,104 @@ public class PlayerSkillVisuals : MonoBehaviour
                 false, slId, effectSortingOrder, effectTint);
             if (localPlayer && cam != null) cam.AddShake(landShake);
         }
+
+        bool valid = _pm.Object != null && _pm.Object.IsValid;
+        var fx = SkillFxLibrary.Instance;
+        float feetToCenter = transform.position.y - feet.y;
+
+        // 토끼 강화 도약: 공중에 있는 동안 살짝 줌아웃해서 더 높은 곳을 보여준다
+        if (localPlayer && cam != null)
+        {
+            bool hold = valid && airborne && _pm.IsPoweredJump;
+            if (hold != _holdingZoom)
+            {
+                _holdingZoom = hold;
+                cam.SetZoomHold(hold ? poweredJumpZoomOut : 0f);
+            }
+        }
+
+        // 여우 킁킁: 냄새 파동(킁킁 반경만큼 퍼지는 링) + 코 앞 냄새 연기 + 살짝 줌인
+        int sniffCount = valid ? _pm.SniffCounter : 0;
+        if (_prevSniffCount >= 0 && sniffCount != _prevSniffCount && fx != null)
+        {
+            float ringScale = Mathf.Min(fx.sniffRingMaxScale,
+                (_pm.sniffRadius * 2f) / Mathf.Max(0.01f, fx.sniffRingBaseDiameter));
+            SpriteEffect.Spawn(fx.sniffRing, transform.position, fx.sniffRingFps, ringScale,
+                false, slId, fx.sortingOrder, fx.sniffTint);
+            float dir = _pm.IsFacingRight ? 1f : -1f;
+            Vector3 nose = new Vector3(transform.position.x + dir * 0.45f, feet.y + feetToCenter * 1.3f, transform.position.z);
+            SpriteEffect.Spawn(fx.sniffSmoke, nose, fx.sniffSmokeFps, fx.sniffSmokeScale,
+                !_pm.IsFacingRight, slId, fx.sortingOrder, fx.sniffTint);
+            if (localPlayer && cam != null) cam.AddZoomPunch(-sniffZoomIn);
+        }
+        _prevSniffCount = sniffCount;
+
+        // 여우 체인지: 출발/도착 두 지점에 포털 + 도착 연기. 상대방도 같은 연출을 자기 화면에서 본다.
+        int swapCount = valid ? _pm.SwapCounter : 0;
+        if (_prevSwapCount >= 0 && swapCount != _prevSwapCount)
+        {
+            Vector3 from = _pm.LastSwapFrom;
+            Vector3 to = _pm.LastSwapTo;
+            if (fx != null)
+            {
+                SpriteEffect.Spawn(fx.swapPortal, from, fx.swapPortalFps, fx.swapPortalScale, false, slId, fx.sortingOrder, Color.white);
+                SpriteEffect.Spawn(fx.swapPortal, to, fx.swapPortalFps, fx.swapPortalScale, false, slId, fx.sortingOrder, Color.white);
+                SpriteEffect.Spawn(fx.swapPuff, to + Vector3.down * feetToCenter, fx.swapPuffFps, fx.swapPuffScale, false, slId, fx.sortingOrder, Color.white);
+            }
+
+            if (localPlayer && cam != null)
+            {
+                Camera uc = cam.GetComponent<Camera>();
+                float halfWidth = (uc != null && uc.orthographic) ? uc.orthographicSize * uc.aspect : 8f;
+                if (Vector2.Distance(from, to) > halfWidth)
+                {
+                    // 화면 밖으로 멀리 이동: 바로 넘어가고 줌인했다 풀어서 장면 전환을 자연스럽게
+                    cam.SnapToTarget(to);
+                    cam.AddZoomPunch(-swapFarZoomIn);
+                }
+                else
+                {
+                    cam.FastFollow(swapFastFollowSeconds); // 가까우면 빠르게 따라가 이어지는 느낌
+                }
+                cam.AddShake(swapShake);
+            }
+        }
+        _prevSwapCount = swapCount;
+
+        // 토끼 파워업: 먹는 순간 퍼프+별, 강화 동안 발밑 불꽃 링 반복 + 주황빛 발광
+        bool powered = valid && _pm.IsPoweredUp;
+        if (powered)
+        {
+            if (!_wasPoweredUp)
+            {
+                if (fx != null)
+                    SpriteEffect.Spawn(fx.powerUpBurst, transform.position, fx.powerUpBurstFps, fx.powerUpBurstScale, false, slId, fx.sortingOrder, Color.white);
+                if (localPlayer && cam != null)
+                {
+                    cam.AddZoomPunch(-powerUpZoomIn);
+                    cam.AddShake(powerUpShake);
+                }
+            }
+            float t = 0.5f + 0.5f * Mathf.Sin(Time.time * powerUpPulseSpeed);
+            _sr.color = Color.Lerp(_baseColor, powerUpTint, 0.35f + 0.45f * t);
+        }
+        else if (_wasPoweredUp)
+        {
+            _sr.color = _baseColor;
+        }
+        _wasPoweredUp = powered;
+        UpdatePowerAura(powered, feet, fx);
+
+        // 파워업 소모(큰 당근 / 강화 도약): 노란 충격 링 + 큰 당근이면 던진 방향으로 카메라 킥
+        int spend = valid ? _pm.PowerSpendCounter : 0;
+        if (_prevPowerSpend >= 0 && spend != _prevPowerSpend)
+        {
+            if (fx != null)
+                SpriteEffect.Spawn(fx.powerUpRing, transform.position, fx.powerUpRingFps, fx.powerUpRingScale, false, slId, fx.sortingOrder, Color.white);
+            if (localPlayer && cam != null && !_pm.IsPoweredJump)
+                cam.AddImpulse(new Vector2((_pm.IsFacingRight ? 1f : -1f) * bigCarrotCamKick, 0f));
+        }
+        _prevPowerSpend = spend;
 
         bool showVisual = dashing || airborne || _landTimer > 0f;
 
@@ -174,6 +306,44 @@ public class PlayerSkillVisuals : MonoBehaviour
 
         _prevDashing = dashing;
         _prevAirborne = airborne;
+    }
+
+    // 파워업 유지 중 발밑 불꽃 링을 반복 재생한다 (캐릭터를 따라다님, 캐릭터 뒤에 그림)
+    private void UpdatePowerAura(bool on, Vector3 feet, SkillFxLibrary fx)
+    {
+        bool show = on && fx != null && fx.powerUpAura != null && fx.powerUpAura.Length > 0;
+        if (!show)
+        {
+            if (_aura != null && _aura.enabled) _aura.enabled = false;
+            _auraT = 0f;
+            return;
+        }
+
+        if (_aura == null)
+        {
+            var go = new GameObject("PowerUpAura");
+            _aura = go.AddComponent<SpriteRenderer>();
+        }
+        // 부모 스케일(프리팹마다 다름)에 영향받지 않도록 월드 기준으로 배치한다
+        _aura.transform.position = new Vector3(feet.x, feet.y, transform.position.z);
+        _aura.transform.localScale = Vector3.one * fx.powerUpAuraScale;
+        _aura.sortingLayerID = _sr.sortingLayerID;
+        _aura.sortingOrder = _sr.sortingOrder - 1;
+        _aura.enabled = true;
+
+        _auraT += Time.deltaTime * fx.powerUpAuraFps;
+        _aura.sprite = fx.powerUpAura[(int)_auraT % fx.powerUpAura.Length];
+    }
+
+    private void OnDestroy()
+    {
+        if (_aura != null) Destroy(_aura.gameObject);
+        // 강화 도약 중에 사라지면 카메라 줌이 남지 않도록 되돌린다
+        if (_holdingZoom)
+        {
+            var cam = Camera.main != null ? Camera.main.GetComponent<CameraFollow>() : null;
+            if (cam != null) cam.SetZoomHold(0f);
+        }
     }
 
     private void SpawnAfterimage()

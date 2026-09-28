@@ -13,6 +13,11 @@ public class CarrotProjectile : NetworkBehaviour
     [Networked] public NetworkBool Stuck { get; set; }
     [Networked] private TickTimer Life { get; set; }
     [Networked] private TickTimer FlightTimeout { get; set; }
+    /// <summary>크기 배율. 토끼 파워업의 "큰 당근"이면 1보다 크다. 0 은 1 로 취급.</summary>
+    [Networked] public float SizeScale { get; set; }
+
+    private float Scale => SizeScale > 0f ? SizeScale : 1f;
+    private Vector3 _baseScale;
 
     [Header("Flight")]
     public float speed = 12f;
@@ -22,6 +27,8 @@ public class CarrotProjectile : NetworkBehaviour
 
     [Header("Stick")]
     public float stickDuration = 4f;     // 발판 유지 시간
+    [Tooltip("큰 당근(파워업)의 발판 유지 시간 배율")]
+    public float bigStickMultiplier = 1.5f;
     public string stuckLayerName = "Ground";
 
     [Header("Effects")]
@@ -47,6 +54,8 @@ public class CarrotProjectile : NetworkBehaviour
         _stuckLayer = LayerMask.NameToLayer(stuckLayerName);
         if (_stuckLayer < 0) _stuckLayer = gameObject.layer;
         _flyLayer = gameObject.layer;
+        _baseScale = transform.localScale;
+        ApplyScale();
 
         if (Object.HasStateAuthority)
             FlightTimeout = TickTimer.CreateFromSeconds(Runner, maxFlightTime);
@@ -70,14 +79,14 @@ public class CarrotProjectile : NetworkBehaviour
         {
             float dir = FacingRight ? 1f : -1f;
             float step = speed * Runner.DeltaTime;
-            var hit = Physics2D.Raycast(transform.position, new Vector2(dir, 0f), step + wallCheckDist, wallMask);
+            var hit = Physics2D.Raycast(transform.position, new Vector2(dir, 0f), step + wallCheckDist * Scale, wallMask);
             if (hit.collider != null)
             {
                 Vector3 pp = transform.position;
-                pp.x = hit.point.x - dir * (wallCheckDist * 0.5f);
+                pp.x = hit.point.x - dir * (wallCheckDist * 0.5f * Scale);
                 transform.position = pp;
                 Stuck = true;
-                Life = TickTimer.CreateFromSeconds(Runner, stickDuration);
+                Life = TickTimer.CreateFromSeconds(Runner, Scale > 1f ? stickDuration * bigStickMultiplier : stickDuration);
             }
             else
             {
@@ -94,21 +103,22 @@ public class CarrotProjectile : NetworkBehaviour
     public override void Render()
     {
         ApplyStuckState();
+        ApplyScale();
         if (_sr != null) _sr.flipX = !FacingRight;
 
         // 던지기 먼지 (등장 시 1회)
         if (!_launchDone)
         {
             _launchDone = true;
-            SpawnFx(launchFx, transform.position, launchFxScale, !FacingRight);
+            SpawnFx(launchFx, transform.position, launchFxScale * Scale, !FacingRight);
         }
 
         // 벽에 박히는 순간 (Stuck 엣지) → 먼지 + 화면 흔들림
         if (Stuck && !_prevStuck)
         {
-            SpawnFx(impactFx, transform.position, impactFxScale, false);
+            SpawnFx(impactFx, transform.position, impactFxScale * Scale, false);
             var cam = Camera.main != null ? Camera.main.GetComponent<CameraFollow>() : null;
-            if (cam != null) cam.AddShake(impactShake);
+            if (cam != null) cam.AddShake(impactShake * Scale);
         }
         _prevStuck = Stuck;
     }
@@ -117,6 +127,12 @@ public class CarrotProjectile : NetworkBehaviour
     {
         int sl = _sr != null ? _sr.sortingLayerID : 0;
         SpriteEffect.Spawn(frames, pos, fxFps, scale, flip, sl, fxSortingOrder, Color.white);
+    }
+
+    private void ApplyScale()
+    {
+        Vector3 target = _baseScale * Scale;
+        if (transform.localScale != target) transform.localScale = target;
     }
 
     private void ApplyStuckState()

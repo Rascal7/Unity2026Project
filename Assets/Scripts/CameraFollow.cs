@@ -49,9 +49,25 @@ public class CameraFollow : MonoBehaviour
     [Tooltip("임펄스 감쇠 속도 (클수록 빨리 사라짐). 듀얼/시네머신 전환에도 호환되는 오프셋 방식")]
     public float impulseDamping = 14f;
 
+    [Header("Zoom (스킬 연출 - 기본 크기 위에 더해지는 별도 레이어)")]
+    [Tooltip("줌 펀치가 원래 크기로 돌아오는 속도 (클수록 빨리 복귀)")]
+    public float zoomPunchDamping = 6f;
+    [Tooltip("유지형 줌(강화 도약 등)이 목표값을 따라가는 속도")]
+    public float zoomHoldResponse = 5f;
+
+    [Header("Fast Follow (순간이동 직후 빠르게 따라붙기)")]
+    [Tooltip("FastFollow 중의 추적 부드러움. smoothSpeed 보다 크게(=빠르게)")]
+    public float fastFollowSmooth = 0.4f;
+
     private Camera _cam;
     private bool _hasClamp;
     private float _minCamY, _maxCamY;
+    private float _boundTop, _boundBottom; // 월드 기준 세로 경계 (카메라 크기에 따라 _min/_maxCamY 를 다시 계산)
+    private float _baseSize = 5f;          // 줌 연출 전 원래 orthographicSize
+    private float _zoomPunch;              // 순간 줌 (음수 = 줌인, 감쇠)
+    private float _zoomHold;               // 유지형 줌 목표 (양수 = 줌아웃)
+    private float _zoomHoldCur;
+    private float _fastFollowUntil = -1f;
     private Vector3 _basePos;   // 추적이 계산한 순수 위치(흔들림 제외)
     private Vector2 _impulse;   // 방향성 킥 오프셋(감쇠)
     private float _shake;       // 진동형 흔들림 세기(감쇠)
@@ -67,8 +83,33 @@ public class CameraFollow : MonoBehaviour
     public void AddImpulse(Vector2 kick) { _impulse += kick; }
     /// <summary>진동형 화면 흔들림을 더한다(착지 등). 추적과 독립적인 오프셋 레이어.</summary>
     public void AddShake(float amount) { _shake = Mathf.Max(_shake, amount); }
+    /// <summary>순간 줌. 비율(-0.06 = 6% 줌인, +0.08 = 8% 줌아웃). 저절로 원래 크기로 돌아온다.</summary>
+    public void AddZoomPunch(float amount) { if (Mathf.Abs(amount) > Mathf.Abs(_zoomPunch)) _zoomPunch = amount; }
+    /// <summary>유지형 줌 목표 비율. 0 으로 되돌리면 부드럽게 원래 크기로 돌아온다.</summary>
+    public void SetZoomHold(float amount) { _zoomHold = amount; }
+    /// <summary>잠시 동안 평소보다 빠르게 대상을 따라간다(가까운 순간이동).</summary>
+    public void FastFollow(float seconds) { _fastFollowUntil = Time.time + seconds; }
+    /// <summary>
+    /// 부드러운 추적 없이 바로 지정 위치(대상이 도착할 지점)로 옮긴다(먼 순간이동).
+    /// 클라이언트에서는 순간이동한 위치가 한두 프레임 늦게 반영될 수 있어 도착 지점을 직접 받는다.
+    /// </summary>
+    public void SnapToTarget(Vector3 targetPos)
+    {
+        _lookAheadY = 0f;
+        _hasPrevY = false;
+        float y = targetPos.y + verticalOffset;
+        if (_hasClamp) y = Mathf.Clamp(y, _minCamY, _maxCamY);
+        _basePos = new Vector3(targetPos.x + offset.x, y, offset.z);
+        _impulse = Vector2.zero;
+    }
 
-    private void Awake() { _cam = GetComponent<Camera>(); _basePos = transform.position; ComputeBounds(); }
+    private void Awake()
+    {
+        _cam = GetComponent<Camera>();
+        if (_cam != null && _cam.orthographic) _baseSize = _cam.orthographicSize;
+        _basePos = transform.position;
+        ComputeBounds();
+    }
     private void Start() { if (!_hasClamp) ComputeBounds(); CacheTarget(); }
 
     private void CacheTarget()
@@ -93,8 +134,7 @@ public class CameraFollow : MonoBehaviour
 
     private void ComputeBounds()
     {
-        float size = (_cam != null && _cam.orthographic) ? _cam.orthographicSize : 5f;
-        if (useManualBounds) { _minCamY = minY + size; _maxCamY = maxY - size; _hasClamp = true; return; }
+        if (useManualBounds) { _boundTop = maxY; _boundBottom = minY; _hasClamp = true; ApplyBoundsForSize(CurrentSize()); return; }
         if (!autoClampToBackground) { _hasClamp = false; return; }
 
         var bgRoot = GameObject.Find("Background");
@@ -108,10 +148,30 @@ public class CameraFollow : MonoBehaviour
             if (r.bounds.max.y > top) top = r.bounds.max.y;
             if (r.bounds.min.y < bottom) bottom = r.bounds.min.y;
         }
-        _maxCamY = top - size;
-        _minCamY = bottom + size;
-        if (_maxCamY < _minCamY) _maxCamY = _minCamY;
+        _boundTop = top;
+        _boundBottom = bottom;
         _hasClamp = true;
+        ApplyBoundsForSize(CurrentSize());
+    }
+
+    private float CurrentSize() => (_cam != null && _cam.orthographic) ? _cam.orthographicSize : 5f;
+
+    // 줌으로 화면 크기가 바뀌어도 배경 밖이 보이지 않도록 카메라 Y 허용 범위를 다시 잡는다.
+    private void ApplyBoundsForSize(float size)
+    {
+        _maxCamY = _boundTop - size;
+        _minCamY = _boundBottom + size;
+        if (_maxCamY < _minCamY) _maxCamY = _minCamY = (_boundTop + _boundBottom) * 0.5f;
+    }
+
+    private void UpdateZoom(float dt)
+    {
+        _zoomPunch = Mathf.Lerp(_zoomPunch, 0f, 1f - Mathf.Exp(-zoomPunchDamping * dt));
+        _zoomHoldCur = Mathf.Lerp(_zoomHoldCur, _zoomHold, 1f - Mathf.Exp(-zoomHoldResponse * dt));
+        if (_cam == null || !_cam.orthographic) return;
+
+        _cam.orthographicSize = _baseSize * (1f + _zoomHoldCur + _zoomPunch);
+        if (_hasClamp) ApplyBoundsForSize(_cam.orthographicSize);
     }
 
     private void LateUpdate()
@@ -120,6 +180,8 @@ public class CameraFollow : MonoBehaviour
         if (_cachedTarget != target) CacheTarget();
 
         float dt = Mathf.Max(Time.deltaTime, 0.0001f);
+
+        UpdateZoom(dt);
 
         // --- 세로: 데드존 "카메라 창" ---
         // 밴드 안이면 카메라 Y 고정(홀드) → 평지/일반 점프에서 완전히 부드럽고 흔들림 면역
@@ -162,7 +224,13 @@ public class CameraFollow : MonoBehaviour
 
         // 프레임률 독립 스무딩 (룩어헤드 중에는 더 빠르게 따라붙는다)
         float ySmooth = Mathf.Lerp(ySmoothSpeed, lookAheadYSmoothSpeed, t);
-        float kx = 1f - Mathf.Pow(1f - Mathf.Clamp01(smoothSpeed), dt * 60f);
+        float xSmooth = smoothSpeed;
+        if (Time.time < _fastFollowUntil)
+        {
+            xSmooth = Mathf.Max(xSmooth, fastFollowSmooth);
+            ySmooth = Mathf.Max(ySmooth, fastFollowSmooth);
+        }
+        float kx = 1f - Mathf.Pow(1f - Mathf.Clamp01(xSmooth), dt * 60f);
         float ky = 1f - Mathf.Pow(1f - Mathf.Clamp01(ySmooth), dt * 60f);
         float nx = Mathf.Lerp(_basePos.x, target.position.x + offset.x, kx);
         float ny = Mathf.Lerp(_basePos.y, desiredY, ky);

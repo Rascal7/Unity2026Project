@@ -120,6 +120,17 @@ public class RevealableTilemap : Revealable
         return dx * dx + dy * dy <= radius * radius;
     }
 
+    protected override int RevealFxSortingLayer() => _renderer != null ? _renderer.sortingLayerID : base.RevealFxSortingLayer();
+
+    protected override Bounds RevealFxBounds()
+    {
+        var tm = _tilemap != null ? _tilemap : GetComponent<Tilemap>();
+        if (tm == null) return base.RevealFxBounds();
+        Bounds local = tm.localBounds;
+        return new Bounds(tm.transform.TransformPoint(local.center),
+                          Vector3.Scale(local.size, tm.transform.lossyScale));
+    }
+
     /// <summary>스프라이트 대신 타일맵 렌더러/콜라이더를 껐다 켠다.</summary>
     protected override void Apply(bool revealed)
     {
