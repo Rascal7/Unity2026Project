@@ -185,12 +185,22 @@ public class SettingsMenuUI : MonoBehaviour
         RefreshOutputDeviceList();
         RefreshMicrophoneList();
 
+        EnsureGearButton();
+
         // 시작 시 다시 한 번 확실하게 닫기
         CloseMenu();
     }
 
     private void Update()
     {
+        // 톱니바퀴: 로비(비인게임)에서 메뉴가 닫혀 있고 '로그인/게스트 상태'일 때만 표시
+        if (_gearButton != null)
+        {
+            bool authed = AuthManager.Instance != null &&
+                          (AuthManager.Instance.IsLoggedIn || AuthManager.Instance.IsGuest);
+            _gearButton.SetActive(!_isOpen && !IsGameStage() && authed);
+        }
+
         // ESC 키 입력으로 메뉴 토글 (레거시 Input 및 New Input System 모두 완벽 지원)
         bool escPressed = false;
 #if ENABLE_INPUT_SYSTEM
@@ -202,6 +212,21 @@ public class SettingsMenuUI : MonoBehaviour
         if (!escPressed && Input.GetKeyDown(KeyCode.Escape))
         {
             escPressed = true;
+        }
+
+        // 스킬 키 재설정 대기 중이면: ESC=취소, 그 외 키=해당 슬롯에 배정 (메뉴 토글보다 우선)
+        if (_awaitingRebindSlot > 0)
+        {
+            if (escPressed)
+            {
+                _awaitingRebindSlot = 0;
+                RefreshRebindLabels();
+            }
+            else
+            {
+                CaptureRebindKey();
+            }
+            return;
         }
 
         if (escPressed)
@@ -340,6 +365,32 @@ public class SettingsMenuUI : MonoBehaviour
         // 최신 출력 장치 및 마이크 목록 갱신
         RefreshOutputDeviceList();
         RefreshMicrophoneList();
+
+        // 옵션 UI(탭) 생성 및 상태 반영
+        BuildOptionsUI();
+        _awaitingRebindSlot = 0;
+
+        bool inGame = IsGameStage();
+        if (_respawnRow != null) _respawnRow.SetActive(inGame); // 다시하기: 인게임에서만
+        ConfigureExitButton(inGame);                            // 나가기(인게임) / 닫기(로비)
+        SelectTab(_currentTab);
+    }
+
+    // 하단 버튼: 인게임이면 '나가기'(로비로), 로비면 '닫기'(창만 닫기)
+    private void ConfigureExitButton(bool inGame)
+    {
+        if (_exitBtn2 == null) return;
+        _exitBtn2.onClick.RemoveAllListeners();
+        if (inGame)
+        {
+            StyleFlatButton(_exitBtn2, OptExit, "나가기", 24);
+            _exitBtn2.onClick.AddListener(OnExitButtonClicked);
+        }
+        else
+        {
+            StyleFlatButton(_exitBtn2, OptBtnFace, "닫기", 24);
+            _exitBtn2.onClick.AddListener(CloseMenu);
+        }
     }
 
     public void CloseMenu()
@@ -692,6 +743,353 @@ public class SettingsMenuUI : MonoBehaviour
         Cursor.visible = true;
 
         SceneManager.LoadScene("Lobby");
+    }
+
+    #endregion
+
+    #region 게임플레이 설정 (스킬 단축키 재설정 + 다시하기)
+
+    private bool _gameplayUIBuilt;
+    private int _awaitingRebindSlot = 0; // 0=대기 아님, 1~3=해당 슬롯 키 입력 대기
+    private readonly Text[] _rebindKeyLabels = new Text[SkillKeybinds.MaxSlot + 1];
+    private Text _rebindHintText;
+    private GameObject _respawnRow;       // 하단 다시하기 버튼 (인게임에서만 표시)
+
+    // 탭 방식 옵션 UI
+    private GameObject _controlsPanel;    // '조작' 탭 내용
+    private GameObject _audioPanel;       // '음향' 탭 내용 (= 기존 SettingsPanel 재사용)
+    private Button _tabBtnControls, _tabBtnAudio;
+    private Button _exitBtn2;             // 하단 나가기/닫기 버튼 (상황에 따라 라벨·동작 변경)
+    private GameObject _gearButton;       // 로비용 톱니바퀴 버튼
+    private int _currentTab = 0;          // 0=조작, 1=음향
+
+    // === 음향 설정 패널과 통일한 다크 톤 팔레트 ===
+    private static readonly Color OptPanelBg   = new Color(0.18f, 0.18f, 0.22f, 0.98f); // 기존 SettingsPanel 색
+    private static readonly Color OptBorder    = new Color(0.42f, 0.45f, 0.54f, 1f);
+    private static readonly Color OptBtnFace   = new Color(0.26f, 0.28f, 0.34f, 1f);
+    private static readonly Color OptBtnSel    = new Color(0.30f, 0.55f, 0.66f, 1f);   // 선택 탭 강조(틸)
+    private static readonly Color OptText      = new Color(0.92f, 0.94f, 0.98f, 1f);
+    private static readonly Color OptHeader    = new Color(0.80f, 0.86f, 0.96f, 1f);
+    private static readonly Color OptHint      = new Color(0.62f, 0.66f, 0.74f, 1f);
+    private static readonly Color OptRespawn   = new Color(0.26f, 0.46f, 0.40f, 1f);   // 다시하기(뮤트 그린)
+    private static readonly Color OptExit      = new Color(0.50f, 0.28f, 0.30f, 1f);   // 나가기(뮤트 레드)
+
+    // 평면 다크 버튼 스타일 (우드 대신 음향 패널 톤에 맞춤)
+    private void StyleFlatButton(Button btn, Color face, string label, int fontSize)
+    {
+        if (btn == null) return;
+        var img = btn.GetComponent<Image>();
+        if (img != null) { img.sprite = null; img.color = face; }
+
+        var t = btn.GetComponentInChildren<Text>();
+        if (t == null)
+        {
+            var go = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            go.transform.SetParent(btn.transform, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+            t = go.GetComponent<Text>();
+        }
+        t.font = LobbyUITheme.PlainFont;
+        t.fontSize = fontSize;
+        t.alignment = TextAnchor.MiddleCenter;
+        t.color = OptText;
+        t.text = label;
+    }
+
+    private static bool IsGameStage()
+    {
+        string s = SceneManager.GetActiveScene().name;
+        return s == "TutorialStage" || s == "Main Stage1" || s == "Main Stage2" ||
+               s == "Main Stage3" || s == "TestStage" || s == "GameStage";
+    }
+
+    // ESC/톱니바퀴로 여는 옵션 창을 처음 한 번 구성한다 (탭 방식: 조작 / 음향).
+    private void BuildOptionsUI()
+    {
+        if (_gameplayUIBuilt) return;
+        Transform parent = menuPanel != null ? menuPanel.transform : transform;
+
+        // 기존 오디오 패널(SettingsPanel)을 '음향' 탭 내용으로 재사용
+        var ap = parent.Find("SettingsPanel");
+        if (ap != null) _audioPanel = ap.gameObject;
+
+        // 기존 계속하기/나가기 버튼은 숨김 (하단 바로 대체)
+        if (resumeButton != null) resumeButton.gameObject.SetActive(false);
+        if (exitButton != null) exitButton.gameObject.SetActive(false);
+
+        // === 통합 프레임 (테두리 + 다크 배경, 음향 패널 톤) ===
+        var border = new GameObject("OptionsFrameBorder", typeof(RectTransform), typeof(Image));
+        border.transform.SetParent(parent, false);
+        var bRt = border.GetComponent<RectTransform>();
+        bRt.anchorMin = bRt.anchorMax = new Vector2(0.5f, 0.5f);
+        bRt.pivot = new Vector2(0.5f, 0.5f);
+        bRt.anchoredPosition = Vector2.zero;
+        bRt.sizeDelta = new Vector2(968f, 668f);
+        border.GetComponent<Image>().color = OptBorder;
+        border.transform.SetAsFirstSibling(); // 오디오 컨트롤/기타 요소보다 뒤
+
+        var frame = new GameObject("OptionsFrame", typeof(RectTransform), typeof(Image));
+        frame.transform.SetParent(border.transform, false);
+        var fRt = frame.GetComponent<RectTransform>();
+        fRt.anchorMin = Vector2.zero; fRt.anchorMax = Vector2.one;
+        fRt.offsetMin = new Vector2(4f, 4f); fRt.offsetMax = new Vector2(-4f, -4f);
+        frame.GetComponent<Image>().color = OptPanelBg;
+        Transform F = frame.transform;
+
+        // 타이틀
+        AddFixedLabel(F, "옵션", 34, OptHeader, new Vector2(0.5f, 1f), new Vector2(0f, -26f), new Vector2(500f, 50f));
+
+        // 좌측 탭 버튼
+        _tabBtnControls = MakeTabButton(F, "조작", 32f);
+        _tabBtnControls.onClick.AddListener(() => SelectTab(0));
+        _tabBtnAudio = MakeTabButton(F, "음향", -30f);
+        _tabBtnAudio.onClick.AddListener(() => SelectTab(1));
+
+        // 음향 탭 내용 = 기존 SettingsPanel: 프레임 안으로 위치 이동 + 자체 배경/제목 숨김
+        if (_audioPanel != null)
+        {
+            var apRt = _audioPanel.GetComponent<RectTransform>();
+            apRt.anchoredPosition = new Vector2(110f, -4f);
+            var apImg = _audioPanel.GetComponent<Image>();
+            if (apImg != null) apImg.enabled = false; // 통합 프레임 배경이 대신 보이도록
+            foreach (var tmp in _audioPanel.GetComponentsInChildren<TMPro.TMP_Text>(true))
+                if (tmp.text != null && tmp.text.Contains("Settings")) { tmp.gameObject.SetActive(false); break; }
+        }
+
+        // 조작 탭 내용 패널 (음향 패널과 같은 영역, 배경 투명 → 프레임 배경 사용)
+        _controlsPanel = new GameObject("ControlsPanel", typeof(RectTransform), typeof(Image));
+        _controlsPanel.transform.SetParent(F, false);
+        var cRt = _controlsPanel.GetComponent<RectTransform>();
+        cRt.anchorMin = cRt.anchorMax = new Vector2(0.5f, 0.5f);
+        cRt.pivot = new Vector2(0.5f, 0.5f);
+        cRt.anchoredPosition = new Vector2(110f, 0f);
+        cRt.sizeDelta = new Vector2(560f, 340f);
+        _controlsPanel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+
+        float y = -8f;
+        AddLabelRow(_controlsPanel.transform, "스킬 단축키", 22, OptHeader, ref y, 36f);
+        for (int slot = 1; slot <= SkillKeybinds.MaxSlot; slot++)
+        {
+            int s = slot;
+            var btn = AddButtonRow(_controlsPanel.transform, $"스킬 {s}:  {SkillKeybinds.GetLabel(s)}", ref y, OptBtnFace, 54f);
+            _rebindKeyLabels[s] = btn.GetComponentInChildren<Text>();
+            btn.onClick.AddListener(() => { _awaitingRebindSlot = s; RefreshRebindLabels(); });
+        }
+        var resetBtn = AddButtonRow(_controlsPanel.transform, "기본값으로", ref y, OptBtnFace, 46f);
+        resetBtn.onClick.AddListener(() => { SkillKeybinds.ResetToDefaults(); _awaitingRebindSlot = 0; RefreshRebindLabels(); });
+        _rebindHintText = AddLabelRow(_controlsPanel.transform, "버튼을 누른 뒤 새 키를 입력하세요", 15, OptHint, ref y, 40f);
+
+        // 하단 액션 바: 다시하기(인게임 전용) + 나가기/닫기
+        var respawnBtn = MakeBottomButton(F, "다시하기", -140f, OptRespawn);
+        respawnBtn.onClick.AddListener(() => { if (PlayerMovement.RequestLocalRespawn()) CloseMenu(); });
+        _respawnRow = respawnBtn.gameObject;
+        _exitBtn2 = MakeBottomButton(F, "나가기", 140f, OptExit);
+
+        _gameplayUIBuilt = true;
+        SelectTab(0);
+    }
+
+    private void SelectTab(int tab)
+    {
+        _currentTab = tab;
+        _awaitingRebindSlot = 0;
+        if (_controlsPanel != null) _controlsPanel.SetActive(tab == 0);
+        if (_audioPanel != null) _audioPanel.SetActive(tab == 1);
+        if (_tabBtnControls != null)
+            StyleFlatButton(_tabBtnControls, tab == 0 ? OptBtnSel : OptBtnFace, "조작", 24);
+        if (_tabBtnAudio != null)
+            StyleFlatButton(_tabBtnAudio, tab == 1 ? OptBtnSel : OptBtnFace, "음향", 24);
+        RefreshRebindLabels();
+    }
+
+    private Button MakeTabButton(Transform parent, string label, float y)
+    {
+        var go = new GameObject("Tab_" + label, typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = new Vector2(-360f, y);
+        rt.sizeDelta = new Vector2(140f, 50f);
+        var btn = go.GetComponent<Button>();
+        StyleFlatButton(btn, OptBtnFace, label, 20);
+        return btn;
+    }
+
+    private Button MakeBottomButton(Transform parent, string label, float x, Color face)
+    {
+        var go = new GameObject("Btn_" + label, typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = new Vector2(x, -292f);
+        rt.sizeDelta = new Vector2(240f, 60f);
+        var btn = go.GetComponent<Button>();
+        StyleFlatButton(btn, face, label, 24);
+        return btn;
+    }
+
+    private Text AddFixedLabel(Transform parent, string text, int fontSize, Color color, Vector2 anchor, Vector2 pos, Vector2 size)
+    {
+        var go = new GameObject("Label", typeof(RectTransform), typeof(Text));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = anchor; rt.anchorMax = anchor; rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = pos; rt.sizeDelta = size;
+        var t = go.GetComponent<Text>();
+        t.font = LobbyUITheme.PlainFont; t.fontSize = fontSize;
+        t.alignment = TextAnchor.MiddleCenter; t.color = color; t.text = text;
+        return t;
+    }
+
+    // 로비에서 설정을 여는 톱니바퀴 버튼 (메뉴 닫혀있고 인게임이 아닐 때만 표시)
+    private void EnsureGearButton()
+    {
+        if (_gearButton != null) return;
+        var go = new GameObject("GearButton", typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(transform, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(1f, 1f); rt.anchorMax = new Vector2(1f, 1f); rt.pivot = new Vector2(1f, 1f);
+        // 트로피(랭킹) 버튼과 같은 높이(y-40)·크기(92)로, 그 왼쪽에 배치
+        rt.anchoredPosition = new Vector2(-150f, -40f); rt.sizeDelta = new Vector2(92f, 92f);
+
+        var img = go.GetComponent<Image>();
+        img.sprite = GetGearSprite();
+        img.preserveAspect = true;
+        img.color = LobbyUITheme.Gold; // 트로피와 같은 골드 톤 아이콘
+
+        var btn = go.GetComponent<Button>();
+        btn.targetGraphic = img;
+        var cb = btn.colors;
+        cb.highlightedColor = new Color(1.12f, 1.12f, 1.12f, 1f);
+        cb.pressedColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+        cb.fadeDuration = 0.05f;
+        btn.colors = cb;
+        btn.onClick.AddListener(OpenMenu);
+        _gearButton = go;
+    }
+
+    // 톱니바퀴 아이콘을 절차적으로 그려서 스프라이트로 만든다 (프로젝트에 기어 에셋이 없음).
+    private static Sprite _gearSprite;
+    private static Sprite GetGearSprite()
+    {
+        if (_gearSprite != null) return _gearSprite;
+
+        const int S = 128;
+        var tex = new Texture2D(S, S, TextureFormat.RGBA32, false);
+        var px = new Color[S * S];
+        var clear = new Color(1f, 1f, 1f, 0f);
+        for (int i = 0; i < px.Length; i++) px[i] = clear;
+
+        float c = (S - 1) / 2f;
+        float rBody = S * 0.30f;   // 본체 원
+        float rTooth = S * 0.46f;  // 톱니 끝
+        float rHole = S * 0.13f;   // 가운데 구멍
+        const int teeth = 8;
+        float sector = Mathf.PI * 2f / teeth;
+
+        for (int y = 0; y < S; y++)
+        {
+            for (int x = 0; x < S; x++)
+            {
+                float dx = x - c, dy = y - c;
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                float ang = Mathf.Atan2(dy, dx);
+                float frac = Mathf.Repeat(ang, sector) / sector; // 0..1
+                bool inTooth = d <= rTooth && frac > 0.28f && frac < 0.72f; // 톱니 사다리꼴
+                bool inBody = d <= rBody;
+                bool solid = (inBody || inTooth) && d >= rHole;
+
+                // 가장자리 부드럽게 (1px 페더)
+                float a = solid ? 1f : 0f;
+                if (solid)
+                {
+                    float edge = Mathf.Min(rTooth - d, d - rHole);
+                    if (inBody && !inTooth) edge = Mathf.Min(rBody - d, d - rHole);
+                    a = Mathf.Clamp01(edge); // 경계 1px 알파 감쇠
+                }
+                px[y * S + x] = new Color(1f, 1f, 1f, a);
+            }
+        }
+
+        tex.SetPixels(px);
+        tex.Apply();
+        tex.filterMode = FilterMode.Bilinear;
+        _gearSprite = Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f), 100f);
+        return _gearSprite;
+    }
+
+    private Text AddLabelRow(Transform parent, string text, int fontSize, Color color, ref float y, float height)
+    {
+        var go = new GameObject("Label", typeof(RectTransform), typeof(Text));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 1f);
+        rt.anchorMax = new Vector2(0.5f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(0f, y);
+        rt.sizeDelta = new Vector2(380f, height);
+        var t = go.GetComponent<Text>();
+        t.font = LobbyUITheme.PlainFont; // 한글 표기 가능한 폰트
+        t.fontSize = fontSize;
+        t.alignment = TextAnchor.MiddleCenter;
+        t.color = color;
+        t.text = text;
+        y -= (height + 6f);
+        return t;
+    }
+
+    private Button AddButtonRow(Transform parent, string label, ref float y, Color face, float height)
+    {
+        var go = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 1f);
+        rt.anchorMax = new Vector2(0.5f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(0f, y);
+        rt.sizeDelta = new Vector2(470f, height);
+        var btn = go.GetComponent<Button>();
+        StyleFlatButton(btn, face, label, 22);
+        y -= (height + 10f);
+        return btn;
+    }
+
+    private void RefreshRebindLabels()
+    {
+        for (int slot = 1; slot <= SkillKeybinds.MaxSlot; slot++)
+        {
+            if (_rebindKeyLabels[slot] == null) continue;
+            _rebindKeyLabels[slot].text = (_awaitingRebindSlot == slot)
+                ? $"스킬 {slot}:  [ 키 입력... ]"
+                : $"스킬 {slot}:  {SkillKeybinds.GetLabel(slot)}";
+        }
+        if (_rebindHintText != null)
+            _rebindHintText.text = _awaitingRebindSlot > 0
+                ? "새 키를 누르세요 (ESC 취소)"
+                : "버튼을 누른 뒤 새 키를 입력하세요";
+    }
+
+    // 리바인딩 대기 중 눌린 키를 잡아 해당 슬롯에 배정한다.
+    private void CaptureRebindKey()
+    {
+        foreach (KeyCode kc in System.Enum.GetValues(typeof(KeyCode)))
+        {
+            if (kc == KeyCode.None || kc == KeyCode.Escape) continue;
+            if (kc >= KeyCode.Mouse0 && kc <= KeyCode.Mouse6) continue;
+            if (Input.GetKeyDown(kc))
+            {
+                SkillKeybinds.SetSlotKey(_awaitingRebindSlot, kc);
+                _awaitingRebindSlot = 0;
+                RefreshRebindLabels();
+                return;
+            }
+        }
     }
 
     #endregion

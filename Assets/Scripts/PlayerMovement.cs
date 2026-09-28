@@ -716,6 +716,32 @@ public class PlayerMovement : NetworkBehaviour
         IsDead = false;
     }
 
+    // ESC 메뉴의 "다시하기": 요청한 플레이어의 캐릭터만 마지막 체크포인트로 리스폰.
+    // 실제 리스폰은 StateAuthority(호스트)가 수행하므로, 입력 권한자가 호스트에 요청한다.
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RPC_RequestRespawn()
+    {
+        _respawnRequested = true; // FixedUpdateNetwork 에서 기존 Respawn() 경로로 처리
+    }
+
+    /// <summary>
+    /// 로컬 플레이어(입력 권한을 가진 내 캐릭터)를 마지막 체크포인트로 리스폰 요청한다.
+    /// 인게임에서 내 캐릭터가 없으면 아무 것도 하지 않는다(안전).
+    /// </summary>
+    public static bool RequestLocalRespawn()
+    {
+        var all = FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None);
+        foreach (var p in all)
+        {
+            if (p != null && p.Object != null && p.Object.HasInputAuthority)
+            {
+                p.RPC_RequestRespawn();
+                return true;
+            }
+        }
+        return false;
+    }
+
     public override void Render()
     {
         UpdateVisuals();
