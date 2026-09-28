@@ -1,11 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Fusion;
 using Fusion.Addons.Physics;
+using Fusion.Sockets;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class BasicLauncher : MonoBehaviour
+public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
 {
     public static BasicLauncher Instance { get; private set; }
 
@@ -15,6 +17,7 @@ public class BasicLauncher : MonoBehaviour
     private NetworkRunner _runner;
     private string _roomCode = ""; // 사용자가 입력할 방 코드
     private bool _isStarting = false;
+    private bool _isReturningToLobby = false;
     private string _playerName = "";
     [SerializeField] private bool _useIMGUIMenu = false; // 새 TitleScreen 도입으로 구 IMGUI 로비 메뉴는 기본 비활성화
 
@@ -31,12 +34,15 @@ public class BasicLauncher : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
+            DontDestroyOnLoad(gameObject);
         }
         else if (Instance != this)
         {
             Destroy(gameObject);
             return;
         }
+
+        Application.logMessageReceived += OnLogMessageReceived;
     }
 
     private void Start()
@@ -46,9 +52,26 @@ public class BasicLauncher : MonoBehaviour
 
     private void OnDestroy()
     {
+        Application.logMessageReceived -= OnLogMessageReceived;
         if (Instance == this)
         {
             Instance = null;
+        }
+    }
+
+    private void OnLogMessageReceived(string condition, string stackTrace, LogType type)
+    {
+        if (string.IsNullOrEmpty(condition)) return;
+
+        // Photon Fusion의 서버 연결 해제 메시지 감지
+        // 예: [Fusion] Got DisconnectMessage. Code: 104 Msg: "Server has disconnected. "
+        if (condition.Contains("Code: 104") || condition.Contains("Server has disconnected"))
+        {
+            if (_runner != null && !_runner.IsServer)
+            {
+                Debug.LogWarning("[Launcher] 호스트 접속 종료 감지 (Code 104). 자동으로 로비로 복귀합니다.");
+                ForceReturnToLobby("호스트가 접속을 종료하여 로비로 이동했습니다.");
+            }
         }
     }
 
@@ -264,6 +287,8 @@ public class BasicLauncher : MonoBehaviour
             physicsSim2D.ClientPhysicsSimulation = ClientPhysicsSimulation.SimulateAlways;
 
             _runner.ProvideInput = true;
+            _runner.RemoveCallbacks(this);
+            _runner.AddCallbacks(this);
 
             var spawner = FindFirstObjectByType<Spawner>();
             if (spawner != null)
@@ -351,4 +376,132 @@ public class BasicLauncher : MonoBehaviour
 
         SceneManager.LoadScene("Lobby");
     }
+
+    /// <summary>
+    /// 호스트 접속 끊김 등의 사유로 블로킹/데드락 없이 즉시 로비 씬으로 안전하게 탈출합니다.
+    /// </summary>
+    public void ForceReturnToLobby(string reason = "호스트와의 연결이 끊어졌습니다.")
+    {
+        if (_isReturningToLobby) return;
+        _isReturningToLobby = true;
+
+        Debug.Log($"<color=yellow>[Launcher]</color> ForceReturnToLobby 실행: {reason}");
+
+        if (!string.IsNullOrEmpty(reason))
+        {
+            PlayerPrefs.SetString("DisconnectNotice", reason);
+        }
+
+        Time.timeScale = 1f;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        FastCleanupRunner();
+
+        string currentScene = SceneManager.GetActiveScene().name;
+        if (currentScene != "Lobby")
+        {
+            SceneManager.LoadScene("Lobby");
+        }
+
+        _isReturningToLobby = false;
+    }
+
+    private void FastCleanupRunner()
+    {
+        _isStarting = false;
+
+        if (_runner != null)
+        {
+            try
+            {
+                _runner.RemoveCallbacks(this);
+                if (_runner.IsRunning)
+                {
+                    _runner.Shutdown();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[Launcher] FastCleanupRunner Shutdown 예외 (정상 무시): {ex.Message}");
+            }
+
+            if (_runner != null && _runner.gameObject != null)
+            {
+                if (_runner.gameObject == gameObject)
+                {
+                    Destroy(_runner);
+                }
+                else
+                {
+                    Destroy(_runner.gameObject);
+                }
+            }
+            _runner = null;
+        }
+
+        // 잔여 러너들 정리
+        var runners = FindObjectsByType<NetworkRunner>(FindObjectsSortMode.None);
+        foreach (var r in runners)
+        {
+            if (r != null)
+            {
+                try { if (r.IsRunning) r.Shutdown(); } catch { }
+                if (r.gameObject != null && r.gameObject != gameObject)
+                {
+                    Destroy(r.gameObject);
+                }
+            }
+        }
+    }
+
+    #region INetworkRunnerCallbacks Implementation
+
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+    {
+        Debug.LogWarning($"<color=red>[Launcher]</color> 서버 연결이 끊겼습니다: {reason}. 로비로 이동합니다.");
+        if (runner != null && !runner.IsServer)
+        {
+            ForceReturnToLobby($"서버 연결이 끊겼습니다 ({reason}).");
+        }
+    }
+
+    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
+    {
+        Debug.LogWarning($"<color=red>[Launcher]</color> NetworkRunner Shutdown: {shutdownReason}.");
+        // 정상 로비 복귀나 타이틀 이동(Ok) 외의 비정상 셧다운일 때 클라이언트는 로비로 복귀
+        if (runner != null && !runner.IsServer && shutdownReason != ShutdownReason.Ok)
+        {
+            ForceReturnToLobby($"호스트와의 연결이 종료되었습니다 ({shutdownReason}).");
+        }
+    }
+
+    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
+    {
+        // 2인 게임에서 호스트가 나갔을 경우 클라이언트 자동 퇴장
+        if (runner != null && !runner.IsServer)
+        {
+            Debug.LogWarning($"<color=red>[Launcher]</color> 상대 플레이어 {player} 퇴장 감지. 로비로 복귀합니다.");
+            ForceReturnToLobby("호스트가 접속을 종료했습니다.");
+        }
+    }
+
+    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player) { }
+    public void OnInput(NetworkRunner runner, NetworkInput input) { }
+    public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
+    public void OnConnectedToServer(NetworkRunner runner) { }
+    public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
+    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
+    public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
+    public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
+    public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
+    public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
+    public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
+    public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
+    public void OnSceneLoadDone(NetworkRunner runner) { }
+    public void OnSceneLoadStart(NetworkRunner runner) { }
+    public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+    public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+
+    #endregion
 }

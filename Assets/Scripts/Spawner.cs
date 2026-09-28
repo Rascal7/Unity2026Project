@@ -227,8 +227,14 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             {
                 if (networkObject != null) runner.Despawn(networkObject);
                 _spawnedCharacters.Remove(player);
-                Debug.Log($"<color=red>[Spawner]</color> ?�레?�어 {player} ?�장, 캐릭???�거");
+                Debug.Log($"<color=red>[Spawner]</color> 플레이어 {player} 퇴장, 캐릭터 제거");
             }
+        }
+        else
+        {
+            // 참가자(Join 측) 입장에서 플레이어가 나갔다면 호스트가 종료한 것
+            Debug.LogWarning("<color=red>[Spawner]</color> 호스트가 접속을 종료했습니다. 로비로 복귀합니다.");
+            ReturnToLobby(runner, "호스트가 접속을 종료했습니다.");
         }
     }
 
@@ -288,8 +294,14 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     }
 
     /// <summary>러너를 정리하고 로비 씬으로 돌아간다. 연결 끊김/종료 공용.</summary>
-    private async void ReturnToLobby(NetworkRunner runner, string reasonMessage = null)
+    private void ReturnToLobby(NetworkRunner runner, string reasonMessage = null)
     {
+        if (BasicLauncher.Instance != null)
+        {
+            BasicLauncher.Instance.ForceReturnToLobby(reasonMessage);
+            return;
+        }
+
         if (_returningToLobby) return;
         _returningToLobby = true;
 
@@ -302,10 +314,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         {
             try
             {
-                if (runner.IsRunning)
-                {
-                    await runner.Shutdown();
-                }
+                if (runner.IsRunning) runner.Shutdown();
             }
             catch (Exception ex)
             {
@@ -318,13 +327,6 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             }
         }
 
-        // BasicLauncher의 러너 정리도 함께 수행
-        if (BasicLauncher.Instance != null)
-        {
-            try { await BasicLauncher.Instance.CleanupRunnerAsync(); } catch { }
-        }
-
-        // 안내 메시지가 필요하면 PlayerPrefs에 기록 후 로비에서 표시 가능
         if (!string.IsNullOrEmpty(reasonMessage))
         {
             PlayerPrefs.SetString("DisconnectNotice", reasonMessage);
