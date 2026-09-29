@@ -59,7 +59,7 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
-    private void OnLogMessageReceived(string condition, string stackTrace, LogType type)
+    private void OnLogMessageReceived(string condition, string stackTrace, UnityEngine.LogType type)
     {
         if (string.IsNullOrEmpty(condition)) return;
 
