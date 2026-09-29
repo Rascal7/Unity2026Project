@@ -19,6 +19,8 @@ public class TitleScreen : MonoBehaviour
     private Button _hostBtn;
     private Button _joinBtn;
     private Text _noteText;
+    private GameObject _disconnectBanner;   // 패널 '아래'에 뜨는 접속 종료 알림 배너
+    private Text _disconnectBannerText;
     private BasicLauncher _launcher;
     private bool _busy;
     private float _busySince;
@@ -107,19 +109,28 @@ public class TitleScreen : MonoBehaviour
         _busy = false;
         EnsureLauncher();
         SetInteractable(true);
+        // 접속 종료 안내는 '패널 안 상태 줄'이 아니라 '패널 아래 배너'로 표시 (로그인/회원가입 링크와 겹치지 않게)
+        if (PlayerPrefs.HasKey("DisconnectNotice"))
+        {
+            string notice = PlayerPrefs.GetString("DisconnectNotice");
+            PlayerPrefs.DeleteKey("DisconnectNotice");
+            ShowDisconnectBanner(notice);
+        }
+
         if (_noteText != null)
         {
-            if (PlayerPrefs.HasKey("DisconnectNotice"))
-            {
-                string notice = PlayerPrefs.GetString("DisconnectNotice");
-                PlayerPrefs.DeleteKey("DisconnectNotice");
-                _noteText.text = notice;
-                _noteText.color = ErrCol;
-            }
-            else if (!string.IsNullOrEmpty(_pendingNote)) { _noteText.text = _pendingNote; _noteText.color = _pendingNoteErr ? ErrCol : OkCol; }
+            if (!string.IsNullOrEmpty(_pendingNote)) { _noteText.text = _pendingNote; _noteText.color = _pendingNoteErr ? ErrCol : OkCol; }
             else _noteText.text = "";
         }
         _pendingNote = null;
+    }
+
+    // 패널 아래 알림 배너 표시 (접속 종료 등)
+    private void ShowDisconnectBanner(string message)
+    {
+        if (_disconnectBanner == null || _disconnectBannerText == null) return;
+        _disconnectBannerText.text = message;
+        _disconnectBanner.SetActive(true);
     }
 
     private void EnsureLauncher()
@@ -343,6 +354,21 @@ public class TitleScreen : MonoBehaviour
         pr.sizeDelta = size;
         pr.anchoredPosition = offset;
         Framed(panel, WoodFill, WoodDark, WoodLight);
+
+        // 접속 종료 등 알림 배너: 우드 프레임 '바깥 아래'에 별도 표시 (기본 숨김)
+        var banner = NewChild("DisconnectBanner", panel.transform);
+        var brt = banner.GetComponent<RectTransform>();
+        brt.anchorMin = brt.anchorMax = new Vector2(0.5f, 0f); // 패널 하단 기준
+        brt.pivot = new Vector2(0.5f, 1f);                     // 아래로 뻗음
+        brt.sizeDelta = new Vector2(size.x, 56f);
+        brt.anchoredPosition = new Vector2(0f, -18f);          // 프레임 아래로 18px
+        var bimg = banner.AddComponent<Image>();
+        bimg.color = new Color(0.19f, 0.11f, 0.05f, 0.96f);    // 우드 다크 톤
+        _disconnectBannerText = AddLabel(banner.transform, "", 19f, new Vector2(0.5f, 0.5f),
+            size.x - 40f, TextAnchor.MiddleCenter, ErrCol, _plain, Vector2.zero);
+        _disconnectBanner = banner;
+        banner.SetActive(false);
+
         return panel.transform;
     }
 
