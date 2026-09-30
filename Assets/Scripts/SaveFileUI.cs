@@ -594,8 +594,9 @@ public class SaveFileUI : MonoBehaviour
         SaveDataManager.CurrentSlotIndex = slotIndex;
         string targetScene = string.IsNullOrEmpty(data.stageName) ? "TutorialStage" : data.stageName;
 
-        // 이어하기: 이전 스테이지들의 누적 기록을 복원해 최종 합산/HUD 이어흐름에 반영 (Phase1)
+        // 이어하기: 이전 스테이지들의 누적 기록 + 개별 구간 기록을 복원 (최종 합산·나열에 반영)
         RunManager.RestoreAccumulated(data.totalPlayTime);
+        RunManager.RestoreSegments(data.segmentTimes);
 
         Debug.Log($"<color=lime>[SaveFileUI]</color> 이어하기 (슬롯 {slotIndex}) -> {targetScene} 로드");
         LoadTargetScene(targetScene);

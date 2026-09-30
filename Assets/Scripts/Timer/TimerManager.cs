@@ -37,8 +37,8 @@ public class TimerManager : MonoBehaviour
             // - Intro/Running: show accumulated + current elapsed (intro holds elapsed at 0).
             float shown;
             if (nt.IsFinished) shown = nt.FinalTime;
-            else if (nt.Phase == NetworkTimer.PhaseAwaitingChoice) shown = RunManager.AccumulatedTime;
-            else shown = RunManager.AccumulatedTime + nt.ElapsedTime;
+            else if (nt.Phase == NetworkTimer.PhaseAwaitingChoice) shown = nt.FinalTime;  // 이 스테이지 확정 기록
+            else shown = nt.ElapsedTime;                                                  // 진행 중: 이 스테이지 0부터
             SetDisplayTime(shown);
             return;
         }
