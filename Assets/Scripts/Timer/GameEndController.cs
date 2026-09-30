@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using Fusion;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -28,8 +29,11 @@ public class GameEndController : MonoBehaviour
     private Text _timeText;
     private Text _hintText;
     private Text _recordText;      // New Record 표시 줄 (ALL CLEAR 카드에 통합)
+    private Text _finalList;       // 최종 결과: 스테이지별 기록 나열 + 합산 (애니메이션)
     private GameObject _nextBtn;
     private GameObject _lobbyBtn;
+    private Coroutine _finalAnim;
+    private const float HintDefaultY = 0.44f;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void Bootstrap()
@@ -112,10 +116,15 @@ public class GameEndController : MonoBehaviour
         _shownAtUnscaled = Time.unscaledTime;
         _root.SetActive(true);
 
+        if (_finalAnim != null) { StopCoroutine(_finalAnim); _finalAnim = null; }
+        if (_finalList != null) _finalList.gameObject.SetActive(false);
+        if (_timeText != null) _timeText.gameObject.SetActive(true);
+        SetHintAnchorY(HintDefaultY);
+
         if (_recordText != null) _recordText.gameObject.SetActive(false); // 중간 클리어엔 New Record 없음
         _titleText.text = "STAGE CLEAR!";
-        // 이번 스테이지 기록만 표시 (누적 표기 제거)
-        _timeText.text = "기록  " + FormatTime(segmentTime);
+        // 이번 스테이지 기록만 표시 (어느 스테이지인지 명확히)
+        _timeText.text = CurrentStageLabel() + " 기록  " + FormatTime(segmentTime);
 
         bool isHost = IsHost();
         _nextBtn.SetActive(isHost);         // 다음 스테이지는 호스트만
@@ -134,11 +143,18 @@ public class GameEndController : MonoBehaviour
         _root.SetActive(true);
 
         _titleText.text = "ALL CLEAR!";
-        _timeText.text = "기록  " + FormatTime(totalTime);
         _nextBtn.SetActive(false);
         _lobbyBtn.SetActive(false);
-        _hintText.text = "";
-        ApplyRecord();   // 순위를 이미 받았으면 New Record 줄 표시 (없으면 숨김)
+
+        // 스테이지별 구간 기록을 NetworkTimer(네트워크 배열)에서 읽어 애니메이션으로 나열 → 합산
+        var nt = NetworkTimer.Instance;
+        int count = nt != null ? Mathf.Clamp(nt.SegmentCount, 0, NetworkTimer.MaxSegments) : 0;
+        var times = new float[count];
+        for (int i = 0; i < count; i++) times[i] = nt.SegmentTimes.Get(i);
+
+        if (_timeText != null) _timeText.gameObject.SetActive(false); // 최종은 _finalList 로 표시
+        if (_finalAnim != null) StopCoroutine(_finalAnim);
+        _finalAnim = StartCoroutine(AnimateFinalResults(times, totalTime));
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -146,6 +162,50 @@ public class GameEndController : MonoBehaviour
         Debug.Log($"<color=lime>[Ending]</color> ALL CLEAR - {FormatTime(totalTime)}");
         try { OnRunFinished?.Invoke(totalTime); }
         catch (Exception e) { Debug.LogException(e); }
+    }
+
+    // 최종 결과 애니메이션: 스테이지별 기록을 하나씩 나열 → 구분선 → 합산(카운트업).
+    private IEnumerator AnimateFinalResults(float[] times, float total)
+    {
+        SetHintAnchorY(0.14f);                 // 자동복귀 카운트다운 힌트는 아래로 내림
+        _finalList.gameObject.SetActive(true);
+        _finalList.text = "";
+        string acc = "";
+
+        for (int i = 0; i < times.Length; i++)
+        {
+            acc += (i + 1) + "스테이지        " + FormatTime(times[i]) + "\n";
+            _finalList.text = acc;
+            yield return new WaitForSecondsRealtime(0.45f);
+        }
+
+        if (times.Length > 0)
+        {
+            acc += "──────────────\n";
+            _finalList.text = acc;
+            yield return new WaitForSecondsRealtime(0.25f);
+        }
+
+        // 합산 기록 카운트업
+        float dur = 0.9f, t0 = Time.unscaledTime;
+        while (true)
+        {
+            float k = Mathf.Clamp01((Time.unscaledTime - t0) / dur);
+            _finalList.text = acc + "합산 기록        " + FormatTime(total * k);
+            if (k >= 1f) break;
+            yield return null;
+        }
+        _finalList.text = acc + "합산 기록        " + FormatTime(total);
+
+        ApplyRecord();      // New Record 순위가 있으면 표시
+        _finalAnim = null;
+    }
+
+    private void SetHintAnchorY(float y)
+    {
+        if (_hintText == null) return;
+        var rt = _hintText.GetComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, y);
     }
 
     // RankingManager 가 TOP5 진입을 알려주면 순위를 저장하고, 최종 카드가 떠 있으면 즉시 표시.
@@ -166,6 +226,10 @@ public class GameEndController : MonoBehaviour
     private void Hide()
     {
         _shownPhase = -1;
+        if (_finalAnim != null) { StopCoroutine(_finalAnim); _finalAnim = null; }
+        if (_finalList != null) { _finalList.text = ""; _finalList.gameObject.SetActive(false); }
+        if (_timeText != null) _timeText.gameObject.SetActive(true);
+        SetHintAnchorY(HintDefaultY);
         if (_root != null) _root.SetActive(false);
     }
 
@@ -263,6 +327,11 @@ public class GameEndController : MonoBehaviour
         _recordText.color = new Color(1f, 0.92f, 0.35f);
         _recordText.gameObject.SetActive(false);
 
+        // 최종 결과: 스테이지별 기록 나열 + 합산 (애니메이션). 기본 숨김, ALL CLEAR 에서만 사용.
+        _finalList = CreateText("FinalList", _root.transform, font, 44, FontStyle.Normal,
+            new Vector2(0.5f, 0.46f), new Vector2(1400, 440), "");
+        _finalList.gameObject.SetActive(false);
+
         _nextBtn = CreateButton("NextButton", new Vector2(0.5f, 0.28f), new Vector2(200f, 0f),
             new Color(0.98f, 0.82f, 0.42f), new Color(0.12f, 0.07f, 0.02f), "다음 스테이지", font, OnNext);
         _lobbyBtn = CreateButton("LobbyButton", new Vector2(0.5f, 0.28f), new Vector2(-200f, 0f),
@@ -324,6 +393,15 @@ public class GameEndController : MonoBehaviour
         rt.anchorMax = Vector2.one;
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
+    }
+
+    // 현재 씬 이름에서 스테이지 라벨을 만든다. "Main Stage2" → "2스테이지", 숫자 없으면 "스테이지".
+    private static string CurrentStageLabel()
+    {
+        string name = SceneManager.GetActiveScene().name;
+        string num = "";
+        for (int i = name.Length - 1; i >= 0 && char.IsDigit(name[i]); i--) num = name[i] + num;
+        return string.IsNullOrEmpty(num) ? "스테이지" : (num + "스테이지");
     }
 
     public static string FormatTime(float t)

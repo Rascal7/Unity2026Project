@@ -67,7 +67,8 @@ public class Checkpoint : MonoBehaviour
         if (runner != null && !runner.IsServer) return;
 
         float seg = nt.ElapsedTime;                        // �� ������ �������� ����
-        float total = RunManager.AccumulatedTime + seg;    // �� ���������� + ������ ���� = �ջ�
+        RunManager.AddSegment(seg);
+        float total = RunManager.AccumulatedTime;    // �� ���������� + ������ ���� = �ջ�
         nt.FinishRun(total);                               // Phase=Finished, FinalTime=�ջ� (�� �Ǿ� ����ȭ)
 
         var ranking = RankingManager.GetOrCreate();

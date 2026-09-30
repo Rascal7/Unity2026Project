@@ -1,18 +1,18 @@
 using UnityEngine;
 
-// ÃÖÁ¾ °ñ(¸¶Áö¸· ½ºÅ×ÀÌÁöÀÇ ¸¶Áö¸· ÁöÁ¡)¿ë. Checkpoint(isEndGoal)¿Í µ¿ÀÏÇÑ ÃÖÁ¾ Ã³¸®.
-// Áß°£ ½ºÅ×ÀÌÁö ÁøÇàÀº EndPoint °¡ ´ã´çÇÑ´Ù.
+// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½. Checkpoint(isEndGoal)ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½.
+// ï¿½ß°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ EndPoint ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ñ´ï¿½.
 public class GoalPoint : MonoBehaviour
 {
     [Header("Settings")]
     public string currentMapName = "";
-    public bool isFinalGoal = true; // ÃÖÁ¾ °ñÀÌ¸é true
+    public bool isFinalGoal = true; // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ì¸ï¿½ true
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
         if (collision.CompareTag("Player"))
         {
-            Debug.Log($"<color=cyan>[Goal]</color> ÇÃ·¹ÀÌ¾î {collision.name} µµÂø!");
+            Debug.Log($"<color=cyan>[Goal]</color> ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ {collision.name} ï¿½ï¿½ï¿½ï¿½!");
             if (isFinalGoal)
             {
                 HandleFinalClear();
@@ -20,7 +20,7 @@ public class GoalPoint : MonoBehaviour
         }
     }
 
-    // ÃÖÁ¾ °ñ: ¸¶Áö¸· ±¸°£À» ´©Àû¿¡ ´õÇØ "ÇÕ»ê ½Ã°£"À» ·©Å·¿¡ ¿Ã¸®°í, Á¾·á È­¸éÀ» ¶ç¿î´Ù.
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ "ï¿½Õ»ï¿½ ï¿½Ã°ï¿½"ï¿½ï¿½ ï¿½ï¿½Å·ï¿½ï¿½ ï¿½Ã¸ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ È­ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½.
     private void HandleFinalClear()
     {
         var nt = NetworkTimer.Instance;
@@ -30,13 +30,14 @@ public class GoalPoint : MonoBehaviour
         if (runner != null && !runner.IsServer) return;
 
         float seg = nt.ElapsedTime;
-        float total = RunManager.AccumulatedTime + seg;
+        RunManager.AddSegment(seg);                 // ë§ˆì§€ë§‰ êµ¬ê°„ë„ ê¸°ë¡ì— ì¶”ê°€ (ìµœì¢… ë‚˜ì—´ìš©)
+        float total = RunManager.AccumulatedTime;
         nt.FinishRun(total);
 
         var ranking = RankingManager.GetOrCreate();
         if (ranking != null) ranking.SaveScore(total);
 
         RunManager.ResetRun();
-        Debug.Log($"<color=lime>[Success]</color> ALL CLEAR! ÇÕ»ê ±â·Ï: {total:0.00}ÃÊ");
+        Debug.Log($"<color=lime>[Success]</color> ALL CLEAR! ï¿½Õ»ï¿½ ï¿½ï¿½ï¿½: {total:0.00}ï¿½ï¿½");
     }
 }

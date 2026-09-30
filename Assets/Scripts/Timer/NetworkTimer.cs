@@ -25,6 +25,11 @@ public class NetworkTimer : NetworkBehaviour
     [Networked] public int Phase { get; private set; }
     [Networked] public float IntroRemaining { get; private set; }   // seconds left on STAGE intro before the run starts
 
+    // 최종 결과 애니메이션용: 스테이지별 구간 기록(초)을 네트워크로 전파 (양쪽 플레이어가 동일하게 표시)
+    public const int MaxSegments = 12;
+    [Networked, Capacity(MaxSegments)] public NetworkArray<float> SegmentTimes { get; }
+    [Networked] public int SegmentCount { get; private set; }
+
     public override void Spawned()
     {
         Instance = this;
@@ -113,7 +118,14 @@ public class NetworkTimer : NetworkBehaviour
         if (!HasStateAuthority) return;
         IsRunning = false;
         IsFinished = true;
-        FinalTime = totalSeconds;  // �� �������� �ջ� �ð�
+        FinalTime = totalSeconds;  // 최종 스테이지: 합산 시간
+
+        // 스테이지별 구간 기록을 네트워크 배열에 담아 전파 (최종 결과 애니메이션에 사용)
+        var segs = RunManager.Segments;
+        int n = Mathf.Min(segs.Count, MaxSegments);
+        for (int i = 0; i < n; i++) SegmentTimes.Set(i, segs[i]);
+        SegmentCount = n;
+
         Phase = PhaseFinished;
     }
 
