@@ -391,6 +391,9 @@ public class SettingsMenuUI : MonoBehaviour
             StyleFlatButton(_exitBtn2, OptBtnFace, "닫기", 24);
             _exitBtn2.onClick.AddListener(CloseMenu);
         }
+        // 인게임: 다시하기(좌) 옆 우측 배치 / 로비: 다시하기 숨김 → 단독 중앙 정렬
+        var ert = _exitBtn2.GetComponent<RectTransform>();
+        if (ert != null) ert.anchoredPosition = new Vector2(inGame ? BTN_HALF : 0f, BOTTOM_Y);
     }
 
     public void CloseMenu()
@@ -763,23 +766,61 @@ public class SettingsMenuUI : MonoBehaviour
     private GameObject _gearButton;       // 로비용 톱니바퀴 버튼
     private int _currentTab = 0;          // 0=조작, 1=음향
 
-    // === 음향 설정 패널과 통일한 다크 톤 팔레트 ===
-    private static readonly Color OptPanelBg   = new Color(0.18f, 0.18f, 0.22f, 0.98f); // 기존 SettingsPanel 색
-    private static readonly Color OptBorder    = new Color(0.42f, 0.45f, 0.54f, 1f);
-    private static readonly Color OptBtnFace   = new Color(0.26f, 0.28f, 0.34f, 1f);
-    private static readonly Color OptBtnSel    = new Color(0.30f, 0.55f, 0.66f, 1f);   // 선택 탭 강조(틸)
-    private static readonly Color OptText      = new Color(0.92f, 0.94f, 0.98f, 1f);
-    private static readonly Color OptHeader    = new Color(0.80f, 0.86f, 0.96f, 1f);
-    private static readonly Color OptHint      = new Color(0.62f, 0.66f, 0.74f, 1f);
-    private static readonly Color OptRespawn   = new Color(0.26f, 0.46f, 0.40f, 1f);   // 다시하기(뮤트 그린)
-    private static readonly Color OptExit      = new Color(0.50f, 0.28f, 0.30f, 1f);   // 나가기(뮤트 레드)
+    // === 레트로 픽셀아트 팔레트 (GPT 스펙) ===
+    private static Color Hex(int r, int g, int b) => new Color32((byte)r, (byte)g, (byte)b, 0xFF);
+    private static readonly Color OptPanelBg   = Hex(0x30, 0x31, 0x3C);   // 배경
+    private static readonly Color OptOutline   = Hex(0x2F, 0x1C, 0x16);   // 어두운 외곽선(검정 대신)
+    private static readonly Color OptBorder    = Hex(0x6A, 0x47, 0x2A);   // 갈색 테두리
+    private static readonly Color OptBtnFace   = Hex(0x48, 0x4C, 0x5C);   // 기본 버튼
+    private static readonly Color OptBtnSel    = Hex(0x4F, 0x91, 0xAD);   // 선택(틸)
+    private static readonly Color OptGold      = Hex(0xFA, 0xD1, 0x6A);   // 메인 골드(강조)
+    private static readonly Color OptGoldHi    = Hex(0xFF, 0xE6, 0xA0);   // 하이라이트 골드
+    private static readonly Color OptText      = Hex(0xE8, 0xE4, 0xD8);   // 메인 텍스트
+    private static readonly Color OptHeader    = Hex(0xE8, 0xE4, 0xD8);
+    private static readonly Color OptHint      = Hex(0xA9, 0xAA, 0xB5);   // 보조 텍스트
+    private static readonly Color OptDivider   = Hex(0x55, 0x55, 0x63);   // 구분선
+    private static readonly Color OptKeycapBg  = Hex(0x48, 0x4C, 0x5C);   // 키캡 배경
+    private static readonly Color OptKeycapBd  = Hex(0x6A, 0x6B, 0x78);   // 키캡 밝은 테두리
+    private static readonly Color OptRespawn   = Hex(0x48, 0x4C, 0x5C);   // 통일(기본 버튼 톤)
+    private static readonly Color OptExit      = Hex(0x48, 0x4C, 0x5C);   // 통일(기본 버튼 톤)
 
-    // 평면 다크 버튼 스타일 (우드 대신 음향 패널 톤에 맞춤)
+    // === 공통 레이아웃 그리드 (모든 요소를 하나의 그리드에 정렬) ===
+    // 창을 약 12% 축소하고, 탭↔콘텐츠 간격을 줄여 하나의 그룹처럼 보이게 함.
+    private const float FRAME_W = 852f;   // 옵션창(바깥 외곽선) 너비  (968 → -12%)
+    private const float FRAME_H = 588f;   // 옵션창(바깥 외곽선) 높이  (668 → -12%)
+    private const float COL_X   = 126f;   // 오른쪽 콘텐츠 영역 중심 X (프레임 기준)
+    private const float COL_Y   = 5f;     // 콘텐츠 수직 중심 Y
+    private const float COL_W   = 500f;   // 콘텐츠 영역 너비
+    private const float COL_H   = 420f;   // 콘텐츠 영역 높이
+    private const float IN_L    = -228f;  // 콘텐츠 내부 좌측 X (패널 중심 기준)
+    private const float IN_R    = 228f;    // 콘텐츠 내부 우측 X
+    private const float IN_W    = 456f;    // 콘텐츠 내부 너비
+    private const float TAB_X   = -290f;   // 탭 열 중심 X (콘텐츠에 더 가깝게)
+    private const float TAB_W   = 130f;    // 탭 너비
+    private const float TAB_H   = 48f;     // 탭 높이
+    private const float TAB_GAP = 12f;     // 탭 간 간격
+    private const float BOTTOM_Y = -237f;  // 하단 버튼 중심 Y
+    private const float BTN_W   = 220f;    // 하단 버튼 너비
+    private const float BTN_H   = 52f;     // 하단 버튼 높이
+    private const float BTN_HALF = 120f;   // 하단 버튼 좌우 배치 오프셋(=너비/2+10)
+
+    // 그래픽에 어두운 픽셀 외곽선(#2F1C16)을 입힌다. 검정 대신 사용.
+    private void AddPixelOutline(Graphic g, float dist)
+    {
+        if (g == null) return;
+        var o = g.GetComponent<UnityEngine.UI.Outline>();
+        if (o == null) o = g.gameObject.AddComponent<UnityEngine.UI.Outline>();
+        o.effectColor = OptOutline;
+        o.effectDistance = new Vector2(dist, -dist);
+        o.useGraphicAlpha = false;
+    }
+
+    // 평면 픽셀 버튼 스타일 (각진 모서리 + 어두운 외곽선, 둥근모서리/그림자 없음)
     private void StyleFlatButton(Button btn, Color face, string label, int fontSize)
     {
         if (btn == null) return;
         var img = btn.GetComponent<Image>();
-        if (img != null) { img.sprite = null; img.color = face; }
+        if (img != null) { img.sprite = null; img.type = Image.Type.Simple; img.color = face; AddPixelOutline(img, 3f); }
 
         var t = btn.GetComponentInChildren<Text>();
         if (t == null)
@@ -819,73 +860,101 @@ public class SettingsMenuUI : MonoBehaviour
         if (resumeButton != null) resumeButton.gameObject.SetActive(false);
         if (exitButton != null) exitButton.gameObject.SetActive(false);
 
-        // === 통합 프레임 (테두리 + 다크 배경, 음향 패널 톤) ===
+        // === 3중 픽셀 프레임: 어두운 외곽선 → 갈색 테두리 → 배경 ===
         var border = new GameObject("OptionsFrameBorder", typeof(RectTransform), typeof(Image));
         border.transform.SetParent(parent, false);
         var bRt = border.GetComponent<RectTransform>();
         bRt.anchorMin = bRt.anchorMax = new Vector2(0.5f, 0.5f);
         bRt.pivot = new Vector2(0.5f, 0.5f);
         bRt.anchoredPosition = Vector2.zero;
-        bRt.sizeDelta = new Vector2(968f, 668f);
-        border.GetComponent<Image>().color = OptBorder;
+        bRt.sizeDelta = new Vector2(FRAME_W, FRAME_H);
+        border.GetComponent<Image>().color = OptOutline;       // 바깥 어두운 외곽선
         border.transform.SetAsFirstSibling(); // 오디오 컨트롤/기타 요소보다 뒤
 
+        var brown = new GameObject("OptionsFrameBrown", typeof(RectTransform), typeof(Image));
+        brown.transform.SetParent(border.transform, false);
+        var brRt = brown.GetComponent<RectTransform>();
+        brRt.anchorMin = Vector2.zero; brRt.anchorMax = Vector2.one;
+        brRt.offsetMin = new Vector2(5f, 5f); brRt.offsetMax = new Vector2(-5f, -5f);
+        brown.GetComponent<Image>().color = OptBorder;         // 갈색 테두리
+
         var frame = new GameObject("OptionsFrame", typeof(RectTransform), typeof(Image));
-        frame.transform.SetParent(border.transform, false);
+        frame.transform.SetParent(brown.transform, false);
         var fRt = frame.GetComponent<RectTransform>();
         fRt.anchorMin = Vector2.zero; fRt.anchorMax = Vector2.one;
-        fRt.offsetMin = new Vector2(4f, 4f); fRt.offsetMax = new Vector2(-4f, -4f);
-        frame.GetComponent<Image>().color = OptPanelBg;
+        fRt.offsetMin = new Vector2(6f, 6f); fRt.offsetMax = new Vector2(-6f, -6f);
+        frame.GetComponent<Image>().color = OptPanelBg;        // 안쪽 배경
         Transform F = frame.transform;
 
-        // 타이틀
-        AddFixedLabel(F, "옵션", 34, OptHeader, new Vector2(0.5f, 1f), new Vector2(0f, -26f), new Vector2(500f, 50f));
+        // 타이틀 (골드 강조 + 어두운 외곽선) — 중앙 상단
+        var titleT = AddFixedLabel(F, "옵션", 32, OptGold, new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(160f, 42f));
+        AddPixelOutline(titleT, 2f);
+        // 제목 양옆 구분선: 글자 뒤를 가로지르지 않도록 좌/우로 끊어서 배치 (──── 옵션 ────)
+        MakeTitleDivider(F, -229f, 262f, -41f); // 왼쪽 세그먼트
+        MakeTitleDivider(F,  229f, 262f, -41f); // 오른쪽 세그먼트
 
-        // 좌측 탭 버튼
-        _tabBtnControls = MakeTabButton(F, "조작", 32f);
+        // 좌측 탭 버튼: 동일 X·너비·높이, 콘텐츠 수직 중심(COL_Y)에 맞춰 세로 중앙 정렬
+        float tabTopY = COL_Y + (TAB_H + TAB_GAP) / 2f;
+        float tabBotY = COL_Y - (TAB_H + TAB_GAP) / 2f;
+        _tabBtnControls = MakeTabButton(F, "조작", tabTopY);
         _tabBtnControls.onClick.AddListener(() => SelectTab(0));
-        _tabBtnAudio = MakeTabButton(F, "음향", -30f);
+        _tabBtnAudio = MakeTabButton(F, "음향", tabBotY);
         _tabBtnAudio.onClick.AddListener(() => SelectTab(1));
 
-        // 음향 탭 내용 = 기존 SettingsPanel: 프레임 안으로 위치 이동 + 자체 배경/제목 숨김
+        // 음향 탭 내용 = 기존 SettingsPanel: 콘텐츠 영역(COL)과 동일한 위치·크기로 정렬
         if (_audioPanel != null)
         {
             var apRt = _audioPanel.GetComponent<RectTransform>();
-            apRt.anchoredPosition = new Vector2(110f, -4f);
+            apRt.anchorMin = apRt.anchorMax = new Vector2(0.5f, 0.5f);
+            apRt.pivot = new Vector2(0.5f, 0.5f);
+            apRt.anchoredPosition = new Vector2(COL_X, COL_Y);
+            apRt.sizeDelta = new Vector2(COL_W, COL_H);
             var apImg = _audioPanel.GetComponent<Image>();
             if (apImg != null) apImg.enabled = false; // 통합 프레임 배경이 대신 보이도록
             foreach (var tmp in _audioPanel.GetComponentsInChildren<TMPro.TMP_Text>(true))
                 if (tmp.text != null && tmp.text.Contains("Settings")) { tmp.gameObject.SetActive(false); break; }
+
+            StyleAudioControls();  // 색/스타일 픽셀 팔레트 통일
+            LayoutAudioControls(); // 위치·간격을 공통 그리드로 정렬
         }
 
-        // 조작 탭 내용 패널 (음향 패널과 같은 영역, 배경 투명 → 프레임 배경 사용)
+        // 조작 탭 내용 패널: 음향 패널과 완전히 동일한 위치·크기
         _controlsPanel = new GameObject("ControlsPanel", typeof(RectTransform), typeof(Image));
         _controlsPanel.transform.SetParent(F, false);
         var cRt = _controlsPanel.GetComponent<RectTransform>();
         cRt.anchorMin = cRt.anchorMax = new Vector2(0.5f, 0.5f);
         cRt.pivot = new Vector2(0.5f, 0.5f);
-        cRt.anchoredPosition = new Vector2(110f, 0f);
-        cRt.sizeDelta = new Vector2(560f, 340f);
-        _controlsPanel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+        cRt.anchoredPosition = new Vector2(COL_X, COL_Y);
+        cRt.sizeDelta = new Vector2(COL_W, COL_H);
+        var cImg = _controlsPanel.GetComponent<Image>();
+        cImg.color = new Color(0f, 0f, 0f, 0f); cImg.raycastTarget = false;
+        Transform CP = _controlsPanel.transform;
 
-        float y = -8f;
-        AddLabelRow(_controlsPanel.transform, "스킬 단축키", 22, OptHeader, ref y, 36f);
+        // "스킬 단축키" 제목 — 콘텐츠 영역 정중앙 (콘텐츠를 세로 중앙에 모아 빈 공간 최소화)
+        AddGridLabel(CP, "스킬 단축키", 22, OptHeader, 0.5f, 0f, -62f, IN_W, 32f, TextAnchor.MiddleCenter);
+
+        // 스킬 1~3: 라벨(좌측 동일 X) + 키캡(우측 동일 X·동일 크기) + 균일 간격 + 구분선
+        const float rowH = 44f, pitch = 52f, firstRowY = -108f;
         for (int slot = 1; slot <= SkillKeybinds.MaxSlot; slot++)
         {
             int s = slot;
-            var btn = AddButtonRow(_controlsPanel.transform, $"스킬 {s}:  {SkillKeybinds.GetLabel(s)}", ref y, OptBtnFace, 54f);
-            _rebindKeyLabels[s] = btn.GetComponentInChildren<Text>();
-            btn.onClick.AddListener(() => { _awaitingRebindSlot = s; RefreshRebindLabels(); });
+            float ry = firstRowY - (s - 1) * pitch;
+            var cap = AddKeybindRow(CP, s, ry, rowH, s < SkillKeybinds.MaxSlot);
+            _rebindKeyLabels[s] = cap.GetComponentInChildren<Text>();
+            cap.onClick.AddListener(() => { _awaitingRebindSlot = s; RefreshRebindLabels(); });
         }
-        var resetBtn = AddButtonRow(_controlsPanel.transform, "기본값으로", ref y, OptBtnFace, 46f);
-        resetBtn.onClick.AddListener(() => { SkillKeybinds.ResetToDefaults(); _awaitingRebindSlot = 0; RefreshRebindLabels(); });
-        _rebindHintText = AddLabelRow(_controlsPanel.transform, "버튼을 누른 뒤 새 키를 입력하세요", 15, OptHint, ref y, 40f);
 
-        // 하단 액션 바: 다시하기(인게임 전용) + 나가기/닫기
-        var respawnBtn = MakeBottomButton(F, "다시하기", -140f, OptRespawn);
+        // 기본값 버튼: 축소 + 중앙 정렬
+        var resetBtn = MakeGridButton(CP, "기본값으로", 0f, -276f, 300f, 42f, OptBtnFace, 20);
+        resetBtn.onClick.AddListener(() => { SkillKeybinds.ResetToDefaults(); _awaitingRebindSlot = 0; RefreshRebindLabels(); });
+
+        _rebindHintText = AddGridLabel(CP, "키캡을 누른 뒤 새 키를 입력하세요", 15, OptHint, 0.5f, 0f, -332f, IN_W, 26f, TextAnchor.MiddleCenter);
+
+        // 하단 액션 바: 다시하기(인게임 전용) + 나가기/닫기 (두 탭에서 동일 위치·크기)
+        var respawnBtn = MakeBottomButton(F, "다시하기", -BTN_HALF, OptRespawn);
         respawnBtn.onClick.AddListener(() => { if (PlayerMovement.RequestLocalRespawn()) CloseMenu(); });
         _respawnRow = respawnBtn.gameObject;
-        _exitBtn2 = MakeBottomButton(F, "나가기", 140f, OptExit);
+        _exitBtn2 = MakeBottomButton(F, "나가기", BTN_HALF, OptExit);
 
         _gameplayUIBuilt = true;
         SelectTab(0);
@@ -897,11 +966,20 @@ public class SettingsMenuUI : MonoBehaviour
         _awaitingRebindSlot = 0;
         if (_controlsPanel != null) _controlsPanel.SetActive(tab == 0);
         if (_audioPanel != null) _audioPanel.SetActive(tab == 1);
-        if (_tabBtnControls != null)
-            StyleFlatButton(_tabBtnControls, tab == 0 ? OptBtnSel : OptBtnFace, "조작", 24);
-        if (_tabBtnAudio != null)
-            StyleFlatButton(_tabBtnAudio, tab == 1 ? OptBtnSel : OptBtnFace, "음향", 24);
+        StyleTab(_tabBtnControls, tab == 0, "조작");
+        StyleTab(_tabBtnAudio, tab == 1, "음향");
         RefreshRebindLabels();
+    }
+
+    // 선택 탭은 틸 배경 + 골드 하이라이트 텍스트 + 왼쪽 골드 픽셀 마커.
+    private void StyleTab(Button btn, bool selected, string label)
+    {
+        if (btn == null) return;
+        StyleFlatButton(btn, selected ? OptBtnSel : OptBtnFace, label, 24);
+        var t = btn.GetComponentInChildren<Text>();
+        if (t != null) t.color = selected ? OptGoldHi : OptText;
+        var m = btn.transform.Find("SelMarker");
+        if (m != null) m.gameObject.SetActive(selected);
     }
 
     private Button MakeTabButton(Transform parent, string label, float y)
@@ -912,10 +990,22 @@ public class SettingsMenuUI : MonoBehaviour
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = new Vector2(-360f, y);
-        rt.sizeDelta = new Vector2(140f, 50f);
+        rt.anchoredPosition = new Vector2(TAB_X, y);
+        rt.sizeDelta = new Vector2(TAB_W, TAB_H);
         var btn = go.GetComponent<Button>();
         StyleFlatButton(btn, OptBtnFace, label, 20);
+
+        // 선택 표시용 골드 픽셀 마커(왼쪽 세로 바) — 평소엔 숨김
+        var marker = new GameObject("SelMarker", typeof(RectTransform), typeof(Image));
+        marker.transform.SetParent(go.transform, false);
+        var mrt = marker.GetComponent<RectTransform>();
+        mrt.anchorMin = new Vector2(0f, 0.5f); mrt.anchorMax = new Vector2(0f, 0.5f);
+        mrt.pivot = new Vector2(0f, 0.5f);
+        mrt.anchoredPosition = new Vector2(7f, 0f);
+        mrt.sizeDelta = new Vector2(8f, 26f);
+        var mimg = marker.GetComponent<Image>();
+        mimg.color = OptGold; mimg.raycastTarget = false;
+        marker.SetActive(false);
         return btn;
     }
 
@@ -927,10 +1017,42 @@ public class SettingsMenuUI : MonoBehaviour
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = new Vector2(x, -292f);
-        rt.sizeDelta = new Vector2(240f, 60f);
+        rt.anchoredPosition = new Vector2(x, BOTTOM_Y);
+        rt.sizeDelta = new Vector2(BTN_W, BTN_H);
         var btn = go.GetComponent<Button>();
         StyleFlatButton(btn, face, label, 24);
+        return btn;
+    }
+
+    // 콘텐츠 그리드용 라벨 (anchor는 콘텐츠 상단 중앙 고정, pivotX로 좌/중/우 정렬)
+    private Text AddGridLabel(Transform parent, string text, int fontSize, Color color,
+                             float pivotX, float x, float y, float w, float h, TextAnchor align)
+    {
+        var go = new GameObject("Label", typeof(RectTransform), typeof(Text));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);
+        rt.pivot = new Vector2(pivotX, 1f);
+        rt.anchoredPosition = new Vector2(x, y);
+        rt.sizeDelta = new Vector2(w, h);
+        var t = go.GetComponent<Text>();
+        t.font = LobbyUITheme.PlainFont; t.fontSize = fontSize;
+        t.alignment = align; t.color = color; t.text = text; t.raycastTarget = false;
+        return t;
+    }
+
+    // 콘텐츠 그리드용 버튼 (anchor는 콘텐츠 상단 중앙 고정)
+    private Button MakeGridButton(Transform parent, string label, float x, float y, float w, float h, Color face, int fontSize)
+    {
+        var go = new GameObject("Btn_" + label, typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(x, y);
+        rt.sizeDelta = new Vector2(w, h);
+        var btn = go.GetComponent<Button>();
+        StyleFlatButton(btn, face, label, fontSize);
         return btn;
     }
 
@@ -958,16 +1080,34 @@ public class SettingsMenuUI : MonoBehaviour
         // 트로피(랭킹) 버튼과 같은 높이(y-40)·크기(92)로, 그 왼쪽에 배치
         rt.anchoredPosition = new Vector2(-150f, -40f); rt.sizeDelta = new Vector2(92f, 92f);
 
-        var img = go.GetComponent<Image>();
-        img.sprite = GetGearSprite();
-        img.preserveAspect = true;
-        img.color = LobbyUITheme.Gold; // 트로피와 같은 골드 톤 아이콘
+        // 갈색 버튼 배경(#6A472A) + 어두운 외곽선(#2F1C16)
+        var bg = go.GetComponent<Image>();
+        bg.sprite = null;
+        bg.color = new Color32(0x6A, 0x47, 0x2A, 0xFF);
+        var bgOutline = go.AddComponent<UnityEngine.UI.Outline>();
+        bgOutline.effectColor = new Color32(0x2F, 0x1C, 0x16, 0xFF);
+        bgOutline.effectDistance = new Vector2(3f, -3f);
+
+        // 골드 아이콘(#FAD16A) + 외곽선(#2F1C16)
+        var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+        iconGo.transform.SetParent(go.transform, false);
+        var irt = iconGo.GetComponent<RectTransform>();
+        irt.anchorMin = new Vector2(0.14f, 0.14f); irt.anchorMax = new Vector2(0.86f, 0.86f);
+        irt.offsetMin = Vector2.zero; irt.offsetMax = Vector2.zero;
+        var iimg = iconGo.GetComponent<Image>();
+        var gearSp = Resources.Load<Sprite>("Title/skymon-settings");
+        iimg.sprite = gearSp != null ? gearSp : GetGearSprite();
+        iimg.preserveAspect = true;
+        iimg.color = new Color32(0xFA, 0xD1, 0x6A, 0xFF);
+        var iconOutline = iconGo.AddComponent<UnityEngine.UI.Outline>();
+        iconOutline.effectColor = new Color32(0x2F, 0x1C, 0x16, 0xFF);
+        iconOutline.effectDistance = new Vector2(2f, -2f);
 
         var btn = go.GetComponent<Button>();
-        btn.targetGraphic = img;
+        btn.targetGraphic = bg;
         var cb = btn.colors;
-        cb.highlightedColor = new Color(1.12f, 1.12f, 1.12f, 1f);
-        cb.pressedColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+        cb.highlightedColor = new Color(1.1f, 1.1f, 1.1f, 1f);
+        cb.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
         cb.fadeDuration = 0.05f;
         btn.colors = cb;
         btn.onClick.AddListener(OpenMenu);
@@ -1060,19 +1200,248 @@ public class SettingsMenuUI : MonoBehaviour
         return btn;
     }
 
+    // "스킬 N" 라벨 + 오른쪽 픽셀 키캡(클릭 시 리바인드) 한 줄. 반환 = 키캡 버튼.
+    // 한 줄(절대 y 기준): "스킬 N" 라벨(좌측 동일 X) + 픽셀 키캡(우측 동일 X·동일 크기) + (옵션) 전체폭 구분선
+    private Button AddKeybindRow(Transform parent, int slot, float rowY, float rowH, bool divider)
+    {
+        const float capW = 160f, capH = 38f;
+
+        // 왼쪽: 스킬 이름 — 콘텐츠 좌측(IN_L)에서 시작, 모든 행 동일 X
+        AddGridLabel(parent, $"스킬 {slot}", 20, OptText, 0f, IN_L, rowY, 150f, rowH, TextAnchor.MiddleLeft);
+
+        // 오른쪽: 픽셀 키캡 버튼 — 콘텐츠 우측(IN_R)에 맞춰 정렬, 행 안에서 수직 중앙
+        var cap = new GameObject("Keycap", typeof(RectTransform), typeof(Image), typeof(Button));
+        cap.transform.SetParent(parent, false);
+        var crt = cap.GetComponent<RectTransform>();
+        crt.anchorMin = crt.anchorMax = new Vector2(0.5f, 1f);
+        crt.pivot = new Vector2(1f, 1f);
+        crt.anchoredPosition = new Vector2(IN_R, rowY - (rowH - capH) / 2f);
+        crt.sizeDelta = new Vector2(capW, capH);
+        var capImg = cap.GetComponent<Image>();
+        capImg.sprite = null; capImg.type = Image.Type.Simple; capImg.color = OptKeycapBg;
+        AddPixelOutline(capImg, 3f);
+
+        var edge = new GameObject("Edge", typeof(RectTransform), typeof(Image));
+        edge.transform.SetParent(cap.transform, false);
+        var ert = edge.GetComponent<RectTransform>();
+        ert.anchorMin = Vector2.zero; ert.anchorMax = Vector2.one;
+        ert.offsetMin = new Vector2(2f, 2f); ert.offsetMax = new Vector2(-2f, -2f);
+        var ei = edge.GetComponent<Image>();
+        ei.color = OptKeycapBg; ei.raycastTarget = false;
+        var eiOut = edge.AddComponent<UnityEngine.UI.Outline>();
+        eiOut.effectColor = OptKeycapBd; eiOut.effectDistance = new Vector2(1f, -1f); eiOut.useGraphicAlpha = false;
+
+        var key = new GameObject("Key", typeof(RectTransform), typeof(Text));
+        key.transform.SetParent(cap.transform, false);
+        var krt = key.GetComponent<RectTransform>();
+        krt.anchorMin = Vector2.zero; krt.anchorMax = Vector2.one;
+        krt.offsetMin = Vector2.zero; krt.offsetMax = Vector2.zero;
+        var kt = key.GetComponent<Text>();
+        kt.font = LobbyUITheme.PlainFont; kt.fontSize = 20;
+        kt.alignment = TextAnchor.MiddleCenter; kt.color = OptText;
+        kt.raycastTarget = false;
+        kt.text = SkillKeybinds.GetLabel(slot);
+
+        var btn = cap.GetComponent<Button>();
+        btn.targetGraphic = capImg;
+
+        // 구분선: 모든 항목에서 동일 X·동일 폭(콘텐츠 전체 폭), 행 사이 정중앙
+        if (divider)
+        {
+            var dv = new GameObject("Divider", typeof(RectTransform), typeof(Image));
+            dv.transform.SetParent(parent, false);
+            var drt = dv.GetComponent<RectTransform>();
+            drt.anchorMin = drt.anchorMax = new Vector2(0.5f, 1f);
+            drt.pivot = new Vector2(0.5f, 1f);
+            drt.anchoredPosition = new Vector2(0f, rowY - rowH - 4f);
+            drt.sizeDelta = new Vector2(IN_W, 2f);
+            var dvi = dv.GetComponent<Image>();
+            dvi.color = OptDivider; dvi.raycastTarget = false;
+        }
+
+        return btn;
+    }
+
+    // 제목 양옆 구분선 세그먼트 (──── 옵션 ────). x=중심, w=너비, y=제목 세로 중심.
+    private void MakeTitleDivider(Transform parent, float x, float w, float y)
+    {
+        var go = new GameObject("TitleDivider", typeof(RectTransform), typeof(Image));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = new Vector2(x, y);
+        rt.sizeDelta = new Vector2(w, 2f);
+        var img = go.GetComponent<Image>();
+        img.color = OptDivider; img.raycastTarget = false;
+    }
+
     private void RefreshRebindLabels()
     {
         for (int slot = 1; slot <= SkillKeybinds.MaxSlot; slot++)
         {
             if (_rebindKeyLabels[slot] == null) continue;
             _rebindKeyLabels[slot].text = (_awaitingRebindSlot == slot)
-                ? $"스킬 {slot}:  [ 키 입력... ]"
-                : $"스킬 {slot}:  {SkillKeybinds.GetLabel(slot)}";
+                ? "[ ... ]"
+                : SkillKeybinds.GetLabel(slot);
+            _rebindKeyLabels[slot].color = (_awaitingRebindSlot == slot) ? OptGoldHi : OptText;
         }
         if (_rebindHintText != null)
             _rebindHintText.text = _awaitingRebindSlot > 0
                 ? "새 키를 누르세요 (ESC 취소)"
-                : "버튼을 누른 뒤 새 키를 입력하세요";
+                : "키캡을 누른 뒤 새 키를 입력하세요";
+    }
+
+    // === 음향 탭 컨트롤(프리팹 요소) 픽셀 팔레트로 통일 ===
+    private static readonly Color OptDropBg = Hex(0x20, 0x21, 0x2A); // 드롭다운 배경
+
+    private void PixelImage(Image img, Color c, float outline)
+    {
+        if (img == null) return;
+        img.sprite = null; img.type = Image.Type.Simple; img.color = c;
+        if (outline > 0f) AddPixelOutline(img, outline);
+    }
+
+    private void StyleAudioControls()
+    {
+        if (_audioPanel == null) return;
+
+        StyleSlider(masterVolumeSlider);
+        StyleSlider(micSensitivitySlider);
+        StyleDropdown(outputDeviceDropdown);
+        StyleDropdown(micDropdown);
+
+        // 마이크 입력 레벨 미터: 배경 + 틸(#4F91AD) 채움
+        var meterBg = _audioPanel.transform.Find("MicMeterBg");
+        if (meterBg != null) PixelImage(meterBg.GetComponent<Image>(), OptBtnFace, 2f);
+        if (micVolumeMeter != null) { micVolumeMeter.sprite = null; micVolumeMeter.color = OptBtnSel; }
+
+        // 구분선
+        var sep = _audioPanel.transform.Find("Separator");
+        if (sep != null) { var si = sep.GetComponent<Image>(); if (si != null) { si.sprite = null; si.color = OptDivider; } }
+
+        // 테스트 버튼 (TMP 텍스트라 StyleFlatButton 대신 직접 처리)
+        if (micTestButton != null)
+        {
+            PixelImage(micTestButton.GetComponent<Image>(), OptBtnFace, 3f);
+            var tt = micTestButton.GetComponentInChildren<TMPro.TMP_Text>();
+            if (tt != null) tt.color = OptText;
+        }
+    }
+
+    private void StyleSlider(Slider s)
+    {
+        if (s == null) return;
+        var bgTr = s.transform.Find("Background");
+        if (bgTr != null) PixelImage(bgTr.GetComponent<Image>(), OptBtnFace, 2f); // 비활성 트랙
+        var fill = s.fillRect != null ? s.fillRect.GetComponent<Image>() : null;
+        if (fill != null) { fill.sprite = null; fill.color = OptGold; }            // 활성 채움(골드)
+        var handle = s.handleRect != null ? s.handleRect.GetComponent<Image>() : null;
+        if (handle != null) { handle.sprite = null; handle.color = OptGoldHi; AddPixelOutline(handle, 2f); }
+    }
+
+    private void StyleDropdown(TMP_Dropdown d)
+    {
+        if (d == null) return;
+        var img = d.GetComponent<Image>();
+        if (img != null) { img.sprite = null; img.type = Image.Type.Simple; img.color = OptDropBg; AddPixelOutline(img, 2f); }
+        if (d.captionText != null) d.captionText.color = OptText;
+        var arrow = d.transform.Find("Arrow");
+        if (arrow != null) { var at = arrow.GetComponent<TMPro.TMP_Text>(); if (at != null) at.color = OptGold; }
+        var tmpl = d.template != null ? d.template.GetComponent<Image>() : null;
+        if (tmpl != null) { tmpl.sprite = null; tmpl.color = OptDropBg; }
+        if (d.itemText != null) d.itemText.color = OptText;
+    }
+
+    // === 음향 탭 컨트롤 위치·간격을 공통 그리드로 정렬 ===
+    // 그리드: 라벨열[IN_L..] / 컨트롤열[AUD_CTRL_X, 너비 AUD_CW] / 값열[AUD_VAL_X]
+    private const float AUD_LBL_W  = 118f;
+    private const float AUD_CTRL_X = -96f;    // 모든 슬라이더/미터 시작 X (동일)
+    private const float AUD_CW     = 246f;    // 슬라이더/미터 너비 (동일)
+    private const float AUD_SLH    = 20f;     // 슬라이더/미터 높이 (동일)
+    private const float AUD_VAL_X  = 164f;    // 수치(100%/79%) 및 테스트 버튼 시작 X (동일)
+    private const float AUD_VAL_W  = 64f;
+    private const float AUD_RLH    = 32f;     // 음향 행 라벨 높이 (슬라이더 수직 중앙용 기준)
+    private TMPro.TMP_Text _volumeLabel;
+
+    private void LayoutAudioControls()
+    {
+        if (_audioPanel == null) return;
+        Transform A = _audioPanel.transform;
+        float slOff = (AUD_RLH - AUD_SLH) / 2f; // 라벨 기준 슬라이더 수직 중앙 보정
+
+        // 섹션 헤더(체크박스 라벨): 동일 X(IN_L), 좌측 정렬 (세로 간격 압축)
+        SetRT(A.Find("OutputLabel"), 0f, IN_L, -61f, IN_W, 28f); AlignTMP(A.Find("OutputLabel"), TMPro.TextAlignmentOptions.MidlineLeft);
+        SetRT(A.Find("InputLabel"),  0f, IN_L, -201f, IN_W, 28f); AlignTMP(A.Find("InputLabel"), TMPro.TextAlignmentOptions.MidlineLeft);
+
+        // 드롭다운: 동일 X·동일 폭(콘텐츠 전체 폭)
+        SetRT(A.Find("OutputDeviceDropdown"), 0.5f, 0f, -97f, IN_W, 40f);
+        SetRT(A.Find("MicDropdown"),          0.5f, 0f, -237f, IN_W, 40f);
+
+        // 섹션 구분선: 드롭다운 좌우 범위와 정확히 일치
+        SetRT(A.Find("Separator"), 0.5f, 0f, -189f, IN_W, 2f);
+
+        // 음량 행: (음량 라벨) + 슬라이더(AUD_CTRL_X) + 값(AUD_VAL_X)
+        EnsureVolumeLabel();
+        SetRT(_volumeLabel != null ? _volumeLabel.transform : null, 0f, IN_L, -147f, AUD_LBL_W, AUD_RLH);
+        SetRT(masterVolumeSlider != null ? masterVolumeSlider.transform : null, 0f, AUD_CTRL_X, -147f - slOff, AUD_CW, AUD_SLH);
+        SetRT(A.Find("VolumeValueText"), 0f, AUD_VAL_X, -147f, AUD_VAL_W, AUD_RLH); AlignTMP(A.Find("VolumeValueText"), TMPro.TextAlignmentOptions.MidlineLeft);
+
+        // 마이크 감도 행
+        SetRT(A.Find("MicSensLabel"), 0f, IN_L, -287f, AUD_LBL_W, AUD_RLH); AlignTMP(A.Find("MicSensLabel"), TMPro.TextAlignmentOptions.MidlineLeft);
+        SetRT(micSensitivitySlider != null ? micSensitivitySlider.transform : null, 0f, AUD_CTRL_X, -287f - slOff, AUD_CW, AUD_SLH);
+        SetRT(A.Find("MicSensValueText"), 0f, AUD_VAL_X, -287f, AUD_VAL_W, AUD_RLH); AlignTMP(A.Find("MicSensValueText"), TMPro.TextAlignmentOptions.MidlineLeft);
+
+        // 입력 레벨 행: 라벨 + 미터(동일 X·너비) + 테스트 버튼(값열과 동일 X)
+        SetRT(A.Find("MeterLabel"), 0f, IN_L, -327f, AUD_LBL_W, AUD_RLH); AlignTMP(A.Find("MeterLabel"), TMPro.TextAlignmentOptions.MidlineLeft);
+        var meterBg = A.Find("MicMeterBg");
+        SetRT(meterBg, 0f, AUD_CTRL_X, -327f - slOff, AUD_CW, AUD_SLH);
+        if (meterBg != null)
+        {
+            var fill = meterBg.Find("MicMeterFill");
+            if (fill != null)
+            {
+                var fr = fill.GetComponent<RectTransform>();
+                fr.anchorMin = Vector2.zero; fr.anchorMax = Vector2.one;
+                fr.offsetMin = Vector2.zero; fr.offsetMax = Vector2.zero;
+            }
+        }
+        if (micTestButton != null) SetRT(micTestButton.transform, 0f, AUD_VAL_X, -327f - (AUD_RLH - 28f) / 2f, AUD_VAL_W, 28f);
+    }
+
+    // RectTransform을 콘텐츠 상단 중앙(anchor) 기준으로 배치. pivotX로 좌(0)/중(0.5)/우(1) 정렬.
+    private void SetRT(Transform t, float pivotX, float x, float y, float w, float h)
+    {
+        if (t == null) return;
+        var rt = t as RectTransform ?? t.GetComponent<RectTransform>();
+        if (rt == null) return;
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);
+        rt.pivot = new Vector2(pivotX, 1f);
+        rt.anchoredPosition = new Vector2(x, y);
+        rt.sizeDelta = new Vector2(w, h);
+    }
+
+    private void AlignTMP(Transform t, TMPro.TextAlignmentOptions a)
+    {
+        if (t == null) return;
+        var tm = t.GetComponent<TMPro.TMP_Text>();
+        if (tm != null) tm.alignment = a;
+    }
+
+    // 음량 행 라벨("음량:")이 프리팹에 없으므로 그리드 정렬용으로 한 번 생성한다.
+    private void EnsureVolumeLabel()
+    {
+        if (_volumeLabel != null || _audioPanel == null) return;
+        var src = _audioPanel.transform.Find("MicSensLabel")?.GetComponent<TMPro.TMP_Text>();
+        var go = new GameObject("VolumeLabel", typeof(RectTransform));
+        go.transform.SetParent(_audioPanel.transform, false);
+        var t = go.AddComponent<TMPro.TextMeshProUGUI>();
+        if (src != null) { t.font = src.font; t.fontSize = src.fontSize; t.fontSharedMaterial = src.fontSharedMaterial; }
+        t.text = "음량:";
+        t.color = OptText;
+        t.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
+        t.raycastTarget = false;
+        _volumeLabel = t;
     }
 
     // 리바인딩 대기 중 눌린 키를 잡아 해당 슬롯에 배정한다.
