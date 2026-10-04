@@ -13,9 +13,21 @@ public class EndPoint : MonoBehaviour
 
     private bool isTriggered = false;
 
+    // 끝 지점에 한 번이라도 닿은 플레이어
+    private readonly System.Collections.Generic.HashSet<PlayerMovement> _reached = new System.Collections.Generic.HashSet<PlayerMovement>();
+
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (!other.CompareTag("Player") || isTriggered) return;
+
+        // 협동 규칙: 스테이지의 플레이어가 모두 도착해야 클리어. (혼자면 혼자 도착해도 된다)
+        var player = other.GetComponentInParent<PlayerMovement>();
+        if (player != null) _reached.Add(player);
+        if (!PlayerMovement.AllPlayersReached(_reached))
+        {
+            Debug.Log($"<color=cyan>[EndPoint]</color> {other.name} 도착. 다른 플레이어를 기다리는 중...");
+            return;
+        }
 
         var runner = FindFirstObjectByType<NetworkRunner>();
         var nt = NetworkTimer.Instance;
