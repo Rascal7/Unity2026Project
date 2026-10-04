@@ -680,7 +680,7 @@ public class TitleScreen : MonoBehaviour
         BuildPanel();
 
         // ---- 트로피(랭킹) 버튼 ----
-        MakeIconButton(_root.transform, "Title/trophy", new Vector2(1f, 1f), new Vector2(-40f, -40f), 92f, OnRanking);
+        MakeIconButton(_root.transform, "Title/skymon-trophy", new Vector2(1f, 1f), new Vector2(-40f, -40f), 92f, OnRanking);
         // 폰트 라이선스(BoldPixels, CC BY-SA 4.0) 표기는 README / 크레딧 화면에서 처리.
 
         SetGenFlagsRecursive(_root.transform);
@@ -921,14 +921,29 @@ public class TitleScreen : MonoBehaviour
         rt.sizeDelta = new Vector2(size, size);
         rt.anchoredPosition = pos;
 
-        var img = go.AddComponent<Image>();
+        // 갈색 버튼 배경(#6A472A) + 어두운 외곽선(#2F1C16)
+        var bg = go.AddComponent<Image>();
+        bg.color = new Color32(0x6A, 0x47, 0x2A, 0xFF);
+        var bgOutline = go.AddComponent<UnityEngine.UI.Outline>();
+        bgOutline.effectColor = new Color32(0x2F, 0x1C, 0x16, 0xFF);
+        bgOutline.effectDistance = new Vector2(3f, -3f);
+
+        // 골드 아이콘(#FAD16A) + 외곽선(#2F1C16)
+        var iconGo = NewChild("Icon", go.transform);
+        var irt = iconGo.GetComponent<RectTransform>();
+        irt.anchorMin = new Vector2(0.14f, 0.14f); irt.anchorMax = new Vector2(0.86f, 0.86f);
+        irt.offsetMin = Vector2.zero; irt.offsetMax = Vector2.zero;
+        var iimg = iconGo.AddComponent<Image>();
         var sprites = Resources.LoadAll<Sprite>(spritePath);
         Sprite sp = (sprites != null && sprites.Length > 0) ? sprites[0] : Resources.Load<Sprite>(spritePath);
-        if (sp != null) { img.sprite = sp; img.preserveAspect = true; }
-        else img.color = Gold;
+        iimg.color = new Color32(0xFA, 0xD1, 0x6A, 0xFF);
+        if (sp != null) { iimg.sprite = sp; iimg.preserveAspect = true; }
+        var iconOutline = iconGo.AddComponent<UnityEngine.UI.Outline>();
+        iconOutline.effectColor = new Color32(0x2F, 0x1C, 0x16, 0xFF);
+        iconOutline.effectDistance = new Vector2(2f, -2f);
 
         var btn = go.AddComponent<Button>();
-        btn.targetGraphic = img;
+        btn.targetGraphic = bg;
         var cb = btn.colors;
         cb.highlightedColor = new Color(1.12f, 1.12f, 1.12f, 1f);
         cb.pressedColor = new Color(0.8f, 0.8f, 0.8f, 1f);
