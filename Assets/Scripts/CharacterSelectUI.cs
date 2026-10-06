@@ -204,9 +204,9 @@ public class CharacterSelectUI : MonoBehaviour
             }
         }
 
-        // 3) 캐릭터 카드 (여우: 대쉬, 토끼: 슈퍼점프)
-        StyleCharacterCard("SlotsContainer/Card_Fox", 0, "여우 (FOXY)", "스킬: 대쉬 [Shift]", "Title/char1");
-        StyleCharacterCard("SlotsContainer/Card_Rabbit", 1, "토끼 (RABBIT)", "스킬: 슈퍼점프 [Shift]", "Title/char2");
+        // 3) 캐릭터 카드 (여우, 토끼)
+        StyleCharacterCard("SlotsContainer/Card_Fox", 0, "여우 (FOXY)", "Title/char1");
+        StyleCharacterCard("SlotsContainer/Card_Rabbit", 1, "토끼 (RABBIT)", "Title/char2");
 
         // 4) 레디 버튼 초기 스타일링
         if (readyButton != null)
@@ -215,7 +215,7 @@ public class CharacterSelectUI : MonoBehaviour
         }
     }
 
-    private void StyleCharacterCard(string path, int cardIndex, string defaultTitle, string defaultSkill, string spritePath)
+    private void StyleCharacterCard(string path, int cardIndex, string defaultTitle, string spritePath)
     {
         Transform cardTrans = transform.Find(path);
         if (cardTrans == null) return;
@@ -236,7 +236,17 @@ public class CharacterSelectUI : MonoBehaviour
             }
         }
 
-        // 캐릭터 아이콘 인셋 영역 스타일링
+        // 캐릭터 아이콘 인셋 영역 스타일링 및 세로 중앙 정렬
+        Transform iconBoxTrans = cardTrans.Find("IconBox");
+        if (iconBoxTrans != null)
+        {
+            var ibRt = iconBoxTrans.GetComponent<RectTransform>();
+            if (ibRt != null)
+            {
+                ibRt.anchoredPosition = new Vector2(0f, 10f);
+            }
+        }
+
         Transform iconTrans = cardTrans.Find("CharacterIcon") ?? cardTrans.Find("IconBox/CharacterIcon");
         if (iconTrans != null)
         {
@@ -252,15 +262,16 @@ public class CharacterSelectUI : MonoBehaviour
             }
         }
 
-        // 스킬 텍스트 (대쉬 / 슈퍼점프)
-        Transform skillTrans = cardTrans.Find("SkillText") ?? cardTrans.Find("SkillBox/SkillText");
+        // 스킬 박스 및 텍스트 비활성화/제거 (스킬명 표시 제거)
+        Transform skillBoxTrans = cardTrans.Find("SkillBox");
+        if (skillBoxTrans != null)
+        {
+            skillBoxTrans.gameObject.SetActive(false);
+        }
+        Transform skillTrans = cardTrans.Find("SkillText");
         if (skillTrans != null)
         {
-            var skillTmp = skillTrans.GetComponent<TextMeshProUGUI>();
-            if (skillTmp != null)
-            {
-                LobbyUITheme.StyleSubtitle(skillTmp, defaultSkill, 19f);
-            }
+            skillTrans.gameObject.SetActive(false);
         }
 
         // 선택 버튼 (텍스트 "선택하기" 확실하게 생성/부착)

@@ -383,6 +383,11 @@ public class TitleScreen : MonoBehaviour
 
         AddLabel(panel, "ROOM CODE", 28f, new Vector2(0f, 1f), 400f, TextAnchor.UpperLeft, Parch, _pixel, new Vector2(48f, -152f));
         _roomField = MakeInput(panel, new Vector2(48f, -184f), 624f, 74f, "HOST 시 자동 생성");
+        _roomField.onValueChanged.AddListener(val =>
+        {
+            string upper = val.ToUpperInvariant();
+            if (upper != val) _roomField.text = upper;
+        });
         _tabOrder = new UnityEngine.UI.Selectable[] { _roomField };
 
         _hostBtn = MakeButton(panel, new Vector2(48f, -282f), 300f, 104f, "HOST", Gold, GoldDeep, OnHost);

@@ -21,6 +21,10 @@ public class SaveSlotData
     public float checkpointY = 0f;
     public bool hasCheckpoint = false;    // 현재 스테이지에 저장된 체크포인트가 있는지
 
+    // 무결성 검증용 HMAC-SHA256 서명 (메모장 등 외부 변조 방지)
+    public string hash = "";
+    [NonSerialized] public bool isCorrupted = false; // 런타임 변조 감지 플래그
+
     public SaveSlotData() { }
 
     public SaveSlotData(int slot)
@@ -31,6 +35,8 @@ public class SaveSlotData
         stageDisplayName = "튜토리얼 (Tutorial)";
         updatedTime = "";
         totalPlayTime = 0f;
+        hash = "";
+        isCorrupted = false;
     }
 }
 
@@ -101,6 +107,54 @@ public static class SaveDataManager
         return Path.Combine(SaveDirectory, "current_slot.txt");
     }
 
+    // 세이브 데이터 위변조 방지용 내부 시크릿 솔트
+    private const string SaveSecretKey = "Unity2026_Platformer_GameSecurityKey_!@#$9876";
+
+    /// <summary>
+    /// 세이브 데이터 핵심 상태값에 대한 HMAC-SHA256 무결성 해시를 계산합니다.
+    /// </summary>
+    public static string ComputeHash(SaveSlotData data)
+    {
+        if (data == null) return string.Empty;
+        var sb = new System.Text.StringBuilder();
+        sb.Append(data.slotIndex).Append('|')
+          .Append(data.hasData).Append('|')
+          .Append(data.stageName ?? "").Append('|')
+          .Append(data.totalPlayTime.ToString("F3", System.Globalization.CultureInfo.InvariantCulture)).Append('|')
+          .Append(data.stageElapsed.ToString("F3", System.Globalization.CultureInfo.InvariantCulture)).Append('|')
+          .Append(data.checkpointX.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)).Append('|')
+          .Append(data.checkpointY.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)).Append('|')
+          .Append(data.hasCheckpoint);
+
+        if (data.segmentTimes != null && data.segmentTimes.Length > 0)
+        {
+            sb.Append('|');
+            for (int i = 0; i < data.segmentTimes.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(data.segmentTimes[i].ToString("F3", System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        return ComputeHMACSHA256(sb.ToString(), SaveSecretKey);
+    }
+
+    private static string ComputeHMACSHA256(string text, string key)
+    {
+        byte[] keyBytes = System.Text.Encoding.UTF8.GetBytes(key);
+        byte[] textBytes = System.Text.Encoding.UTF8.GetBytes(text);
+        using (var hmac = new System.Security.Cryptography.HMACSHA256(keyBytes))
+        {
+            byte[] hashBytes = hmac.ComputeHash(textBytes);
+            var sb = new System.Text.StringBuilder(hashBytes.Length * 2);
+            for (int i = 0; i < hashBytes.Length; i++)
+            {
+                sb.Append(hashBytes[i].ToString("x2"));
+            }
+            return sb.ToString();
+        }
+    }
+
     public static SaveSlotData GetSlot(int slotIndex)
     {
         slotIndex = Mathf.Clamp(slotIndex, 1, 5);
@@ -113,7 +167,11 @@ public static class SaveDataManager
             {
                 string json = File.ReadAllText(filePath, System.Text.Encoding.UTF8);
                 var data = JsonUtility.FromJson<SaveSlotData>(json);
-                if (data != null) return data;
+                if (data != null)
+                {
+                    ValidateSaveIntegrity(data, slotIndex);
+                    return data;
+                }
             }
             catch (Exception ex)
             {
@@ -131,7 +189,8 @@ public static class SaveDataManager
                 var data = JsonUtility.FromJson<SaveSlotData>(legacyJson);
                 if (data != null)
                 {
-                    // 파일로 저장하여 마이그레이션 완료
+                    ValidateSaveIntegrity(data, slotIndex);
+                    // 파일로 저장하여 마이그레이션 완료 (서명 포함)
                     SaveSlot(data);
                     PlayerPrefs.DeleteKey(legacyKey);
                     PlayerPrefs.Save();
@@ -145,10 +204,32 @@ public static class SaveDataManager
         return new SaveSlotData(slotIndex);
     }
 
+    private static void ValidateSaveIntegrity(SaveSlotData data, int slotIndex)
+    {
+        if (data == null || !data.hasData) return;
+
+        if (string.IsNullOrEmpty(data.hash))
+        {
+            // 기존 레거시 세이브 파일 (서명 없음): 서명 생성 및 자동 마이그레이션
+            Debug.Log($"<color=lime>[SaveSecurity]</color> 슬롯 {slotIndex} 기존 세이브 무결성 서명 자동 생성 및 갱신");
+            SaveSlot(data);
+        }
+        else
+        {
+            string expectedHash = ComputeHash(data);
+            if (!string.Equals(data.hash, expectedHash, StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.LogError($"<color=red>[SaveSecurity] 슬롯 {slotIndex} 세이브 데이터 위변조 감지! 무결성 검증 실패 (해시 불일치).</color>");
+                data.isCorrupted = true;
+                data.hasData = false;
+            }
+        }
+    }
+
     public static bool HasSlotData(int slotIndex)
     {
         var slot = GetSlot(slotIndex);
-        return slot != null && slot.hasData;
+        return slot != null && slot.hasData && !slot.isCorrupted;
     }
 
     public static SaveSlotData CreateNewGame(int slotIndex)
@@ -160,7 +241,8 @@ public static class SaveDataManager
             stageName = "TutorialStage",
             stageDisplayName = GetStageDisplayName("TutorialStage"),
             updatedTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
-            totalPlayTime = 0f
+            totalPlayTime = 0f,
+            isCorrupted = false
         };
 
         SaveSlot(data);
@@ -174,6 +256,9 @@ public static class SaveDataManager
         if (data == null) return;
         data.slotIndex = Mathf.Clamp(data.slotIndex, 1, 5);
         data.updatedTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+        data.isCorrupted = false;
+        // 데이터 저장 직전 무결성 해시 계산 및 서명
+        data.hash = ComputeHash(data);
 
         try
         {
@@ -189,7 +274,7 @@ public static class SaveDataManager
             PlayerPrefs.SetString(legacyKey, json);
             PlayerPrefs.Save();
 
-            Debug.Log($"<color=cyan>[SaveDataManager]</color> 슬롯 {data.slotIndex} 파일 저장 완료: {filePath}");
+            Debug.Log($"<color=cyan>[SaveDataManager]</color> 슬롯 {data.slotIndex} 파일 저장 완료 (서명: {data.hash.Substring(0, Mathf.Min(8, data.hash.Length))}...): {filePath}");
         }
         catch (Exception ex)
         {

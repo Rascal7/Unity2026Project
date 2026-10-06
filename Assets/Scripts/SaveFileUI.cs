@@ -528,7 +528,11 @@ public class SaveFileUI : MonoBehaviour
 
             if (row.slotInfoText != null)
             {
-                if (data != null && data.hasData)
+                if (data != null && data.isCorrupted)
+                {
+                    row.slotInfoText.text = "<color=#FF6B6B><b>[ 데이터 위변조 감지 (손상됨) ]</b></color>";
+                }
+                else if (data != null && data.hasData)
                 {
                     row.slotInfoText.text = $"<color=#FAD16B><b>{data.stageDisplayName}</b></color>   <color=#FAF2E3>{data.updatedTime}</color>";
                 }
@@ -540,7 +544,7 @@ public class SaveFileUI : MonoBehaviour
 
             if (row.deleteButton != null)
             {
-                row.deleteButton.gameObject.SetActive(data != null && data.hasData);
+                row.deleteButton.gameObject.SetActive(data != null && (data.hasData || data.isCorrupted));
             }
         }
     }
@@ -554,11 +558,18 @@ public class SaveFileUI : MonoBehaviour
             return;
         }
 
+        var slotData = SaveDataManager.GetSlot(slotIndex);
+        if (_currentAction == SlotActionType.LoadGame && slotData != null && slotData.isCorrupted)
+        {
+            ShowNoticeModal($"슬롯 {slotIndex}의 세이브 파일이 외부에서 위변조되었거나 손상되어 불러올 수 없습니다.\n새 게임으로 덮어쓰거나 삭제해 주세요.");
+            return;
+        }
+
         bool hasData = SaveDataManager.HasSlotData(slotIndex);
 
         if (_currentAction == SlotActionType.NewGame)
         {
-            if (hasData)
+            if (hasData || (slotData != null && slotData.isCorrupted))
             {
                 _pendingConfirmAction = () => ProceedNewGame(slotIndex);
                 ShowConfirmModal($"슬롯 {slotIndex}에 이미 저장된 데이터가 있습니다.\n덮어쓰고 새로 시작하시겠습니까?");
