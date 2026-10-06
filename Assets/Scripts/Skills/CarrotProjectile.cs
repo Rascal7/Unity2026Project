@@ -31,6 +31,10 @@ public class CarrotProjectile : NetworkBehaviour
     public float bigStickMultiplier = 1.5f;
     public string stuckLayerName = "Ground";
 
+    [Header("Visual")]
+    [Tooltip("큰 당근(파워업)일 때 쓰는 스프라이트. 비우면 기본 스프라이트를 그대로 키운다.")]
+    public Sprite bigSprite;
+
     [Header("Effects")]
     public Sprite[] launchFx;             // 던질 때 먼지
     public Sprite[] impactFx;             // 벽에 박힐 때 먼지
@@ -46,11 +50,13 @@ public class CarrotProjectile : NetworkBehaviour
     private int _flyLayer;
     private bool _prevStuck;
     private bool _launchDone;
+    private Sprite _baseSprite;
 
     public override void Spawned()
     {
         _col = GetComponent<Collider2D>();
         _sr = GetComponent<SpriteRenderer>();
+        if (_sr != null) _baseSprite = _sr.sprite;
         _stuckLayer = LayerMask.NameToLayer(stuckLayerName);
         if (_stuckLayer < 0) _stuckLayer = gameObject.layer;
         _flyLayer = gameObject.layer;
@@ -104,7 +110,12 @@ public class CarrotProjectile : NetworkBehaviour
     {
         ApplyStuckState();
         ApplyScale();
-        if (_sr != null) _sr.flipX = !FacingRight;
+        if (_sr != null)
+        {
+            _sr.flipX = !FacingRight;
+            Sprite want = (Scale > 1f && bigSprite != null) ? bigSprite : _baseSprite;
+            if (want != null && _sr.sprite != want) _sr.sprite = want;
+        }
 
         // 던지기 먼지 (등장 시 1회)
         if (!_launchDone)

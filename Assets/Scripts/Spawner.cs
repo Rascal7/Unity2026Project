@@ -174,7 +174,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         if (_resumeSpawnPos.HasValue)
         {
             Vector3 rp = _resumeSpawnPos.Value;
-            if (player.PlayerId % 2 == 0) rp.x += 1.5f;
+            rp.x += PlayerMovement.SpawnOffsetX(runner, player);
             NetworkObject rpf = (selectedIndex == 0) ? player1Prefab : player2Prefab;
             Debug.Log($"<color=green>[Spawn]</color> resume player {player} @ checkpoint");
             var resumed = runner.Spawn(rpf, rp, Quaternion.identity, player);
@@ -188,7 +188,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         {
             spawnPos = startPoint.transform.position;
             // ?�레?�어?�리 겹치지 ?�게 ?�짝 ?�동
-            if (player.PlayerId % 2 == 0) spawnPos.x += 1.5f;
+            spawnPos.x += PlayerMovement.SpawnOffsetX(runner, player);
         }
 
         NetworkObject prefabToSpawn = (selectedIndex == 0) ? player1Prefab : player2Prefab;

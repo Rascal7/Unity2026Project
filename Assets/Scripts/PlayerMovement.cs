@@ -697,11 +697,27 @@ public class PlayerMovement : NetworkBehaviour
         return true;
     }
 
+    /// <summary>
+    /// 플레이어끼리 같은 좌표에 겹쳐 나오면 콜라이더가 서로 밀어내며 지형에 낑긴다.
+    /// ActivePlayers 를 PlayerId 순으로 정렬한 순번만큼 x 로 벌린다 (ID 홀짝과 무관하게 항상 서로 다름).
+    /// </summary>
+    public const float SpawnSpacingX = 1.5f;
+
+    public static float SpawnOffsetX(NetworkRunner runner, PlayerRef player)
+    {
+        if (runner == null || !player.IsRealPlayer) return 0f;
+        int slot = 0;
+        foreach (var p in runner.ActivePlayers)
+            if (p.PlayerId < player.PlayerId) slot++;
+        return slot * SpawnSpacingX;
+    }
+
     private void Respawn()
     {
         Vector3 pos = CheckpointManager.hasCheckpoint
             ? CheckpointManager.lastCheckpointPosition
             : Vector3.zero;
+        pos.x += SpawnOffsetX(Runner, Object.InputAuthority);
         pos.z = 0f;
 
         // transform.position 직접 대입은 NetworkRigidbody2D 가 캡처하는 RBPosition 과

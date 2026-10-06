@@ -571,8 +571,13 @@ public class SkillCooldownHUD : MonoBehaviour
         {
             slot.iconImage.gameObject.SetActive(true);
             slot.iconImage.sprite = custom;
-            // 당근은 고유 컬러 유지, 그 외 흰색 벡터 아이콘은 골드/양피지 틴트 적용
-            if (skill == PlayerMovement.CharacterSkill.RabbitCarrot)
+            // 컬러 도트 아이콘(토끼 당근/도약/파워업, 여우 대시/킁킁/체인지)은 고유 컬러 유지, 그 외 흰색 벡터 아이콘은 골드 틴트 적용
+            if (skill == PlayerMovement.CharacterSkill.RabbitCarrot ||
+                skill == PlayerMovement.CharacterSkill.RabbitJump ||
+                skill == PlayerMovement.CharacterSkill.RabbitPowerUp ||
+                skill == PlayerMovement.CharacterSkill.FoxDash ||
+                skill == PlayerMovement.CharacterSkill.FoxSniff ||
+                skill == PlayerMovement.CharacterSkill.FoxSwap)
             {
                 slot.iconImage.color = Color.white;
             }
