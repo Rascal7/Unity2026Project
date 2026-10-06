@@ -41,6 +41,13 @@ public class RankingManager : MonoBehaviour
         return Instance;
     }
 
+    // 최소 물리적 유효 클리어 타임 (스테이지 1~3 전체 클리어 기준 물리적 최소치: 15초)
+    public const float MinValidClearTime = 15.0f;
+    public const float MaxValidClearTime = 86400.0f;
+
+    private static float _lastSubmitTimestamp = -999f;
+    private static float _lastSubmittedTimeVal = -1f;
+
     public void SaveScore(float time)
     {
         var names = ResolvePlayerNames();
@@ -50,10 +57,67 @@ public class RankingManager : MonoBehaviour
     // 특정 플레이어 닉네임을 직접 넘길 수 있는 오버로드
     public void SaveScore(float time, string p1, string p2)
     {
-        p1 = string.IsNullOrWhiteSpace(p1) ? "Player1" : p1.Trim();
-        p2 = string.IsNullOrWhiteSpace(p2) ? "Player2" : p2.Trim();
+        // 1. 수치 유효성 검사 (NaN, Infinity, 0 이하, 비현실적인 타임)
+        if (float.IsNaN(time) || float.IsInfinity(time) || time <= 0f)
+        {
+            Debug.LogWarning($"<color=red>[Ranking Security] 비정상적인 클리어 타임 값({time}) 등록 차단.</color>");
+            return;
+        }
+
+        if (time < MinValidClearTime)
+        {
+            Debug.LogWarning($"<color=red>[Ranking Security] 비정상적인 초고속 클리어 타임({time:F2}s < 최소 {MinValidClearTime}s) 감지. 랭킹 등록이 차단되었습니다.</color>");
+            return;
+        }
+
+        if (time > MaxValidClearTime)
+        {
+            Debug.LogWarning($"<color=red>[Ranking Security] 비정상적으로 긴 클리어 타임({time:F2}s) 등록 차단.</color>");
+            return;
+        }
+
+        // 2. 네트워크 권한 검사 (멀티플레이에서 호스트/서버만 전송 가능)
+        var runner = FindFirstObjectByType<Fusion.NetworkRunner>();
+        if (runner != null && runner.IsRunning && !runner.IsServer)
+        {
+            Debug.LogWarning("<color=red>[Ranking Security] 클라이언트 권한으로는 직접 랭킹을 등록할 수 없습니다. 호스트만 전송 가능합니다.</color>");
+            return;
+        }
+
+        // 3. 중복 전송 방지 (Debounce / Rate Limiting)
+        if (Time.unscaledTime - _lastSubmitTimestamp < 3.0f && Mathf.Approximately(_lastSubmittedTimeVal, time))
+        {
+            Debug.LogWarning($"<color=yellow>[Ranking Security] 중복 랭킹 전송 요청 무시 (최근 전송: {_lastSubmittedTimeVal:F2}s)</color>");
+            return;
+        }
+
+        _lastSubmitTimestamp = Time.unscaledTime;
+        _lastSubmittedTimeVal = time;
+
+        // 4. 플레이어 이름 검증 및 새니타이징
+        p1 = SanitizePlayerName(p1, "Player1");
+        p2 = SanitizePlayerName(p2, "Player2");
+
         Debug.Log($"<color=cyan>[Ranking]</color> 클리어 {time:F2}초 랭킹 등록 시도 ({p1} & {p2})");
         StartCoroutine(SaveAndEvaluateRoutine(p1, p2, time));
+    }
+
+    private static string SanitizePlayerName(string name, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return fallback;
+        name = name.Trim();
+        var sb = new System.Text.StringBuilder();
+        foreach (char c in name)
+        {
+            if (!char.IsControl(c) && c != '\"' && c != '\\')
+            {
+                sb.Append(c);
+            }
+        }
+        string result = sb.ToString().Trim();
+        if (string.IsNullOrEmpty(result)) return fallback;
+        if (result.Length > 12) result = result.Substring(0, 12);
+        return result;
     }
 
     // 씬의 PlayerNameTag에서 닉네임 수집

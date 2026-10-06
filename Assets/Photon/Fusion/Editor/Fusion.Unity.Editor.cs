@@ -1755,11 +1755,22 @@ namespace Fusion.Editor {
     }
 
     static void ShutdownRunners() {
+      var list = new System.Collections.Generic.List<NetworkRunner>();
       var runners = NetworkRunner.GetInstancesEnumerator();
 
       while (runners.MoveNext()) {
         if (runners.Current) {
-          runners.Current.Shutdown();
+          list.Add(runners.Current);
+        }
+      }
+
+      for (int i = 0; i < list.Count; ++i) {
+        if (list[i]) {
+          try {
+            list[i].Shutdown();
+          } catch {
+            // ignore exception during editor assembly reload
+          }
         }
       }
     }

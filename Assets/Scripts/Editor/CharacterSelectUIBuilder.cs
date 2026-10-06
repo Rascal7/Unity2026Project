@@ -107,24 +107,22 @@ public static class CharacterSelectUIBuilder
         slotsRect.anchoredPosition = new Vector2(0f, 20f);
         slotsRect.sizeDelta = new Vector2(1200f, 620f);
 
-        // 카드 1: 여우 (Fox) - 스킬: 대쉬 [Shift]
+        // 카드 1: 여우 (Fox)
         var foxCard = CreateCharacterCard(
             parent: slotsContainer.transform,
             name: "Card_Fox",
             posX: -340f,
             title: "여우 (FOXY)",
-            skill: "스킬: 대쉬 [Shift]",
             iconSprite: foxIcon,
             fontAsset: fontAsset
         );
 
-        // 카드 2: 토끼 (Rabbit) - 스킬: 슈퍼점프 [Shift]
+        // 카드 2: 토끼 (Rabbit)
         var rabbitCard = CreateCharacterCard(
             parent: slotsContainer.transform,
             name: "Card_Rabbit",
             posX: 340f,
             title: "토끼 (RABBIT)",
-            skill: "스킬: 슈퍼점프 [Shift]",
             iconSprite: rabbitIcon,
             fontAsset: fontAsset
         );
@@ -178,7 +176,6 @@ public static class CharacterSelectUIBuilder
         string name,
         float posX,
         string title,
-        string skill,
         Sprite iconSprite,
         TMP_FontAsset fontAsset)
     {
@@ -209,14 +206,14 @@ public static class CharacterSelectUIBuilder
         if (fontAsset != null) titleTmp.font = fontAsset;
         LobbyUITheme.StyleTitle(titleTmp, title, 32f);
 
-        // 3. 캐릭터 아이콘 인셋 영역
+        // 3. 캐릭터 아이콘 인셋 영역 (중앙 정렬)
         GameObject iconBoxGo = new GameObject("IconBox");
         iconBoxGo.transform.SetParent(cardGo.transform, false);
         RectTransform iconBoxRect = iconBoxGo.AddComponent<RectTransform>();
         iconBoxRect.anchorMin = new Vector2(0.5f, 0.5f);
         iconBoxRect.anchorMax = new Vector2(0.5f, 0.5f);
         iconBoxRect.pivot = new Vector2(0.5f, 0.5f);
-        iconBoxRect.anchoredPosition = new Vector2(0f, 45f);
+        iconBoxRect.anchoredPosition = new Vector2(0f, 10f);
         iconBoxRect.sizeDelta = new Vector2(240f, 240f);
         LobbyUITheme.StyleInsetBox(iconBoxGo, LobbyUITheme.FieldBg, LobbyUITheme.WoodDark, 4f);
 
@@ -235,29 +232,7 @@ public static class CharacterSelectUIBuilder
             iconImg.preserveAspect = true;
         }
 
-        // 4. 스킬 설명 텍스트
-        GameObject skillBoxGo = new GameObject("SkillBox");
-        skillBoxGo.transform.SetParent(cardGo.transform, false);
-        RectTransform skillBoxRect = skillBoxGo.AddComponent<RectTransform>();
-        skillBoxRect.anchorMin = new Vector2(0.5f, 0f);
-        skillBoxRect.anchorMax = new Vector2(0.5f, 0f);
-        skillBoxRect.pivot = new Vector2(0.5f, 0f);
-        skillBoxRect.anchoredPosition = new Vector2(0f, 115f);
-        skillBoxRect.sizeDelta = new Vector2(320f, 44f);
-        LobbyUITheme.StyleInsetBox(skillBoxGo, new Color(0.12f, 0.08f, 0.05f, 0.9f), LobbyUITheme.WoodLight, 2f);
-
-        GameObject skillGo = new GameObject("SkillText");
-        skillGo.transform.SetParent(skillBoxGo.transform, false);
-        RectTransform skillRect = skillGo.AddComponent<RectTransform>();
-        skillRect.anchorMin = Vector2.zero;
-        skillRect.anchorMax = Vector2.one;
-        skillRect.sizeDelta = Vector2.zero;
-
-        TextMeshProUGUI skillTmp = skillGo.AddComponent<TextMeshProUGUI>();
-        if (fontAsset != null) skillTmp.font = fontAsset;
-        LobbyUITheme.StyleSubtitle(skillTmp, skill, 19f);
-
-        // 5. 선택 버튼
+        // 4. 선택 버튼
         GameObject btnGo = new GameObject("SelectButton");
         btnGo.transform.SetParent(cardGo.transform, false);
         RectTransform btnRect = btnGo.AddComponent<RectTransform>();
@@ -270,7 +245,7 @@ public static class CharacterSelectUIBuilder
         Button selectBtn = btnGo.AddComponent<Button>();
         LobbyUITheme.StylePixelButton(selectBtn, LobbyUITheme.ButtonType.Stone, "선택하기", 24);
 
-        // 6. 선택 하이라이트 골드 테두리 (속이 빈 4면 테두리로 구성하여 카드 내부를 가리지 않음)
+        // 5. 선택 하이라이트 골드 테두리 (속이 빈 4면 테두리로 구성하여 카드 내부를 가리지 않음)
         GameObject outlineGo = new GameObject("HighlightOutline");
         outlineGo.transform.SetParent(cardGo.transform, false);
         LobbyUITheme.SetupHollowOutline(outlineGo, LobbyUITheme.Gold, 6f);

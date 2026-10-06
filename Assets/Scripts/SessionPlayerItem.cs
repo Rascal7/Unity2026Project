@@ -26,6 +26,20 @@ public class SessionPlayerItem : NetworkBehaviour
     {
         Debug.Log($"<color=cyan>[RPC 요청]</color> {Object.InputAuthority} 요청 인덱스: {index}");
 
+        // 보안 검사 1: 인덱스 유효 범위 (-1: 미선택, 0: 여우, 1: 토끼)
+        if (index < -1 || index > 1)
+        {
+            Debug.LogWarning($"<color=red>[Security] 유효하지 않은 캐릭터 인덱스({index}) 요청 차단 (요청자: {Object.InputAuthority})</color>");
+            return;
+        }
+
+        // 보안 검사 2: 준비 완료 상태에서는 캐릭터 변경 차단
+        if (IsReady)
+        {
+            Debug.LogWarning($"<color=yellow>[Security] 준비 완료 상태에서는 캐릭터를 변경할 수 없습니다. (요청자: {Object.InputAuthority})</color>");
+            return;
+        }
+
         // 중복 픽 방지 검사: 다른 플레이어가 이미 해당 인덱스를 선점했는지 확인
         var allItems = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
         foreach (var item in allItems)
@@ -44,6 +58,14 @@ public class SessionPlayerItem : NetworkBehaviour
     public void RPC_SetReady(NetworkBool ready)
     {
         Debug.Log($"<color=orange>[RPC 수신]</color> 플레이어 {Object.InputAuthority} 레디 상태: {ready}");
+
+        // 보안 검사: 캐릭터를 선택하지 않은 상태에서 준비 완료 요청 차단
+        if (ready && SelectedCharacterIndex < 0)
+        {
+            Debug.LogWarning($"<color=red>[Security] 캐릭터를 선택하지 않은 상태에서 준비 완료 요청 차단 (요청자: {Object.InputAuthority})</color>");
+            return;
+        }
+
         IsReady = ready;
 
         if (Runner.IsServer)
