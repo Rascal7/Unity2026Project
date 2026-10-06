@@ -204,9 +204,15 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     {
         var data = new NetworkInputData();
 
-        data.direction.x = Input.GetAxisRaw("Horizontal");
-        data.direction.y = Input.GetAxisRaw("Vertical");
-        data.isJumpPressed = Input.GetButton("Jump") || Input.GetKey(KeyCode.Space);
+        // 이동/점프: 설정 가능한 키 바인딩(기본 WASD+방향키, 점프 Space) 기반으로 디지털 입력 구성
+        float mx = 0f, my = 0f;
+        if (MovementKeybinds.Pressed(MovementKeybinds.Act.Right)) mx += 1f;
+        if (MovementKeybinds.Pressed(MovementKeybinds.Act.Left))  mx -= 1f;
+        if (MovementKeybinds.Pressed(MovementKeybinds.Act.Up))    my += 1f;
+        if (MovementKeybinds.Pressed(MovementKeybinds.Act.Down))  my -= 1f;
+        data.direction.x = mx;
+        data.direction.y = my;
+        data.isJumpPressed = MovementKeybinds.Pressed(MovementKeybinds.Act.Jump);
 
         // 스킬 슬롯 입력: 키보드(ESC 메뉴에서 재설정 가능, 기본 Shift/Ctrl/Alt) 또는 음성(키워드→슬롯)
         byte slot = 0;

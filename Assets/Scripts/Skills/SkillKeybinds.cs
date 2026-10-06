@@ -52,6 +52,17 @@ public static class SkillKeybinds
         OnChanged?.Invoke();
     }
 
+    /// <summary>해당 키를 이미 쓰고 있는 다른 슬롯 번호를 반환(exceptSlot 제외). 없으면 0.</summary>
+    public static int FindSlotUsing(KeyCode key, int exceptSlot)
+    {
+        for (int s = MinSlot; s <= MaxSlot; s++)
+        {
+            if (s == exceptSlot) continue;
+            if (GetSlotKey(s) == key) return s;
+        }
+        return 0;
+    }
+
     /// <summary>슬롯 키의 짧은 표시 라벨 (HUD 뱃지/설정 UI 공용).</summary>
     public static string GetLabel(int slot) => KeyLabel(GetSlotKey(slot));
 
@@ -69,6 +80,10 @@ public static class SkillKeybinds
             case KeyCode.Space: return "Space";
             case KeyCode.Return: return "Enter";
             case KeyCode.Tab: return "Tab";
+            case KeyCode.UpArrow: return "↑";
+            case KeyCode.DownArrow: return "↓";
+            case KeyCode.LeftArrow: return "←";
+            case KeyCode.RightArrow: return "→";
             case KeyCode.None: return "-";
         }
 
