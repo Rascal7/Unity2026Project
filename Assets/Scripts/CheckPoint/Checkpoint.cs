@@ -79,7 +79,7 @@ public class Checkpoint : MonoBehaviour
         if (runner != null && !runner.IsServer) return;
 
         float seg = nt.ElapsedTime;                        // 이 스테이지 구간 기록
-        RunManager.AddSegment(seg);
+        RunManager.AddSegment(seg, RunManager.CurrentStageNumber());
         float total = RunManager.AccumulatedTime;          // 앞 스테이지들 + 이 구간 = 합산
         nt.FinishRun(total);                               // Phase=Finished, FinalTime=합산 (전 피어 동기화)
 

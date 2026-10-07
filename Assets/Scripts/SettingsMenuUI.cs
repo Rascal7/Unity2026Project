@@ -62,6 +62,7 @@ public class SettingsMenuUI : MonoBehaviour
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        GameplayInputSuppressed = false; // 메뉴가 꺼지면 입력 차단도 해제(스턱 방지)
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -322,9 +323,14 @@ public class SettingsMenuUI : MonoBehaviour
         }
     }
 
+    // 옵션창이 열려 있는 동안 켜짐. Spawner 가 이 값을 보고 게임플레이 입력(이동/점프/스킬)을 막는다.
+    // (키 재설정 중 실제 스킬/이동이 발동되는 것을 방지)
+    public static bool GameplayInputSuppressed { get; private set; }
+
     public void OpenMenu()
     {
         _isOpen = true;
+        GameplayInputSuppressed = true;
 
         EnsureEventSystem();
         InitializeUIEvents();
@@ -400,6 +406,7 @@ public class SettingsMenuUI : MonoBehaviour
     public void CloseMenu()
     {
         _isOpen = false;
+        GameplayInputSuppressed = false;
         if (_dimOverlay != null) _dimOverlay.SetActive(false);
 
         // 1. menuPanel 비활성화
@@ -1834,25 +1841,23 @@ public class SettingsMenuUI : MonoBehaviour
             {
                 // 같은 키 → 그대로 확정
                 if (cur.get() == kc) { _awaitingBind = -1; RefreshBinds(); return; }
-                // 다른 바인딩에서 이미 사용 중이면 배정하지 않고 경고
+                // 다른 바인딩에서 이미 쓰고 있으면, 그 바인딩을 해제하고 이 키를 새로 적용(키 뺏기)
                 int dup = -1;
                 for (int j = 0; j < _binds.Count; j++)
                 {
                     if (j == _awaitingBind) continue;
                     if (_binds[j].get() == kc) { dup = j; break; }
                 }
-                if (dup >= 0)
-                {
-                    if (_rebindHintText != null)
-                    {
-                        _rebindHintText.text = $"이미 '{_binds[dup].name}'에 사용 중인 키입니다";
-                        _rebindHintText.color = OptGoldHi;
-                    }
-                    return;
-                }
+                string releasedName = dup >= 0 ? _binds[dup].name : null;
+                if (dup >= 0) _binds[dup].set(KeyCode.None); // 기존에 쓰던 키 초기화
                 cur.set(kc);
                 _awaitingBind = -1;
                 RefreshBinds();
+                if (releasedName != null && _rebindHintText != null)
+                {
+                    _rebindHintText.text = $"'{releasedName}' 키를 해제하고 적용했습니다";
+                    _rebindHintText.color = OptGoldHi;
+                }
                 return;
             }
         }

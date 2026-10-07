@@ -28,7 +28,9 @@ public class NetworkTimer : NetworkBehaviour
     // 최종 결과 애니메이션용: 스테이지별 구간 기록(초)을 네트워크로 전파 (양쪽 플레이어가 동일하게 표시)
     public const int MaxSegments = 12;
     [Networked, Capacity(MaxSegments)] public NetworkArray<float> SegmentTimes { get; }
+    [Networked, Capacity(MaxSegments)] public NetworkArray<int> SegmentStages { get; }
     [Networked] public int SegmentCount { get; private set; }
+    [Networked] public float RestoredBase { get; private set; } // 개별 내역 없는 이전 누적분(이어하기)
 
     public override void Spawned()
     {
@@ -120,11 +122,17 @@ public class NetworkTimer : NetworkBehaviour
         IsFinished = true;
         FinalTime = totalSeconds;  // 최종 스테이지: 합산 시간
 
-        // 스테이지별 구간 기록을 네트워크 배열에 담아 전파 (최종 결과 애니메이션에 사용)
+        // 스테이지별 구간 기록 + 스테이지 번호 + 이전 누적분을 네트워크로 전파 (최종 결과 애니메이션에 사용)
         var segs = RunManager.Segments;
+        var stgs = RunManager.SegmentStages;
         int n = Mathf.Min(segs.Count, MaxSegments);
-        for (int i = 0; i < n; i++) SegmentTimes.Set(i, segs[i]);
+        for (int i = 0; i < n; i++)
+        {
+            SegmentTimes.Set(i, segs[i]);
+            SegmentStages.Set(i, i < stgs.Count ? stgs[i] : (i + 1));
+        }
         SegmentCount = n;
+        RestoredBase = RunManager.RestoredBase;
 
         Phase = PhaseFinished;
     }

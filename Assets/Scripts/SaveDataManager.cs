@@ -14,6 +14,8 @@ public class SaveSlotData
 
     // 완료한 스테이지들의 개별 기록(초) 목록. 이어하기 후 최종 결과의 "스테이지별 나열"에 사용.
     public float[] segmentTimes = new float[0];
+    // 위 구간들의 스테이지 번호(병렬). 라벨을 실제 스테이지로 표기하기 위함.
+    public int[] segmentStages = new int[0];
 
     // Phase2: 현재 스테이지 중간 체크포인트 이어하기용
     public float stageElapsed = 0f;       // 마지막 체크포인트 시점의 현재 스테이지 경과시간
@@ -338,7 +340,8 @@ public static class SaveDataManager
         data.stageName = nextSceneName;
         data.stageDisplayName = GetStageDisplayName(nextSceneName);
         data.totalPlayTime = totalRunSeconds < 0f ? 0f : totalRunSeconds;
-        data.segmentTimes = RunManager.Segments.ToArray(); // 완료한 스테이지들의 개별 기록도 저장
+        data.segmentTimes = RunManager.Segments.ToArray();  // 완료한 스테이지들의 개별 기록
+        data.segmentStages = RunManager.SegmentStages.ToArray(); // 각 구간의 스테이지 번호
         // 새 스테이지 진입이므로 중간 체크포인트 정보는 초기화 (처음부터 시작)
         data.stageElapsed = 0f;
         data.hasCheckpoint = false;
@@ -360,7 +363,8 @@ public static class SaveDataManager
         data.stageName = stageName;
         data.stageDisplayName = GetStageDisplayName(stageName);
         data.totalPlayTime = accumulatedSeconds < 0f ? 0f : accumulatedSeconds;
-        data.segmentTimes = RunManager.Segments.ToArray(); // 완료한 이전 스테이지들의 개별 기록도 저장
+        data.segmentTimes = RunManager.Segments.ToArray();  // 완료한 이전 스테이지들의 개별 기록
+        data.segmentStages = RunManager.SegmentStages.ToArray(); // 각 구간의 스테이지 번호
         data.stageElapsed = stageElapsedSeconds < 0f ? 0f : stageElapsedSeconds;
         data.checkpointX = checkpointPos.x;
         data.checkpointY = checkpointPos.y;
