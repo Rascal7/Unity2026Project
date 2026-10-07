@@ -146,15 +146,17 @@ public class GameEndController : MonoBehaviour
         _nextBtn.SetActive(false);
         _lobbyBtn.SetActive(false);
 
-        // 스테이지별 구간 기록을 NetworkTimer(네트워크 배열)에서 읽어 애니메이션으로 나열 → 합산
+        // 스테이지별 구간 기록 + 스테이지 번호 + 이전 누적분을 NetworkTimer 에서 읽어 애니메이션으로 나열 → 합산
         var nt = NetworkTimer.Instance;
         int count = nt != null ? Mathf.Clamp(nt.SegmentCount, 0, NetworkTimer.MaxSegments) : 0;
         var times = new float[count];
-        for (int i = 0; i < count; i++) times[i] = nt.SegmentTimes.Get(i);
+        var stages = new int[count];
+        for (int i = 0; i < count; i++) { times[i] = nt.SegmentTimes.Get(i); stages[i] = nt.SegmentStages.Get(i); }
+        float restoredBase = nt != null ? nt.RestoredBase : 0f;
 
         if (_timeText != null) _timeText.gameObject.SetActive(false); // 최종은 _finalList 로 표시
         if (_finalAnim != null) StopCoroutine(_finalAnim);
-        _finalAnim = StartCoroutine(AnimateFinalResults(times, totalTime));
+        _finalAnim = StartCoroutine(AnimateFinalResults(times, stages, restoredBase, totalTime));
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -164,22 +166,31 @@ public class GameEndController : MonoBehaviour
         catch (Exception e) { Debug.LogException(e); }
     }
 
-    // 최종 결과 애니메이션: 스테이지별 기록을 하나씩 나열 → 구분선 → 합산(카운트업).
-    private IEnumerator AnimateFinalResults(float[] times, float total)
+    // 최종 결과 애니메이션: (이전 기록) + 스테이지별 기록을 하나씩 나열 → 구분선 → 합산(카운트업).
+    private IEnumerator AnimateFinalResults(float[] times, int[] stages, float restoredBase, float total)
     {
         SetHintAnchorY(0.14f);                 // 자동복귀 카운트다운 힌트는 아래로 내림
         _finalList.gameObject.SetActive(true);
         _finalList.text = "";
         string acc = "";
 
-        for (int i = 0; i < times.Length; i++)
+        // 개별 내역 없는 복원 누적분(이어하기)이 있으면 먼저 표시해 합산을 투명하게.
+        if (restoredBase > 0.05f)
         {
-            acc += (i + 1) + "스테이지        " + FormatTime(times[i]) + "\n";
+            acc += "이전 기록        " + FormatTime(restoredBase) + "\n";
             _finalList.text = acc;
             yield return new WaitForSecondsRealtime(0.45f);
         }
 
-        if (times.Length > 0)
+        for (int i = 0; i < times.Length; i++)
+        {
+            int sn = (stages != null && i < stages.Length && stages[i] > 0) ? stages[i] : (i + 1);
+            acc += sn + "스테이지        " + FormatTime(times[i]) + "\n";
+            _finalList.text = acc;
+            yield return new WaitForSecondsRealtime(0.45f);
+        }
+
+        if (times.Length > 0 || restoredBase > 0.05f)
         {
             acc += "──────────────\n";
             _finalList.text = acc;

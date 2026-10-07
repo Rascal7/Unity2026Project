@@ -41,7 +41,7 @@ public class EndPoint : MonoBehaviour
             isTriggered = true;
 
             float seg = nt.PauseForChoice();
-            RunManager.AddSegment(seg);
+            RunManager.AddSegment(seg, RunManager.CurrentStageNumber());
             RunManager.PendingNextScene = nextSceneName;
             // 스테이지 클리어 시점에 "다음 스테이지"로 진행 저장 (체크포인트 초기화).
             // -> [다음 스테이지]를 누르든 [로비로]를 누르든, 이어하기는 다음 스테이지 시작부터.

@@ -30,7 +30,7 @@ public class GoalPoint : MonoBehaviour
         if (runner != null && !runner.IsServer) return;
 
         float seg = nt.ElapsedTime;
-        RunManager.AddSegment(seg);                 // 마지막 구간도 기록에 추가 (최종 나열용)
+        RunManager.AddSegment(seg, RunManager.CurrentStageNumber()); // 마지막 구간도 스테이지 번호와 함께 기록
         float total = RunManager.AccumulatedTime;
         nt.FinishRun(total);
 
