@@ -204,6 +204,13 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     {
         var data = new NetworkInputData();
 
+        // 옵션창이 열려 있으면(키 재설정 포함) 게임플레이 입력을 막는다 → 재설정 중 스킬/이동 발동 방지
+        if (SettingsMenuUI.GameplayInputSuppressed)
+        {
+            input.Set(data); // 전부 0/None (이동·점프·스킬 없음)
+            return;
+        }
+
         // 이동/점프: 설정 가능한 키 바인딩(기본 WASD+방향키, 점프 Space) 기반으로 디지털 입력 구성
         float mx = 0f, my = 0f;
         if (MovementKeybinds.Pressed(MovementKeybinds.Act.Right)) mx += 1f;
