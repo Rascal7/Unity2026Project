@@ -271,6 +271,7 @@ public class GameEndController : MonoBehaviour
         _returning = true;
         Hide();
         RunManager.ResetRun();
+        CheckpointManager.ResetCheckpoint(); // 리스폰 지점(정적) 잔존 방지
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
