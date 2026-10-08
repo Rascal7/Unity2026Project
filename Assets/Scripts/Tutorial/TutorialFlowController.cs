@@ -42,8 +42,16 @@ public class TutorialFlowController : MonoBehaviour
     private Font _plain;   // Sunflower-Medium (한글)
     private GameObject _skipRoot;
     private GameObject _skipBtn;
-    private GameObject _guideRoot;              // 좌상단 조작 안내 패널
-    private Text _gMove, _gClimb, _gJump, _gSkill; // 실제 바인딩 키 표시(동적)
+
+    // ----- 조작 안내 패널(체크리스트 + 입력 피드백) -----
+    private GameObject _guideRoot;
+    private Image _ckMove, _ckJump;        // 체크박스(완료 시 골드)
+    private Text _lblMove, _lblJump;       // 설명 라벨
+    private Text _keyMove, _keyJump;       // 실제 바인딩 키(입력 시 반짝)
+    private Text _guideFooter;             // "이제 깃발로!" 안내
+    private bool _doneMove, _doneJump;     // 각 단계 완료 여부
+    private float _pulseMove, _pulseJump;  // 키 입력 반짝 타이머
+
     private GameObject _confirmRoot;
     private Text _titleText;
     private Text _bodyText;
@@ -104,6 +112,7 @@ public class TutorialFlowController : MonoBehaviour
         {
             EnsureSkipUI();
             EnsureGuideUI();
+            _doneMove = false; _doneJump = false; _pulseMove = 0f; _pulseJump = 0f;
             RefreshGuide();
             var ep = FindFirstObjectByType<EndPoint>();
             _targetScene = (ep != null && !string.IsNullOrEmpty(ep.nextSceneName)) ? ep.nextSceneName : defaultMainStage;
@@ -118,6 +127,57 @@ public class TutorialFlowController : MonoBehaviour
         {
             bool show = !_confirmShown && SceneManager.GetActiveScene().name == tutorialSceneName && LocalCanControlScene();
             if (_skipBtn.activeSelf != show) _skipBtn.SetActive(show);
+        }
+
+        UpdateGuide();
+    }
+
+    // 체크리스트 진행 + 입력 피드백(키 반짝) 갱신.
+    private void UpdateGuide()
+    {
+        if (_guideRoot == null || !_guideRoot.activeSelf || _keyMove == null) return;
+
+        // 입력 감지 (설정된 키 기준)
+        bool movePressed = MovementKeybinds.Pressed(MovementKeybinds.Act.Left) || MovementKeybinds.Pressed(MovementKeybinds.Act.Right);
+        bool jumpPressed = MovementKeybinds.Pressed(MovementKeybinds.Act.Jump);
+
+        if (movePressed)
+        {
+            _pulseMove = 0.25f;
+            if (!_doneMove) { _doneMove = true; _ckMove.color = Gold; _lblMove.color = Gold; }
+        }
+        if (jumpPressed)
+        {
+            _pulseJump = 0.25f;
+            if (!_doneJump) { _doneJump = true; _ckJump.color = Gold; _lblJump.color = Gold; }
+        }
+
+        PulseKey(_keyMove, ref _pulseMove);
+        PulseKey(_keyJump, ref _pulseJump);
+
+        if (_guideFooter != null)
+        {
+            bool allDone = _doneMove && _doneJump;
+            if (_guideFooter.gameObject.activeSelf != allDone) _guideFooter.gameObject.SetActive(allDone);
+        }
+    }
+
+    // 키 라벨이 눌린 순간 밝게 확대 → 서서히 원복.
+    private void PulseKey(Text key, ref float timer)
+    {
+        if (key == null) return;
+        if (timer > 0f)
+        {
+            timer -= Time.deltaTime;
+            float t = Mathf.Clamp01(timer / 0.25f);
+            key.color = Color.Lerp(Gold, Color.white, t);
+            float s = 1f + 0.22f * t;
+            key.rectTransform.localScale = new Vector3(s, s, 1f);
+        }
+        else
+        {
+            key.color = Gold;
+            key.rectTransform.localScale = Vector3.one;
         }
     }
 
@@ -259,7 +319,8 @@ public class TutorialFlowController : MonoBehaviour
         _skipRoot.SetActive(false);
     }
 
-    // 좌상단 조작 안내 패널: 현재 바인딩된 이동/오르기/점프/스킬 키를 표시 (키 재설정 시 자동 갱신).
+    // 좌상단 조작 안내 패널(체크리스트 + 입력 피드백): 좌우 이동 / 점프.
+    // 실제 바인딩 키를 표시하고, 키를 눌러 해보면 체크된다. 키 재설정 시 자동 갱신.
     private void EnsureGuideUI()
     {
         if (_guideRoot != null) return;
@@ -272,29 +333,40 @@ public class TutorialFlowController : MonoBehaviour
         var panel = NewChild("GuidePanel", _guideRoot.transform);
         var prt = panel.GetComponent<RectTransform>();
         prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(0f, 1f);
-        prt.sizeDelta = new Vector2(430f, 250f);
+        prt.sizeDelta = new Vector2(470f, 236f);
         prt.anchoredPosition = new Vector2(40f, -40f);
         var border = AddInset(panel.transform, "Border", 0f); border.color = WoodDark;
         var bevel  = AddInset(panel.transform, "Bevel", 4f);  bevel.color = WoodLight;
         var face   = AddInset(panel.transform, "Face", 8f);   face.color = new Color(0.15f, 0.11f, 0.07f, 0.94f);
         Transform P = face.transform;
 
-        GuideText(P, new Vector2(18f, -10f), new Vector2(394f, 40f), "조작", _plain, 30, Gold, TextAnchor.UpperLeft);
+        GuideText(P, new Vector2(18f, -8f), new Vector2(430f, 40f), "조작 안내", _plain, 30, Gold, TextAnchor.UpperLeft);
 
-        // 행: 이름(한글, 양피지) + 값(키, 픽셀 폰트 골드)
-        _gMove  = GuideRow(P, "이동",   -62f);
-        _gClimb = GuideRow(P, "오르기", -104f);
-        _gJump  = GuideRow(P, "점프",   -146f);
-        _gSkill = GuideRow(P, "스킬",   -188f);
+        CheckRow(P, -58f, out _ckMove, out _lblMove, out _keyMove, "좌우로 이동");
+        CheckRow(P, -108f, out _ckJump, out _lblJump, out _keyJump, "점프");
+
+        _guideFooter = GuideText(P, new Vector2(18f, -168f), new Vector2(430f, 36f),
+            "좋아요!  이제 깃발까지 가보세요", _plain, 24, Parch, TextAnchor.MiddleLeft);
+        _guideFooter.gameObject.SetActive(false);
 
         _guideRoot.SetActive(false);
     }
 
-    // 한 행: 왼쪽 이름 라벨 + 오른쪽 값(키) 라벨. 반환 = 값 라벨(갱신용).
-    private Text GuideRow(Transform parent, string name, float y)
+    // 체크박스 + 설명 + 키 한 줄.
+    private void CheckRow(Transform parent, float y, out Image check, out Text label, out Text key, string desc)
     {
-        GuideText(parent, new Vector2(18f, y), new Vector2(120f, 36f), name, _plain, 26, Parch, TextAnchor.MiddleLeft);
-        return GuideText(parent, new Vector2(150f, y), new Vector2(262f, 36f), "", _pixel, 26, Gold, TextAnchor.MiddleLeft);
+        // 체크박스 (어두운 테두리 + 내부 상자: 완료 시 골드로)
+        var boxBorder = NewChild("ChkBorder", parent);
+        var bbr = boxBorder.GetComponent<RectTransform>();
+        bbr.anchorMin = bbr.anchorMax = bbr.pivot = new Vector2(0f, 1f);
+        bbr.sizeDelta = new Vector2(30f, 30f);
+        bbr.anchoredPosition = new Vector2(18f, y - 4f);
+        boxBorder.AddComponent<Image>().color = WoodDark;
+        check = AddInset(boxBorder.transform, "Chk", 4f);
+        check.color = new Color(0.10f, 0.08f, 0.05f, 1f); // 미완료: 어두움
+
+        label = GuideText(parent, new Vector2(60f, y), new Vector2(170f, 36f), desc, _plain, 25, Parch, TextAnchor.MiddleLeft);
+        key = GuideText(parent, new Vector2(250f, y), new Vector2(200f, 36f), "", _pixel, 26, Gold, TextAnchor.MiddleLeft);
     }
 
     // 좌상단 기준(anchor 0,1) 픽셀 좌표 배치 라벨.
@@ -318,14 +390,18 @@ public class TutorialFlowController : MonoBehaviour
         return t;
     }
 
-    // 현재 바인딩 키로 안내 값들을 갱신 (기본 바인딩 키만 간결히 표시).
+    // 현재 바인딩 키 + 체크 상태 반영.
     private void RefreshGuide()
     {
-        if (_gMove == null) return;
-        _gMove.text  = MoveKey(MovementKeybinds.Act.Left) + "    " + MoveKey(MovementKeybinds.Act.Right);
-        _gClimb.text = MoveKey(MovementKeybinds.Act.Up)   + "    " + MoveKey(MovementKeybinds.Act.Down);
-        _gJump.text  = MoveKey(MovementKeybinds.Act.Jump);
-        _gSkill.text = SkillKeybinds.GetLabel(1) + "   " + SkillKeybinds.GetLabel(2) + "   " + SkillKeybinds.GetLabel(3);
+        if (_keyMove == null) return;
+        _keyMove.text = MoveKey(MovementKeybinds.Act.Left) + "   " + MoveKey(MovementKeybinds.Act.Right);
+        _keyJump.text = MoveKey(MovementKeybinds.Act.Jump);
+
+        _ckMove.color = _doneMove ? Gold : new Color(0.10f, 0.08f, 0.05f, 1f);
+        _ckJump.color = _doneJump ? Gold : new Color(0.10f, 0.08f, 0.05f, 1f);
+        _lblMove.color = _doneMove ? Gold : Parch;
+        _lblJump.color = _doneJump ? Gold : Parch;
+        if (_guideFooter != null) _guideFooter.gameObject.SetActive(_doneMove && _doneJump);
     }
 
     private static string MoveKey(MovementKeybinds.Act a) => SkillKeybinds.KeyLabel(MovementKeybinds.Get(a, 0));
