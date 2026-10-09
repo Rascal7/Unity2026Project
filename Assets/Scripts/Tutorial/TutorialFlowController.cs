@@ -120,6 +120,8 @@ public class TutorialFlowController : MonoBehaviour
         EnsureConfirmUI();
         _confirmShown = true;
         _confirmRoot.SetActive(true);
+        // 튜토리얼엔 스테이지 타이머 결과 화면이 없으므로 완료 축하 화면에서 클리어 징글을 직접 재생
+        if (!SfxPlayer.Play("Jingle_StageClear")) UiSfx.PopupOpen();
 
         bool canControl = LocalCanControlScene();
         _bodyText.text = canControl ? "본 스테이지에 도전하시겠어요?" : "호스트가 본 스테이지를 시작합니다...";

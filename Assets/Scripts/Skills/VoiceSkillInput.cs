@@ -91,6 +91,8 @@ public class VoiceSkillInput : MonoBehaviour
 
     /// <summary>마지막으로 인식된 키워드(디버그/캐릭터별 분기용).</summary>
     public static string LastKeyword => Instance != null ? Instance._lastKeyword : "";
+    // 마이크에 목소리가 들어오는 중(VAD 게이트 열림). BgmManager 가 배경음을 줄이는(덕킹) 데 사용.
+    public static bool IsSpeaking => Instance != null && Instance._isSpeaking;
 
     /// <summary>현재 녹음 중인 마이크 장치명</summary>
     public string CurrentMicrophone => _currentDeviceName;

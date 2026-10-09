@@ -697,6 +697,7 @@ public class SaveFileUI : MonoBehaviour
         {
             if (confirmMessageText != null) confirmMessageText.text = message;
             confirmModal.SetActive(true);
+            UiSfx.PopupOpen();
         }
     }
 
@@ -711,6 +712,7 @@ public class SaveFileUI : MonoBehaviour
         {
             if (noticeMessageText != null) noticeMessageText.text = message;
             noticeModal.SetActive(true);
+            UiSfx.Error(); // 안내 모달은 모두 거부/오류 상황(데이터 없음, 손상, 호스트 전용 등)
         }
     }
 

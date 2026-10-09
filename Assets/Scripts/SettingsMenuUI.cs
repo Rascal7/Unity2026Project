@@ -329,6 +329,7 @@ public class SettingsMenuUI : MonoBehaviour
 
     public void OpenMenu()
     {
+        if (!_isOpen) UiSfx.PopupOpen();
         _isOpen = true;
         GameplayInputSuppressed = true;
 
@@ -405,6 +406,7 @@ public class SettingsMenuUI : MonoBehaviour
 
     public void CloseMenu()
     {
+        if (_isOpen) UiSfx.PopupClose(); // 시작 시 초기화용 호출(이미 닫힘)에서는 무음
         _isOpen = false;
         GameplayInputSuppressed = false;
         if (_dimOverlay != null) _dimOverlay.SetActive(false);
@@ -580,7 +582,9 @@ public class SettingsMenuUI : MonoBehaviour
         }
 
         outputDeviceDropdown.AddOptions(options);
-        outputDeviceDropdown.value = selectedIndex;
+        // 목록 갱신은 '선택'이 아니므로 이벤트 없이 값만 맞춘다.
+        // (.value 로 넣으면 OnOutputDeviceSelected → AudioSettings.Reset 이 불려 메뉴를 열 때마다 배경음·효과음이 모두 꺼졌다)
+        outputDeviceDropdown.SetValueWithoutNotify(selectedIndex);
         outputDeviceDropdown.RefreshShownValue();
     }
 
@@ -1535,7 +1539,10 @@ public class SettingsMenuUI : MonoBehaviour
     {
         if (_audioPanel == null) return;
 
+        EnsureBgmControls();
         StyleSlider(masterVolumeSlider);
+        StyleSlider(_bgmSlider);
+        StyleSlider(_sfxSlider);
         StyleSlider(micSensitivitySlider);
         StyleDropdown(outputDeviceDropdown);
         StyleDropdown(micDropdown);
@@ -1714,40 +1721,65 @@ public class SettingsMenuUI : MonoBehaviour
         if (_audioPanel == null) return;
         Transform A = _audioPanel.transform;
 
-        // === 그룹 헤더 + 그룹 하단 밑줄: "출력 설정" / "입력 설정" ===
-        var outHead = A.Find("OutputLabel"); SetRT(outHead, 0f, IN_L, -16f, IN_W, 26f); AlignTMP(outHead, TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(outHead, "출력 설정", 22f, OptHeader);
-        SetAudioDivider("OutGroupLine", -48f, IN_W);
-        var inHead  = A.Find("InputLabel");  SetRT(inHead,  0f, IN_L, -186f, IN_W, 26f); AlignTMP(inHead, TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(inHead, "입력 설정", 22f, OptHeader);
-        SetAudioDivider("InGroupLine", -218f, IN_W);
+        // 그룹 순서: 사운드 설정(배경음·효과음) → 출력 설정 → 입력 설정. 각 그룹 = 헤더 + 하단 밑줄 + 행들.
         // 기존 프리팹 구분선은 그룹 밑줄로 대체
         var sep = A.Find("Separator"); if (sep != null) sep.gameObject.SetActive(false);
 
-        // === 출력 설정 ===
-        _outDevLabel = MakeAudioLabel("OutDevLabel", "출력 장치");
-        SetRT(_outDevLabel.transform, 0f, IN_L, -62f, AUD_LBL_W, AUD_RLH); SetTMP(_outDevLabel.transform, null, 19f, OptText);
-        SetRT(A.Find("OutputDeviceDropdown"), 0f, AUD_CTRL_X, CtrlY(62f, 40f), AUD_DROPW, 40f);
+        // === 사운드 설정 === (프리팹에 없는 그룹 → "출력 설정" 헤더를 복제해 헤더 생성)
+        var outHead = A.Find("OutputLabel");
+        var soundHead = A.Find("SoundLabel");
+        if (soundHead == null && outHead != null)
+        {
+            soundHead = Instantiate(outHead.gameObject, outHead.parent).transform;
+            soundHead.name = "SoundLabel";
+        }
+        SetRT(soundHead, 0f, IN_L, -16f, IN_W, 26f); AlignTMP(soundHead, TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(soundHead, "사운드 설정", 22f, OptHeader);
+        SetAudioDivider("SoundGroupLine", -48f, IN_W);
 
-        _volumeLabel = MakeAudioLabel("VolumeLabel", "음량");
-        SetRT(_volumeLabel.transform, 0f, IN_L, -108f, AUD_LBL_W, AUD_RLH); SetTMP(_volumeLabel.transform, null, 19f, OptText);
-        SetRT(masterVolumeSlider != null ? masterVolumeSlider.transform : null, 0f, AUD_CTRL_X, CtrlY(108f, AUD_SLH), AUD_SW, AUD_SLH);
-        SetRT(A.Find("VolumeValueText"), 0f, AUD_VAL_X, -108f, AUD_VAL_W, AUD_RLH); AlignTMP(A.Find("VolumeValueText"), TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(A.Find("VolumeValueText"), null, 19f, OptText);
+        EnsureBgmControls(); // 배경음/효과음 슬라이더·창 비활성 버튼 (기존 컨트롤 복제)
+        LayoutVolumeRow("BgmLabel", "배경음", _bgmSlider, _bgmValueText, 62f);
+        LayoutVolumeRow("SfxLabel", "효과음", _sfxSlider, _sfxValueText, 100f);
+
+        // === 출력 설정 ===
+        SetRT(outHead, 0f, IN_L, -146f, IN_W, 26f); AlignTMP(outHead, TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(outHead, "출력 설정", 22f, OptHeader);
+        SetAudioDivider("OutGroupLine", -178f, IN_W);
+
+        _outDevLabel = MakeAudioLabel("OutDevLabel", "출력 장치");
+        SetRT(_outDevLabel.transform, 0f, IN_L, -192f, AUD_LBL_W, AUD_RLH); SetTMP(_outDevLabel.transform, null, 19f, OptText);
+        SetRT(A.Find("OutputDeviceDropdown"), 0f, AUD_CTRL_X, CtrlY(192f, 40f), AUD_DROPW, 40f);
+
+        _volumeLabel = MakeAudioLabel("VolumeLabel", "전체 음량");
+        SetRT(_volumeLabel.transform, 0f, IN_L, -238f, AUD_LBL_W, AUD_RLH); SetTMP(_volumeLabel.transform, null, 19f, OptText);
+        SetRT(masterVolumeSlider != null ? masterVolumeSlider.transform : null, 0f, AUD_CTRL_X, CtrlY(238f, AUD_SLH), AUD_SW, AUD_SLH);
+        SetRT(A.Find("VolumeValueText"), 0f, AUD_VAL_X, -238f, AUD_VAL_W, AUD_RLH); AlignTMP(A.Find("VolumeValueText"), TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(A.Find("VolumeValueText"), null, 19f, OptText);
+
+        var bgMuteLabel = MakeAudioLabel("BgMuteLabel", "창 비활성");
+        SetRT(bgMuteLabel != null ? bgMuteLabel.transform : null, 0f, IN_L, -276f, AUD_LBL_W, AUD_RLH); SetTMP(bgMuteLabel != null ? bgMuteLabel.transform : null, null, 19f, OptText);
+        if (_bgMuteButton != null) SetRT(_bgMuteButton.transform, 0f, AUD_CTRL_X, -276f, 120f, AUD_RLH);
 
         // === 입력 설정 ===
+        var inHead  = A.Find("InputLabel");  SetRT(inHead,  0f, IN_L, -322f, IN_W, 26f); AlignTMP(inHead, TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(inHead, "입력 설정", 22f, OptHeader);
+        SetAudioDivider("InGroupLine", -354f, IN_W);
+
         _inDevLabel = MakeAudioLabel("InDevLabel", "입력 장치");
-        SetRT(_inDevLabel.transform, 0f, IN_L, -232f, AUD_LBL_W, AUD_RLH); SetTMP(_inDevLabel.transform, null, 19f, OptText);
-        SetRT(A.Find("MicDropdown"), 0f, AUD_CTRL_X, CtrlY(232f, 40f), AUD_DROPW, 40f);
+        SetRT(_inDevLabel.transform, 0f, IN_L, -368f, AUD_LBL_W, AUD_RLH); SetTMP(_inDevLabel.transform, null, 19f, OptText);
+        SetRT(A.Find("MicDropdown"), 0f, AUD_CTRL_X, CtrlY(368f, 40f), AUD_DROPW, 40f);
 
         var micSens = A.Find("MicSensLabel");
-        SetRT(micSens, 0f, IN_L, -278f, AUD_LBL_W, AUD_RLH); AlignTMP(micSens, TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(micSens, "마이크 감도", 19f, OptText);
-        SetRT(micSensitivitySlider != null ? micSensitivitySlider.transform : null, 0f, AUD_CTRL_X, CtrlY(278f, AUD_SLH), AUD_SW, AUD_SLH);
-        SetRT(A.Find("MicSensValueText"), 0f, AUD_VAL_X, -278f, AUD_VAL_W, AUD_RLH); AlignTMP(A.Find("MicSensValueText"), TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(A.Find("MicSensValueText"), null, 19f, OptText);
+        SetRT(micSens, 0f, IN_L, -414f, AUD_LBL_W, AUD_RLH); AlignTMP(micSens, TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(micSens, "마이크 감도", 19f, OptText);
+        SetRT(micSensitivitySlider != null ? micSensitivitySlider.transform : null, 0f, AUD_CTRL_X, CtrlY(414f, AUD_SLH), AUD_SW, AUD_SLH);
+        SetRT(A.Find("MicSensValueText"), 0f, AUD_VAL_X, -414f, AUD_VAL_W, AUD_RLH); AlignTMP(A.Find("MicSensValueText"), TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(A.Find("MicSensValueText"), null, 19f, OptText);
         // 테스트 버튼: 마이크 감도 행 오른쪽 끝(IN_R)
-        if (micTestButton != null) SetRT(micTestButton.transform, 1f, IN_R, -278f, AUD_TESTW, AUD_RLH);
+        if (micTestButton != null) SetRT(micTestButton.transform, 1f, IN_R, -414f, AUD_TESTW, AUD_RLH);
 
         var meterLabel = A.Find("MeterLabel");
-        SetRT(meterLabel, 0f, IN_L, -316f, AUD_LBL_W, AUD_RLH); AlignTMP(meterLabel, TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(meterLabel, "입력 레벨", 19f, OptText);
+        SetRT(meterLabel, 0f, IN_L, -452f, AUD_LBL_W, AUD_RLH); AlignTMP(meterLabel, TMPro.TextAlignmentOptions.MidlineLeft); SetTMP(meterLabel, "입력 레벨", 19f, OptText);
         var meterBg = A.Find("MicMeterBg");
-        SetRT(meterBg, 0f, AUD_CTRL_X, CtrlY(316f, AUD_SLH), AUD_SW, AUD_SLH);
+        SetRT(meterBg, 0f, AUD_CTRL_X, CtrlY(452f, AUD_SLH), AUD_SW, AUD_SLH);
+
+        // 그룹이 늘어 뷰포트(COL_H)보다 길어졌으므로 내용 높이를 늘려 스크롤되게 한다
+        var apRt = _audioPanel.GetComponent<RectTransform>();
+        if (apRt != null) apRt.sizeDelta = new Vector2(COL_W, 500f);
         if (meterBg != null)
         {
             var fill = meterBg.Find("MicMeterFill");
@@ -1803,6 +1835,116 @@ public class SettingsMenuUI : MonoBehaviour
         if (img == null) img = go.AddComponent<Image>();
         img.sprite = null; img.color = OptDivider; img.raycastTarget = false;
         SetRT(go.transform, 0.5f, 0f, y, w, 2f);
+    }
+
+    // 배경음/효과음 슬라이더 + 수치, 백그라운드 음소거 버튼: 프리팹에 없으므로 기존 컨트롤을 복제해 만든다 (한 번만).
+    private Slider _bgmSlider, _sfxSlider;
+    private TMPro.TMP_Text _bgmValueText, _sfxValueText;
+    private Button _bgMuteButton;
+
+    private void EnsureBgmControls()
+    {
+        if (_audioPanel == null || masterVolumeSlider == null) return;
+
+        if (_bgmSlider == null)
+            _bgmSlider = CloneVolumeSlider("BgmVolumeSlider",
+                BgmManager.Instance != null ? BgmManager.Instance.Volume : BgmManager.DefaultVolume, OnBgmVolumeChanged);
+        if (_sfxSlider == null)
+            _sfxSlider = CloneVolumeSlider("SfxVolumeSlider", SfxPlayer.Volume, OnSfxVolumeChanged);
+        if (_bgmValueText == null) _bgmValueText = CloneValueText("BgmValueText");
+        if (_sfxValueText == null) _sfxValueText = CloneValueText("SfxValueText");
+        UpdatePercentText(_bgmValueText, _bgmSlider.value);
+        UpdatePercentText(_sfxValueText, _sfxSlider.value);
+
+        if (_bgMuteButton == null && micTestButton != null)
+        {
+            var existing = _audioPanel.transform.Find("BgMuteButton");
+            var go = existing != null ? existing.gameObject : Instantiate(micTestButton.gameObject, micTestButton.transform.parent);
+            go.name = "BgMuteButton";
+            _bgMuteButton = go.GetComponent<Button>();
+            for (int i = 0; i < _bgMuteButton.onClick.GetPersistentEventCount(); i++)
+                _bgMuteButton.onClick.SetPersistentListenerState(i, UnityEngine.Events.UnityEventCallState.Off);
+            _bgMuteButton.onClick.RemoveAllListeners();
+            _bgMuteButton.onClick.AddListener(() =>
+            {
+                if (BgmManager.Instance == null) return;
+                BgmManager.Instance.MuteInBackground = !BgmManager.Instance.MuteInBackground;
+                PlayerPrefs.Save();
+                RefreshBgMuteButton();
+            });
+        }
+        RefreshBgMuteButton();
+    }
+
+    // 음량 슬라이더 한 행(라벨 · 슬라이더 · 수치) 배치. depth = 라벨 상단까지의 깊이.
+    private void LayoutVolumeRow(string labelName, string labelText, Slider slider, TMPro.TMP_Text valueText, float depth)
+    {
+        var label = MakeAudioLabel(labelName, labelText);
+        SetRT(label != null ? label.transform : null, 0f, IN_L, -depth, AUD_LBL_W, AUD_RLH);
+        SetTMP(label != null ? label.transform : null, null, 19f, OptText);
+        SetRT(slider != null ? slider.transform : null, 0f, AUD_CTRL_X, CtrlY(depth, AUD_SLH), AUD_SW, AUD_SLH);
+        var vt = valueText != null ? valueText.transform : null;
+        SetRT(vt, 0f, AUD_VAL_X, -depth, AUD_VAL_W, AUD_RLH);
+        AlignTMP(vt, TMPro.TextAlignmentOptions.MidlineLeft);
+        SetTMP(vt, null, 19f, OptText);
+    }
+
+    private Slider CloneVolumeSlider(string name, float value, UnityEngine.Events.UnityAction<float> onChanged)
+    {
+        var existing = _audioPanel.transform.Find(name);
+        var go = existing != null ? existing.gameObject : Instantiate(masterVolumeSlider.gameObject, masterVolumeSlider.transform.parent);
+        go.name = name;
+        var s = go.GetComponent<Slider>();
+        // 복제된 슬라이더에 인스펙터로 연결된 '마스터 음량' 이벤트가 딸려오지 않도록 끈다
+        for (int i = 0; i < s.onValueChanged.GetPersistentEventCount(); i++)
+            s.onValueChanged.SetPersistentListenerState(i, UnityEngine.Events.UnityEventCallState.Off);
+        s.onValueChanged.RemoveAllListeners();
+        s.minValue = 0f;
+        s.maxValue = 1f;
+        s.wholeNumbers = false;
+        s.SetValueWithoutNotify(value);
+        s.onValueChanged.AddListener(onChanged);
+        return s;
+    }
+
+    private TMPro.TMP_Text CloneValueText(string name)
+    {
+        var A = _audioPanel.transform;
+        var existing = A.Find(name);
+        if (existing != null) return existing.GetComponent<TMPro.TMP_Text>();
+        var src = A.Find("VolumeValueText");
+        if (src == null) return null;
+        var go = Instantiate(src.gameObject, src.parent);
+        go.name = name;
+        return go.GetComponent<TMPro.TMP_Text>();
+    }
+
+    public void OnBgmVolumeChanged(float value)
+    {
+        if (BgmManager.Instance != null) BgmManager.Instance.Volume = value; // PlayerPrefs 저장 포함
+        PlayerPrefs.Save();
+        UpdatePercentText(_bgmValueText, value);
+    }
+
+    public void OnSfxVolumeChanged(float value)
+    {
+        SfxPlayer.Volume = value; // PlayerPrefs 저장 포함
+        PlayerPrefs.Save();
+        UpdatePercentText(_sfxValueText, value);
+    }
+
+    private static void UpdatePercentText(TMPro.TMP_Text t, float value)
+    {
+        if (t != null) t.text = $"{Mathf.RoundToInt(value * 100f)}%";
+    }
+
+    private void RefreshBgMuteButton()
+    {
+        if (_bgMuteButton == null) return;
+        bool on = BgmManager.Instance != null && BgmManager.Instance.MuteInBackground;
+        PixelImage(_bgMuteButton.GetComponent<Image>(), on ? OptBtnSel : OptBtnFace, 3f);
+        var tt = _bgMuteButton.GetComponentInChildren<TMPro.TMP_Text>();
+        if (tt != null) { tt.color = OptText; tt.text = on ? "음소거 켬" : "음소거 끔"; tt.fontSize = 18f; tt.enableAutoSizing = false; }
     }
 
     // 프리팹에 없는 음향 라벨(음량/출력 장치/입력 장치)을 그리드 정렬용으로 생성/재사용한다.
