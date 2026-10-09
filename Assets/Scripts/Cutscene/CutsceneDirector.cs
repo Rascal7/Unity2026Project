@@ -247,6 +247,7 @@ public class CutsceneDirector : MonoBehaviour
     private async void ReturnToLobby()
     {
         RunManager.ResetRun();
+        CheckpointManager.ResetCheckpoint(); // 리스폰 지점(정적) 잔존 방지 (GameEndController.OnLobby 와 동일)
         foreach (var r in FindObjectsByType<NetworkRunner>(FindObjectsSortMode.None))
         {
             if (r == null) continue;

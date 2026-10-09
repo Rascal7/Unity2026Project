@@ -598,6 +598,9 @@ public class SaveFileUI : MonoBehaviour
     {
         SaveDataManager.CreateNewGame(slotIndex);
 
+        // 이전 런의 리스폰 지점(정적) 잔존 방지 → 스테이지 StartPoint 로 앵커되게 초기화
+        CheckpointManager.ResetCheckpoint();
+
         // 새 게임: 페이드 아웃 → 오프닝 컷씬 → (컷씬이 끝나면) TutorialStage. 이어하기는 컷씬 없이 바로 로드.
         if (SceneFadeRelay.SceneInBuild(OpeningCutsceneScene))
         {
@@ -619,6 +622,20 @@ public class SaveFileUI : MonoBehaviour
 
         // 이어하기: 합산 총합 + 개별 구간(+스테이지 번호)을 복원 (최종 합산·나열에 반영)
         RunManager.RestoreRun(data.totalPlayTime, data.segmentTimes, data.segmentStages);
+
+        // 리스폰 지점(정적)을 세이브 상태에 맞춰 설정:
+        //  - 체크포인트 있는 세이브: 그 좌표로 복원 (Spawner 가 다시 덮어쓰지만 정적 잔존 방지)
+        //  - 체크포인트 없는 세이브(스테이지 처음부터): 초기화 → 스테이지 StartPoint 로 앵커.
+        //    (이전 런에서 골/체크포인트로 고정된 좌표가 남아 죽으면 골로 리스폰되는 문제 방지)
+        if (data.hasCheckpoint)
+        {
+            CheckpointManager.lastCheckpointPosition = new Vector3(data.checkpointX, data.checkpointY, 0f);
+            CheckpointManager.hasCheckpoint = true;
+        }
+        else
+        {
+            CheckpointManager.ResetCheckpoint();
+        }
 
         Debug.Log($"<color=lime>[SaveFileUI]</color> 이어하기 (슬롯 {slotIndex}) -> {targetScene} 로드");
         LoadTargetScene(targetScene);

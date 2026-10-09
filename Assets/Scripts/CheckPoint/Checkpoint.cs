@@ -32,17 +32,17 @@ public class Checkpoint : MonoBehaviour
             return;
         }
 
-        // 체크포인트 위치 저장 (사망 시 리스폰 지점)
-        CheckpointManager.lastCheckpointPosition = transform.position;
-        CheckpointManager.hasCheckpoint = true;
-        Debug.Log($"<color=green>[Checkpoint]</color> 위치 저장: {transform.position}");
-
         if (isEndGoal)
         {
+            // 최종 골은 리스폰 지점으로 삼지 않는다. (골에 리스폰되면 다시 트리거되어 자동 엔딩되는 문제 방지)
             HandleFinalClear();
         }
         else
         {
+            // 중간 체크포인트만 사망 시 리스폰 지점으로 저장
+            CheckpointManager.lastCheckpointPosition = transform.position;
+            CheckpointManager.hasCheckpoint = true;
+            Debug.Log($"<color=green>[Checkpoint]</color> 위치 저장: {transform.position}");
             SaveCheckpointProgress();
         }
 
