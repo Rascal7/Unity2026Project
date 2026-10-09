@@ -8,7 +8,7 @@ using UnityEngine.UI;
 
 // NetworkTimer.Phase 에 따라 종료 화면을 띄운다. 씬에 배치할 필요 없이 스스로 부트스트랩된다.
 //   AwaitingChoice(중간 클리어) → "STAGE CLEAR" + [다음 스테이지]/[로비로] 선택 (다음은 호스트만)
-//   Finished(최종 클리어)       → "ALL CLEAR" + 기록 표시 + 자동 로비 복귀
+//   Finished(최종 클리어)       → "ALL CLEAR" + 기록 표시 → autoReturnDelay 초 뒤 엔딩 컷씬(없으면 로비)
 public class GameEndController : MonoBehaviour
 {
     public static GameEndController Instance { get; private set; }
@@ -17,10 +17,11 @@ public class GameEndController : MonoBehaviour
 
     [Header("옵션")]
     public string lobbySceneName = "Lobby";
-    public float autoReturnDelay = 10f; // 최종 클리어 후 자동 로비 복귀까지 (초)
+    public string endingCutsceneScene = "EndingCutscene";
+    public float autoReturnDelay = 10f; // 최종 클리어 결과를 보여준 뒤 엔딩 컷씬(또는 로비)으로 넘어가기까지 (초)
 
     private int _shownPhase = -1;   // 현재 화면에 표시 중인 Phase (-1 = 없음)
-    private bool _returning;
+    private bool _returning;        // 로비 복귀 또는 엔딩 컷씬 전환이 시작됨
     private float _shownAtUnscaled;
     private int _pendingRecordRank = -1;   // 이번 런의 순위 (1..5), 없으면 -1
 
@@ -94,18 +95,34 @@ public class GameEndController : MonoBehaviour
             else if (phase == NetworkTimer.PhaseFinished) ShowFinal(nt.FinalTime);
         }
 
-        // 최종 클리어: 자동 로비 복귀 카운트다운
+        // 최종 클리어: 엔딩 컷씬(없으면 로비) 카운트다운
         if (_shownPhase == NetworkTimer.PhaseFinished)
         {
+            bool ending = HasEndingCutscene();
+            bool canAdvance = !ending || IsHost() || FindFirstObjectByType<NetworkRunner>() == null; // 엔딩 전환은 호스트(또는 솔로)만
             float elapsed = Time.unscaledTime - _shownAtUnscaled;
             if (_hintText != null && autoReturnDelay > 0f)
             {
                 int left = Mathf.Max(0, Mathf.CeilToInt(autoReturnDelay - elapsed));
-                _hintText.text = left + "초 후 로비로 이동   ·   [R] 즉시 이동";
+                string dest = ending ? "엔딩 재생" : "로비로 이동";
+                _hintText.text = canAdvance ? $"{left}초 후 {dest}   ·   [R] 바로 진행" : $"{left}초 후 {dest}";
             }
-            if (Input.GetKeyDown(KeyCode.R)) { OnLobby(); return; }
-            if (autoReturnDelay > 0f && elapsed >= autoReturnDelay) OnLobby();
+            if (canAdvance && Input.GetKeyDown(KeyCode.R)) { AdvanceAfterFinal(); return; }
+            if (canAdvance && autoReturnDelay > 0f && elapsed >= autoReturnDelay) AdvanceAfterFinal();
         }
+    }
+
+    private bool HasEndingCutscene() =>
+        !string.IsNullOrEmpty(endingCutsceneScene) && SceneFadeRelay.SceneInBuild(endingCutsceneScene);
+
+    // 최종 결과 화면 이후: 엔딩 컷씬이 있으면 모든 피어를 페이드 아웃시키고 엔딩 씬으로, 없으면 로비로.
+    private void AdvanceAfterFinal()
+    {
+        if (_returning) return;
+        if (!HasEndingCutscene()) { OnLobby(); return; }
+
+        _returning = true;
+        SceneFadeRelay.FadeAndLoad(endingCutsceneScene); // 결과 카드는 페이드에 덮인 채 씬 전환 시 숨겨진다
     }
 
     // ---------- 화면 표시 ----------

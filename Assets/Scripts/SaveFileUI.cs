@@ -57,6 +57,8 @@ public class SaveFileUI : MonoBehaviour
     [Header("Multiplayer / Host Notice")]
     public TextMeshProUGUI clientNoticeText;
 
+    private const string OpeningCutsceneScene = "OpeningCutscene";
+
     private SlotActionType _currentAction = SlotActionType.NewGame;
     private Action _pendingConfirmAction = null;
     private GameObject _waitingPanelGo;
@@ -594,9 +596,19 @@ public class SaveFileUI : MonoBehaviour
 
     private void ProceedNewGame(int slotIndex)
     {
-        Debug.Log($"<color=lime>[SaveFileUI]</color> 새 게임 시작 (슬롯 {slotIndex}) -> TutorialStage 로드");
         SaveDataManager.CreateNewGame(slotIndex);
-        LoadTargetScene("TutorialStage");
+
+        // 새 게임: 페이드 아웃 → 오프닝 컷씬 → (컷씬이 끝나면) TutorialStage. 이어하기는 컷씬 없이 바로 로드.
+        if (SceneFadeRelay.SceneInBuild(OpeningCutsceneScene))
+        {
+            Debug.Log($"<color=lime>[SaveFileUI]</color> 새 게임 시작 (슬롯 {slotIndex}) -> {OpeningCutsceneScene} 재생 후 TutorialStage");
+            SceneFadeRelay.FadeAndLoad(OpeningCutsceneScene);
+        }
+        else
+        {
+            Debug.Log($"<color=lime>[SaveFileUI]</color> 새 게임 시작 (슬롯 {slotIndex}) -> TutorialStage 로드");
+            LoadTargetScene("TutorialStage");
+        }
     }
 
     private void ProceedLoadGame(int slotIndex)
