@@ -84,7 +84,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 60
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 21300000, guid: d1d02f9bb4a54894fbbfed652f75be7e, type: 3}
+  m_Sprite: {fileID: 21300000, guid: c45835eb45a4fd043b2035f413729f3b, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -161,4 +161,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1256ad51652856c4fb77c08728d3158d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CoinItem
+  glowColor: {r: 0.45, g: 0.95, b: 1, a: 1}
+  glowScale: 1.16
+  glowPulseSpeed: 6
+  appearTime: 0.28
   value: 1
