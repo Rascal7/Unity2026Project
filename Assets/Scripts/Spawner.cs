@@ -219,15 +219,14 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         if (MovementKeybinds.Pressed(MovementKeybinds.Act.Down))  my -= 1f;
         data.direction.x = mx;
         data.direction.y = my;
-        data.isJumpPressed = MovementKeybinds.Pressed(MovementKeybinds.Act.Jump);
+        data.buttons.Set(InputButton.Jump, MovementKeybinds.Pressed(MovementKeybinds.Act.Jump));
 
         // 스킬 슬롯 입력: 키보드(ESC 메뉴에서 재설정 가능, 기본 Shift/Ctrl/Alt) 또는 음성(키워드→슬롯)
-        byte slot = 0;
-        if (Input.GetKey(SkillKeybinds.GetSlotKey(1))) slot = 1;
-        else if (Input.GetKey(SkillKeybinds.GetSlotKey(2))) slot = 2;
-        else if (Input.GetKey(SkillKeybinds.GetSlotKey(3))) slot = 3;
-        if (slot == 0) slot = (byte)VoiceSkillInput.RequestedSlot;
-        data.skillSlot = slot;
+        // 여기서는 "누르고 있는지"만 보낸다. 발동은 PlayerMovement 가 눌린 순간에만 한다.
+        int voiceSlot = VoiceSkillInput.RequestedSlot;
+        data.buttons.Set(InputButton.Skill1, Input.GetKey(SkillKeybinds.GetSlotKey(1)) || voiceSlot == 1);
+        data.buttons.Set(InputButton.Skill2, Input.GetKey(SkillKeybinds.GetSlotKey(2)) || voiceSlot == 2);
+        data.buttons.Set(InputButton.Skill3, Input.GetKey(SkillKeybinds.GetSlotKey(3)) || voiceSlot == 3);
 
         input.Set(data);
     }

@@ -13,6 +13,24 @@ public class PlayerMovement : NetworkBehaviour
     public float speed = 5f;
     public float jumpForce = 10f;
 
+    [Header("Jump Feel (조작감)")]
+    [Tooltip("착지 직전에 누른 점프를 이 시간(초) 동안 기억했다가 착지하면 뛴다. 0 이면 끔. (꾹 누르고 있어도 재점프는 하지 않는다)")]
+    public float jumpBufferTime = 0.1f;
+    [Tooltip("코요테 타임: 발판에서 떨어진 뒤 이 시간(초) 동안은 아직 점프할 수 있다. 0 이면 끔")]
+    public float coyoteTime = 0.1f;
+    [Tooltip("가변 점프: 상승 중에 점프 키를 떼면 상승 속도에 이 값을 곱한다(낮게 점프). 1 이면 끔")]
+    [Range(0f, 1f)] public float jumpCutMultiplier = 0.5f;
+
+    [Header("Acceleration (가속/감속, 초당 속도 변화량)")]
+    [Tooltip("땅에서 최고 속도까지 붙는 가속. speed(5) / 70 ≈ 0.07초")]
+    public float groundAcceleration = 70f;
+    [Tooltip("땅에서 키를 떼거나 반대로 꺾을 때의 감속. 클수록 미끄러짐이 적다")]
+    public float groundDeceleration = 90f;
+    [Tooltip("공중 가속")]
+    public float airAcceleration = 50f;
+    [Tooltip("공중에서 키를 떼거나 반대로 꺾을 때의 감속")]
+    public float airDeceleration = 40f;
+
     [Tooltip("최대 낙하 속도(양수). 카메라 낙하 룩어헤드(CameraFollow.fallSpeedForMaxLook)가 따라잡을 수 있도록 제한한다. 0 이면 제한 없음")]
     public float maxFallSpeed = 16f;
 
@@ -103,6 +121,22 @@ public class PlayerMovement : NetworkBehaviour
     [Networked] private NetworkBool IsDead { get; set; }
     [Networked] private TickTimer RespawnGrace { get; set; }
 
+    // 입력 엣지 판정: 이전 틱 버튼과 비교해 "눌린 순간"만 발동한다. (재시뮬레이션에서도 맞도록 Networked)
+    [Networked] private NetworkButtons PrevButtons { get; set; }
+    [Networked] private TickTimer JumpBuffer { get; set; }
+    [Networked] private TickTimer CoyoteTimer { get; set; }   // 땅을 떠난 뒤에도 점프를 허용하는 유예
+    [Networked] private NetworkBool JumpCutReady { get; set; } // 기본 점프로 상승 중 → 키를 떼면 낮게
+
+    // 땅 위이거나, 발판에서 막 떨어져 코요테 타임이 남아 있으면 지상 점프 가능
+    private bool CanGroundJump => IsGrounded || !CoyoteTimer.ExpiredOrNotRunning(Runner);
+
+    // 지상 점프를 했으면 코요테/버퍼를 비워 한 번 누른 점프가 두 번 쓰이지 않게 한다.
+    private void ConsumeGroundJump()
+    {
+        JumpBuffer = TickTimer.None;
+        CoyoteTimer = TickTimer.None;
+    }
+
     // 스킬 관련 네트워크 상태
     [Networked] private TickTimer SkillCd1 { get; set; }           // 슬롯별 쿨다운
     [Networked] private TickTimer SkillCd2 { get; set; }
@@ -183,6 +217,10 @@ public class PlayerMovement : NetworkBehaviour
 
         CheckGround();
 
+        // 땅에 서 있는 동안 코요테 타이머를 계속 채워 둔다. (점프로 상승 중일 때는 채우지 않는다)
+        if (IsGrounded && _rb.linearVelocity.y <= 0.1f && coyoteTime > 0f)
+            CoyoteTimer = TickTimer.CreateFromSeconds(Runner, coyoteTime);
+
         if (transform.position.z != 0f)
         {
             transform.position = new Vector3(transform.position.x, transform.position.y, 0f);
@@ -200,15 +238,24 @@ public class PlayerMovement : NetworkBehaviour
             Respawn();
         }
 
-        if (!introLocked && GetInput(out NetworkInputData data))
+        // 인트로 중에도 PrevButtons 는 갱신한다. (인트로 내내 누르고 있던 키가 시작 순간 발동하지 않게)
+        bool hasInput = GetInput(out NetworkInputData data);
+        NetworkButtons pressed = default;
+        if (hasInput)
         {
-            HandleLadder(data);
-            Move(data);
+            pressed = data.buttons.GetPressed(PrevButtons);
+            PrevButtons = data.buttons;
+        }
+
+        if (!introLocked && hasInput)
+        {
+            HandleLadder(data, ref pressed);
+            Move(data, pressed);
         }
         else
         {
-            NetworkInputData emptyData = default;
-            HandleLadder(emptyData);
+            NetworkButtons nonePressed = default;
+            HandleLadder(default, ref nonePressed);
 
             // During the STAGE intro the timer hasn't started yet: freeze horizontal motion
             // so players can't get a head start before the run begins.
@@ -236,14 +283,20 @@ public class PlayerMovement : NetworkBehaviour
         return nt != null && nt.Phase == NetworkTimer.PhaseIntro;
     }
 
-    private void Move(NetworkInputData data)
+    private void Move(NetworkInputData data, NetworkButtons pressed)
     {
         // 바라보는 방향 갱신 (입력이 있을 때만) - 대시 방향 결정에 사용
         if (data.direction.x > 0.01f) FacingRight = true;
         else if (data.direction.x < -0.01f) FacingRight = false;
 
+        // 점프는 눌린 순간만. 공중에서 눌렀으면 jumpBufferTime 동안 기억했다가 착지하면 뛴다.
+        bool jumpPressed = pressed.IsSet(InputButton.Jump);
+        if (jumpPressed && jumpBufferTime > 0f)
+            JumpBuffer = TickTimer.CreateFromSeconds(Runner, jumpBufferTime);
+        bool wantJump = jumpPressed || !JumpBuffer.ExpiredOrNotRunning(Runner);
+
         // 스킬 발동 시도 (쿨다운이 끝났고 사다리 중이 아닐 때)
-        float superJumpY = TryUseSkill(data);
+        float superJumpY = TryUseSkill(pressed);
         bool doSuperJump = superJumpY > 0f;
 
         bool isDashing = !DashTimer.ExpiredOrNotRunning(Runner);
@@ -268,17 +321,33 @@ public class PlayerMovement : NetworkBehaviour
         }
         else
         {
-            xVelocity = data.direction.x * speed;
+            xVelocity = AccelerateX(data.direction.x * speed);
+
+            // 가변 점프: 기본 점프로 올라가는 중에 키를 떼면 상승을 끊는다. (점프한 다음 틱부터 검사)
+            if (JumpCutReady)
+            {
+                if (yVelocity <= 0f) JumpCutReady = false;
+                else if (!data.buttons.IsSet(InputButton.Jump))
+                {
+                    yVelocity *= jumpCutMultiplier;
+                    JumpCutReady = false;
+                }
+            }
 
             if (doSuperJump)
             {
                 // 토끼 강한 도약 (파워업 상태면 더 높이)
                 yVelocity = superJumpY;
+                JumpCutReady = false;
             }
-            else if (data.isJumpPressed && IsGrounded)
+            else if (wantJump && CanGroundJump)
             {
                 // 점프대 위에서 점프를 누르면 더 높이 뛴다. (올라서기만 해서는 안 튕긴다)
-                yVelocity = IsOnLauncher() ? launcherJumpForce : jumpForce;
+                // 점프대 점프는 레벨 설계 높이를 지키도록 가변 점프를 적용하지 않는다.
+                bool launcher = IsGrounded && IsOnLauncher();
+                yVelocity = launcher ? launcherJumpForce : jumpForce;
+                JumpCutReady = !launcher;
+                ConsumeGroundJump();
             }
         }
 
@@ -290,14 +359,36 @@ public class PlayerMovement : NetworkBehaviour
     }
 
     /// <summary>
+    /// 현재 x 속도를 목표 속도로 가속/감속한다. 같은 방향으로 미는 중이면 가속,
+    /// 키를 뗐거나 반대로 꺾으면 감속 값을 써서 미끄러짐 없이 바로 멈추고 돈다.
+    /// </summary>
+    private float AccelerateX(float target)
+    {
+        // 대시 직후처럼 최고 속도를 넘은 값은 예전처럼 곧바로 최고 속도로 자른다. (대시 거리 유지)
+        float current = Mathf.Clamp(_rb.linearVelocity.x, -speed, speed);
+
+        bool pushing = Mathf.Abs(target) > 0.01f
+                    && (Mathf.Abs(current) < 0.01f || Mathf.Sign(target) == Mathf.Sign(current));
+        float rate = IsGrounded
+            ? (pushing ? groundAcceleration : groundDeceleration)
+            : (pushing ? airAcceleration : airDeceleration);
+
+        if (rate <= 0f) return target; // 0 이면 예전처럼 즉시 반영
+        return Mathf.MoveTowards(current, target, rate * Runner.DeltaTime);
+    }
+
+    /// <summary>
     /// 스킬 입력을 받아 발동을 시도한다.
     /// 반환값: 이번 틱에 토끼 강한 도약을 발동했으면 적용할 y속도(>0), 아니면 0 (Move 에서 적용).
     /// 여우 대시는 DashTimer 를 세팅해 이후 틱들에서 적용된다.
     /// </summary>
-    private float TryUseSkill(NetworkInputData data)
+    private float TryUseSkill(NetworkButtons pressed)
     {
-        int slot = data.skillSlot;
-        if (slot < 1 || slot > 3) return 0f;
+        // 눌린 순간의 슬롯만 (동시에 눌렸으면 낮은 번호 우선). 꾹 누르고 있어도 쿨다운 끝에 재발동하지 않는다.
+        int slot = pressed.IsSet(InputButton.Skill1) ? 1
+                 : pressed.IsSet(InputButton.Skill2) ? 2
+                 : pressed.IsSet(InputButton.Skill3) ? 3 : 0;
+        if (slot == 0) return 0f;
         if (!StageSkillRules.IsSlotAllowed(slot)) return 0f; // 스테이지에서 아직 열리지 않은 슬롯
         if (IsClimbing) return 0f;
 
@@ -313,7 +404,8 @@ public class PlayerMovement : NetworkBehaviour
                 return 0f;
 
             case CharacterSkill.RabbitJump:
-                if (!IsGrounded) return 0f; // 땅에 있을 때만 도약
+                if (!CanGroundJump) return 0f; // 땅에 있을 때만 도약 (코요테 타임 포함)
+                ConsumeGroundJump();
                 SetSlotCd(slot, jumpCooldown);
                 SkillAirborne = true; // 연출: 도약 시작
                 PoweredJump = ConsumePowerUp();
@@ -528,12 +620,14 @@ public class PlayerMovement : NetworkBehaviour
         if (carrot != null) carrot.Launch(FacingRight);
     }
 
-    private void HandleLadder(NetworkInputData data)
+    // 사다리에서 점프로 빠져나가면 그 점프 입력은 여기서 소비한다(pressed 에서 지움).
+    private void HandleLadder(NetworkInputData data, ref NetworkButtons pressed)
     {
         if (_isOnLadder)
         {
             IsClimbing = true;
             _rb.gravityScale = 0f;
+            JumpCutReady = false; // 사다리를 잡으면 이전 점프의 가변 점프 판정은 끝
 
             // ���� �ڵ� ���� ����:
             // ��ٸ� ���� ������ ���Ʒ� �Է� ���� �� y�ӵ� 0
@@ -547,8 +641,9 @@ public class PlayerMovement : NetworkBehaviour
             }
 
             // ��ٸ����� �����ϸ� Ż��
-            if (data.isJumpPressed)
+            if (pressed.IsSet(InputButton.Jump))
             {
+                pressed.Set(InputButton.Jump, false);
                 IsClimbing = false;
                 _isOnLadder = false;
                 _rb.gravityScale = _originalGravity;
