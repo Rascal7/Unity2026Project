@@ -117,16 +117,18 @@ public class CarrotProjectile : NetworkBehaviour
             if (want != null && _sr.sprite != want) _sr.sprite = want;
         }
 
-        // 던지기 먼지 (등장 시 1회)
+        // 던지기 먼지 + 발사 효과음 (등장 시 1회)
         if (!_launchDone)
         {
             _launchDone = true;
+            SfxPlayer.CarrotLaunch();
             SpawnFx(launchFx, transform.position, launchFxScale * Scale, !FacingRight);
         }
 
-        // 벽에 박히는 순간 (Stuck 엣지) → 먼지 + 화면 흔들림
+        // 벽에 박히는 순간 (Stuck 엣지) → 박힘 효과음 + 먼지 + 화면 흔들림
         if (Stuck && !_prevStuck)
         {
+            SfxPlayer.CarrotStick();
             SpawnFx(impactFx, transform.position, impactFxScale * Scale, false);
             var cam = Camera.main != null ? Camera.main.GetComponent<CameraFollow>() : null;
             if (cam != null) cam.AddShake(impactShake * Scale);

@@ -26,6 +26,7 @@ public class RankingBoardUI : MonoBehaviour
     private TextMeshProUGUI[] _timeText = new TextMeshProUGUI[RowCount];
 
     public bool IsOpen { get; private set; }
+    public static int LastEscapeClosedFrame { get; private set; } = -1;
 
     public static RankingBoardUI GetOrCreate()
     {
@@ -54,13 +55,31 @@ public class RankingBoardUI : MonoBehaviour
 
     private void Update()
     {
+        if (IsOpen && (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Tab)))
+        {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                LastEscapeClosedFrame = Time.frameCount;
+            }
+            Hide();
+            return;
+        }
+
         if (Input.GetKeyDown(KeyCode.Tab))
         {
-            Toggle();
-        }
-        else if (IsOpen && Input.GetKeyDown(KeyCode.Escape))
-        {
-            Hide();
+            // 설정창이 열려 있거나 입력창 포커스 중이거나 로비 씬(입력창 Tab 이동 우선, 트로피 버튼 사용)일 때는 Tab으로 열지 않음
+            if (SettingsMenuUI.Instance != null && SettingsMenuUI.Instance.IsOpen) return;
+            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Lobby") return;
+
+            var es = EventSystem.current;
+            if (es != null && es.currentSelectedGameObject != null)
+            {
+                var go = es.currentSelectedGameObject;
+                if (go.GetComponent<InputField>() != null || go.GetComponent<TMP_InputField>() != null)
+                    return;
+            }
+
+            Show();
         }
     }
 

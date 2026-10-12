@@ -76,6 +76,11 @@ public class Checkpoint : MonoBehaviour
         }
 
         if (reached == _shownReached && total == _shownTotal) return;
+        if (_shownReached >= 0 && reached > _shownReached)
+        {
+            if (reached >= total) SfxPlayer.CheckpointFull();
+            else SfxPlayer.CheckpointHalf();
+        }
         _shownReached = reached;
         _shownTotal = total;
         _label.text = $"{reached}/{total}";

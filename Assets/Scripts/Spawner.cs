@@ -22,7 +22,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     private float _resumeTimerOffset = 0f;
 
     // ?�게???�테?��?�?취급?????�름??(?�기?????�테?��? 추�??�면 ??
-    private static readonly string[] InGameStageNames = { "TutorialStage", "Main Stage1", "Main Stage2", "Main Stage3" };
+    private static readonly string[] InGameStageNames = { "TutorialStage", "Main Stage1", "Main Stage2", "Main Stage3", "TestStage", "GameStage" };
 
     private bool IsInGameStage(string sceneName)
     {
@@ -233,6 +233,8 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
+        if (BasicLauncher.IsVoluntaryExit) return;
+
         if (runner.IsServer)
         {
             if (_spawnedCharacters.TryGetValue(player, out NetworkObject networkObject))
@@ -241,11 +243,15 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
                 _spawnedCharacters.Remove(player);
                 Debug.Log($"<color=red>[Spawner]</color> 플레이어 {player} 퇴장, 캐릭터 제거");
             }
+            if (BasicLauncher.Instance != null)
+            {
+                BasicLauncher.Instance.NotifyPartnerLeftOnServer(runner, player);
+            }
         }
         else
         {
             // 참가자(Join 측) 입장에서 플레이어가 나갔다면 호스트가 종료한 것
-            Debug.LogWarning("<color=red>[Spawner]</color> 호스트가 접속을 종료했습니다. 로비로 복귀합니다.");
+            Debug.LogWarning("<color=red>[Spawner]</color> 호스트가 접속을 종료했습니다.");
             ReturnToLobby(runner, "호스트가 접속을 종료했습니다.");
         }
     }
@@ -291,17 +297,25 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
     {
-        Debug.LogWarning($"<color=red>[Spawner]</color> NetworkRunner Shutdown: {shutdownReason}. 로비로 복귀합니다.");
-        // 정상 로비 이동(Ok) 외의 모든 셧다운(호스트 종료, 타임아웃 등) 시 로비로 안전 복귀
-        ReturnToLobby(runner, $"호스트와의 연결이 종료되었습니다 ({shutdownReason}).");
+        // 자발적 퇴장(로비 이동 버튼 클릭)이거나 이미 로비 씬이면 알림을 띄우지 않는다.
+        if (BasicLauncher.IsVoluntaryExit || SceneManager.GetActiveScene().name == lobbySceneName) return;
+        if (BasicLauncher.Instance != null && BasicLauncher.Instance.IsStarting) return;
+
+        string msg = shutdownReason == ShutdownReason.Ok
+            ? "호스트가 세션을 종료했습니다."
+            : $"호스트와의 연결이 종료되었습니다 ({shutdownReason}).";
+        Debug.LogWarning($"<color=red>[Spawner]</color> NetworkRunner 비자발적 Shutdown 감지: {shutdownReason}.");
+        ReturnToLobby(runner, msg);
     }
 
     public void OnConnectedToServer(NetworkRunner runner) { }
 
     public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
     {
-        // 끊긴 채로 죽은 세션에 갇히지 않도록 로비로 되돌린다.
-        Debug.LogWarning($"<color=red>[Spawner]</color> 서버 연결이 끊겼습니다: {reason}. 로비로 돌아갑니다.");
+        if (BasicLauncher.IsVoluntaryExit) return;
+
+        // 끊긴 채로 죽은 세션에 갇히지 않도록 안내 후 로비로 되돌린다.
+        Debug.LogWarning($"<color=red>[Spawner]</color> 서버 연결이 끊겼습니다: {reason}.");
         ReturnToLobby(runner, $"호스트와의 연결이 끊어졌습니다 ({reason}).");
     }
 

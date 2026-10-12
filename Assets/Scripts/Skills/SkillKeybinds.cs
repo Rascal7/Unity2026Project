@@ -94,3 +94,5 @@ public static class SkillKeybinds
         return s; // 알파벳 키 등은 그대로 (예: "F", "Q")
     }
 }
+
+

@@ -59,3 +59,5 @@ public static class MovementKeybinds
 
     public static string Label(Act a, int slot) => SkillKeybinds.KeyLabel(Get(a, slot));
 }
+
+

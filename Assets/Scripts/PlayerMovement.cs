@@ -50,6 +50,16 @@ public class PlayerMovement : NetworkBehaviour
     public float carrotCooldown = 3f;
     public float swapCooldown = 5f;
     public float powerUpCooldown = 8f;
+    public float shadowCooldown = 6f;
+    public float stompCooldown = 4f;
+
+    [Header("Fox Shadow & Rabbit Stomp (확장 스킬)")]
+    [Tooltip("여우 그림자 분신 유지 시간(초). 분신은 압력판/레버를 대신 작동시킨다")]
+    public float shadowDuration = 6f;
+    [Tooltip("토끼 스톰프 공중 급강하 속도")]
+    public float stompDownSpeed = 20f;
+    [Tooltip("토끼 스톰프 착지 충격파 반경(균열 바닥 파괴 및 레버 작동)")]
+    public float stompShockwaveRadius = 3.2f;
 
     [Header("Fox Swap (위치 바꾸기)")]
     [Tooltip("이 거리 안의 다른 플레이어와만 위치를 바꾼다. 0 이면 거리 제한 없음")]
@@ -158,6 +168,15 @@ public class PlayerMovement : NetworkBehaviour
     public bool IsFacingRight => FacingRight;
     public bool IsSkillAirborne => SkillAirborne;
     public bool IsPoweredUp => Runner != null && !PowerUpTimer.ExpiredOrNotRunning(Runner);
+    public float PowerUpRemainingSeconds
+    {
+        get
+        {
+            if (Runner == null || !Runner.IsRunning) return 0f;
+            float? rem = PowerUpTimer.RemainingTime(Runner);
+            return (rem.HasValue && rem.Value > 0f) ? rem.Value : 0f;
+        }
+    }
     public int SwapCounter => SwapCount;
     public Vector2 LastSwapFrom => SwapFrom;
     public Vector2 LastSwapTo => SwapTo;
@@ -167,6 +186,15 @@ public class PlayerMovement : NetworkBehaviour
 
     // ���� ����
     private bool _isOnLadder;
+    private bool _stompAirborne;
+    private bool _stompPowered;
+    private float _extraSkillReadyAt;
+
+    // 로컬 오디오(점프/착지/사망/리스폰) 엣지 감지용 상태
+    private bool _visInitialized;
+    private bool _prevGroundedVis;
+    private bool _prevDeadVis;
+    private float _prevVelYVis;
 
     public override void Spawned()
     {
@@ -266,9 +294,20 @@ public class PlayerMovement : NetworkBehaviour
         UpdateSkillAirborne();
     }
 
-    // 토끼 도약 착지 감지: 공중 상태였다가 땅에 닿고 하강/정지하면 종료
+    // 토끼 도약/스톰프 착지 감지: 공중 상태였다가 땅에 닿고 하강/정지하면 종료
     private void UpdateSkillAirborne()
     {
+        if (_stompAirborne && IsGrounded && _rb.linearVelocity.y <= 0.5f)
+        {
+            _stompAirborne = false;
+            bool powered = _stompPowered;
+            _stompPowered = false;
+            if (Runner != null && Runner.IsServer)
+            {
+                TriggerStompImpactOnServer(powered);
+            }
+        }
+
         if (SkillAirborne && IsGrounded && _rb.linearVelocity.y <= 0.1f)
         {
             SkillAirborne = false;
@@ -352,8 +391,9 @@ public class PlayerMovement : NetworkBehaviour
         }
 
         // 낙하 속도 제한: 카메라가 따라잡지 못할 만큼 빨리 떨어져 아래가 안 보이는 것을 막는다.
-        if (maxFallSpeed > 0f && !IsClimbing && yVelocity < -maxFallSpeed)
-            yVelocity = -maxFallSpeed;
+        float fallCap = _stompAirborne ? Mathf.Max(maxFallSpeed, stompDownSpeed) : maxFallSpeed;
+        if (fallCap > 0f && !IsClimbing && yVelocity < -fallCap)
+            yVelocity = -fallCap;
 
         _rb.linearVelocity = new Vector2(xVelocity, yVelocity);
     }
@@ -396,43 +436,73 @@ public class PlayerMovement : NetworkBehaviour
         if (active == CharacterSkill.None) return 0f;
         if (!SlotReady(slot)) return 0f; // 해당 슬롯 쿨다운 중
 
+        return ExecuteSkillByType(active, slot);
+    }
+
+    private float ExecuteSkillByType(CharacterSkill active, int slot)
+    {
         switch (active)
         {
             case CharacterSkill.FoxDash:
-                DashTimer = TickTimer.CreateFromSeconds(Runner, dashDuration);
-                SetSlotCd(slot, dashCooldown);
+                bool poweredDash = ConsumePowerUp();
+                DashTimer = TickTimer.CreateFromSeconds(Runner, poweredDash ? dashDuration * 1.35f : dashDuration);
+                if (slot > 0) SetSlotCd(slot, dashCooldown);
                 return 0f;
 
             case CharacterSkill.RabbitJump:
                 if (!CanGroundJump) return 0f; // 땅에 있을 때만 도약 (코요테 타임 포함)
                 ConsumeGroundJump();
-                SetSlotCd(slot, jumpCooldown);
+                if (slot > 0) SetSlotCd(slot, jumpCooldown);
                 SkillAirborne = true; // 연출: 도약 시작
                 PoweredJump = ConsumePowerUp();
                 return PoweredJump ? poweredJumpForce : superJumpForce;
 
             case CharacterSkill.FoxSniff:
-                SetSlotCd(slot, sniffCooldown);
+                bool poweredSniff = ConsumePowerUp();
+                if (slot > 0) SetSlotCd(slot, sniffCooldown);
                 SniffCount++;
-                DoSniff();
+                DoSniff(poweredSniff);
                 return 0f;
 
             case CharacterSkill.RabbitCarrot:
-                SetSlotCd(slot, carrotCooldown);
+                if (slot > 0) SetSlotCd(slot, carrotCooldown);
                 DoCarrot(ConsumePowerUp());
                 return 0f;
 
             case CharacterSkill.FoxSwap:
                 var partner = FindSwapPartner();
                 if (partner == null) return 0f; // 바꿀 상대가 없으면 쿨다운 소모 없이 무시
-                SetSlotCd(slot, swapCooldown);
+                if (slot > 0) SetSlotCd(slot, swapCooldown);
                 DoSwap(partner);
                 return 0f;
 
             case CharacterSkill.RabbitPowerUp:
                 if (IsPoweredUp) return 0f; // 이미 강화 상태면 중복 사용하지 않는다
-                SetSlotCd(slot, powerUpCooldown);
-                PowerUpTimer = TickTimer.CreateFromSeconds(Runner, powerUpDuration);
+                if (slot > 0) SetSlotCd(slot, powerUpCooldown);
+                var puTimer = TickTimer.CreateFromSeconds(Runner, powerUpDuration);
+                PowerUpTimer = puTimer;
+                if (Runner != null && Runner.IsServer)
+                {
+                    foreach (var p in ActivePlayers())
+                    {
+                        if (p != null && p != this && !p.IsDead)
+                        {
+                            p.PowerUpTimer = puTimer;
+                        }
+                    }
+                }
+                return 0f;
+
+            case CharacterSkill.FoxShadow:
+                bool poweredShadow = ConsumePowerUp();
+                if (slot > 0) SetSlotCd(slot, shadowCooldown);
+                DoFoxShadow(poweredShadow);
+                return 0f;
+
+            case CharacterSkill.RabbitStomp:
+                bool poweredStomp = ConsumePowerUp();
+                if (slot > 0) SetSlotCd(slot, stompCooldown);
+                DoRabbitStomp(poweredStomp);
                 return 0f;
 
             default:
@@ -440,12 +510,152 @@ public class PlayerMovement : NetworkBehaviour
         }
     }
 
-    // 파워업 상태면 소모하고 true. 다음 당근/도약 한 번만 강화된다.
+    /// <summary>
+    /// 음성 명령("그림자"/"분신", "스톰프"/"쿵")이나 특수 트리거로 FoxShadow / RabbitStomp 를 호출한다.
+    /// </summary>
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RPC_RequestExtraSkill(CharacterSkill skill)
+    {
+        if (IsDead || IsClimbing || IsIntroLocked()) return;
+        if (Time.time < _extraSkillReadyAt) return;
+
+        bool isFox = skillCh1 == CharacterSkill.FoxDash || skillCh2 == CharacterSkill.FoxSniff || gameObject.name.Contains("Fox") || gameObject.name.Contains("Player1");
+        if (skill == CharacterSkill.FoxShadow && !isFox) return;
+        if (skill == CharacterSkill.RabbitStomp && isFox) return;
+
+        float cd = GetSkillCooldownTotal(skill);
+        _extraSkillReadyAt = Time.time + Mathf.Max(1.0f, cd);
+        ExecuteSkillByType(skill, 0);
+    }
+
+    // 여우 그림자 분신(FoxShadow): 현재 자리에 일정 시간 유지되는 그림자 분신을 남겨 압력판이나 레버를 대신 작동시킨다.
+    private void DoFoxShadow(bool powered)
+    {
+        float dur = powered ? shadowDuration * 1.5f : shadowDuration;
+        if (Runner != null && Runner.IsServer)
+        {
+            if (powered) DoSniff(true); // 강화 분신은 주변 숨김 오브젝트도 함께 감지
+            RPC_SpawnFoxShadow(transform.position, FacingRight, dur, powered);
+        }
+        else
+        {
+            FoxShadowClone.SpawnClone(this, transform.position, FacingRight, dur, powered);
+        }
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    public void RPC_SpawnFoxShadow(Vector3 pos, NetworkBool facingRight, float duration, NetworkBool powered)
+    {
+        FoxShadowClone.SpawnClone(this, pos, facingRight, duration, powered);
+    }
+
+    // 토끼 쿵(RabbitStomp): 공중이면 급강하하여 착지 시 충격파를 일으키고, 지상에서는 즉시 바닥을 내리찍어 균열 블록 파괴 및 레버를 작동시킨다.
+    private void DoRabbitStomp(bool powered)
+    {
+        if (!IsGrounded)
+        {
+            _stompAirborne = true;
+            _stompPowered = powered;
+            if (_rb != null)
+            {
+                _rb.linearVelocity = new Vector2(_rb.linearVelocity.x * 0.25f, -stompDownSpeed);
+            }
+        }
+        else if (Runner != null && Runner.IsServer)
+        {
+            if (_rb != null)
+            {
+                _rb.linearVelocity = new Vector2(_rb.linearVelocity.x * 0.3f, 5.2f);
+            }
+            TriggerStompImpactOnServer(powered);
+        }
+    }
+
+    private void TriggerStompImpactOnServer(bool powered)
+    {
+        float radius = powered ? stompShockwaveRadius * 1.5f : stompShockwaveRadius;
+        Vector2 origin = transform.position;
+        float rSq = radius * radius;
+
+        // 1. 반경 내 드러난 레버(LeverSwitch) 충격파 토글 (네트워크 권한: 호스트)
+        var levers = FindObjectsByType<LeverSwitch>(FindObjectsSortMode.None);
+        foreach (var lv in levers)
+        {
+            if (lv != null && (((Vector2)lv.transform.position - origin).sqrMagnitude <= rSq))
+            {
+                lv.TryToggleOnServer();
+            }
+        }
+
+        // 2. 강화 스톰프는 진동으로 반경 내 숨겨진 오브젝트도 잠시 드러냄
+        if (powered)
+        {
+            var revealables = FindObjectsByType<Revealable>(FindObjectsSortMode.None);
+            foreach (var rv in revealables)
+            {
+                if (rv != null && rv.IsWithinRange(origin, radius * 1.15f))
+                {
+                    rv.Reveal(3.0f);
+                }
+            }
+        }
+
+        // 3. 모든 피어에서 균열 블록(BreakableCrackedBlock) 파괴 및 충격파 VFX/SFX 재생
+        RPC_PlayStompImpact(origin, radius, powered);
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    public void RPC_PlayStompImpact(Vector2 origin, float radius, NetworkBool powered)
+    {
+        SfxPlayer.Stomp();
+
+        // 반경 내 균열 블록(BreakableCrackedBlock) 파괴 (모든 클라이언트 동기화)
+        var blocks = FindObjectsByType<BreakableCrackedBlock>(FindObjectsSortMode.None);
+        foreach (var b in blocks)
+        {
+            if (b != null) b.TryBreak(origin, radius, powered);
+        }
+
+        var fx = SkillFxLibrary.Instance;
+        if (fx != null)
+        {
+            int slId = _sr != null ? _sr.sortingLayerID : 0;
+            Vector3 feet = new Vector3(origin.x, origin.y - 0.35f, 0f);
+            Color tint = powered ? new Color(1f, 0.82f, 0.22f, 0.95f) : new Color(0.45f, 0.88f, 1f, 0.9f);
+            if (fx.sniffRing != null && fx.sniffRing.Length > 0)
+            {
+                float ringScale = Mathf.Min(fx.sniffRingMaxScale, (radius * 2f) / Mathf.Max(0.01f, fx.sniffRingBaseDiameter));
+                SpriteEffect.Spawn(fx.sniffRing, feet, fx.sniffRingFps * 1.35f, ringScale, false, slId, fx.sortingOrder, tint);
+            }
+            if (fx.powerUpRing != null && fx.powerUpRing.Length > 0)
+            {
+                SpriteEffect.Spawn(fx.powerUpRing, feet, fx.powerUpRingFps * 1.2f, fx.powerUpRingScale * (powered ? 1.4f : 1.05f), false, slId, fx.sortingOrder + 1, tint);
+            }
+        }
+
+        if (Camera.main != null)
+        {
+            var cam = Camera.main.GetComponent<CameraFollow>();
+            if (cam != null) cam.AddShake(powered ? 0.55f : 0.38f);
+        }
+    }
+
+    // 파워업 상태면 소모하고 true. 여우/토끼 중 다음 스킬 사용자가 1회 강화 효과를 받는다.
     private bool ConsumePowerUp()
     {
         if (!IsPoweredUp) return false;
         PowerUpTimer = TickTimer.None;
         PowerSpendCount++;
+        if (Runner != null && Runner.IsServer)
+        {
+            foreach (var p in ActivePlayers())
+            {
+                if (p != null && p != this)
+                {
+                    p.PowerUpTimer = TickTimer.None;
+                }
+            }
+        }
         return true;
     }
 
@@ -499,6 +709,8 @@ public class PlayerMovement : NetworkBehaviour
         DashTimer = TickTimer.None;
         SkillAirborne = false;
         PoweredJump = false;
+        _stompAirborne = false;
+        _stompPowered = false;
     }
 
     public struct SkillSlotStatus
@@ -522,6 +734,8 @@ public class PlayerMovement : NetworkBehaviour
             case CharacterSkill.RabbitCarrot: return carrotCooldown;
             case CharacterSkill.FoxSwap: return swapCooldown;
             case CharacterSkill.RabbitPowerUp: return powerUpCooldown;
+            case CharacterSkill.FoxShadow: return shadowCooldown;
+            case CharacterSkill.RabbitStomp: return stompCooldown;
             default: return 0f;
         }
     }
@@ -585,23 +799,25 @@ public class PlayerMovement : NetworkBehaviour
     }
 
     // 근방의 숨김 오브젝트(Revealable)를 드러낸다. 호스트가 씬 오브젝트 권한을 가지므로 호스트에서 실행.
-    private void DoSniff()
+    private void DoSniff(bool powered = false)
     {
         if (!Runner.IsServer) return;
         var all = FindObjectsByType<Revealable>(FindObjectsSortMode.None);
         Vector2 origin = transform.position;
+        float radius = powered ? sniffRadius * 1.5f : sniffRadius;
+        float duration = powered ? sniffRevealDuration * 1.35f : sniffRevealDuration;
         int revealed = 0;
         foreach (var rv in all)
         {
             // 거리 판정은 Revealable 이 직접 한다. 타일맵 숨김 발판처럼 오브젝트 위치와
             // 실제 내용의 위치가 다른 경우가 있어서 여기서 transform 으로 재면 안 된다.
-            if (rv.IsWithinRange(origin, sniffRadius))
+            if (rv.IsWithinRange(origin, radius))
             {
-                rv.Reveal(sniffRevealDuration);
+                rv.Reveal(duration);
                 revealed++;
             }
         }
-        Debug.Log($"<color=cyan>[Sniff]</color> 반경 {sniffRadius} 안 {revealed}/{all.Length}개를 드러냈습니다.");
+        Debug.Log($"<color=cyan>[Sniff]</color> 반경 {radius} 안 {revealed}/{all.Length}개를 드러냈습니다.");
     }
 
     // 정면으로 당근 발사 (호스트가 네트워크 오브젝트 스폰). big = 파워업으로 강화된 큰 당근
@@ -858,6 +1074,8 @@ public class PlayerMovement : NetworkBehaviour
         UpdateVisuals();
     }
 
+    private bool _prevRespawnGraceVis;
+
     private void UpdateVisuals()
     {
         // 1. 바라보는 방향에 따라 스프라이트 반전 (호스트/클라이언트 완벽 동기화)
@@ -866,7 +1084,55 @@ public class PlayerMovement : NetworkBehaviour
             _sr.flipX = !FacingRight;
         }
 
-        // 2. 애니메이션 파라미터 갱신 (원격 플레이어와 로컬 플레이어 모두 실제 속도 기반으로 자연스럽게 재생)
+        // 2. 점프 / 착지 / 사망 및 리스폰 효과음 엣지 감지
+        if (_rb != null && Runner != null && Runner.IsRunning)
+        {
+            bool grounded = IsGrounded;
+            bool dead = IsDead;
+            bool graceActive = !RespawnGrace.ExpiredOrNotRunning(Runner);
+            float vy = _rb.linearVelocity.y;
+
+            if (!_visInitialized)
+            {
+                _visInitialized = true;
+                _prevGroundedVis = grounded;
+                _prevDeadVis = dead;
+                _prevRespawnGraceVis = graceActive;
+                _prevVelYVis = vy;
+            }
+            else
+            {
+                // 사망 -> 리스폰 무적 타이머가 새로 켜진 순간 (또는 IsDead 상승 엣지)
+                if ((dead && !_prevDeadVis) || (graceActive && !_prevRespawnGraceVis))
+                {
+                    if (Object != null && Object.HasInputAuthority)
+                    {
+                        SfxPlayer.Death();
+                        SfxPlayer.Respawn();
+                    }
+                }
+                else
+                {
+                    // 기본 점프 상승 엣지 (토끼 슈퍼점프는 PlayerSkillVisuals 에서 별도 재생)
+                    if (_prevGroundedVis && !grounded && vy > 3.5f && !SkillAirborne && !IsClimbing)
+                    {
+                        SfxPlayer.Jump();
+                    }
+                    // 일반 착지 엣지 (토끼 슈퍼점프/스톰프 착지는 각 스킬 연출에서 재생)
+                    else if (!_prevGroundedVis && grounded && _prevVelYVis < -2.0f && !SkillAirborne && !_stompAirborne)
+                    {
+                        SfxPlayer.Land();
+                    }
+                }
+
+                _prevGroundedVis = grounded;
+                _prevDeadVis = dead;
+                _prevRespawnGraceVis = graceActive;
+                _prevVelYVis = vy;
+            }
+        }
+
+        // 3. 애니메이션 파라미터 갱신 (원격 플레이어와 로컬 플레이어 모두 실제 속도 기반으로 자연스럽게 재생)
         if (_anim != null && _rb != null)
         {
             if (IsClimbing)

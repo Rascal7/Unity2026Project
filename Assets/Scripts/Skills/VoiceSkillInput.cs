@@ -27,11 +27,14 @@ public class VoiceSkillInput : MonoBehaviour
 {
     public static VoiceSkillInput Instance { get; private set; }
 
+    public const int PingSlot = 4;
+    public const int ExtraSkillSlot = 5;
+
     [Serializable]
     public struct KeywordSlot
     {
         public string keyword;
-        [Range(0, 3)] public int slot;
+        [Range(0, 5)] public int slot;
     }
 
     [Header("키워드 → 스킬 슬롯")]
@@ -44,6 +47,11 @@ public class VoiceSkillInput : MonoBehaviour
         new KeywordSlot { keyword = "점프", slot = 2 }, // 토끼 ch2
         new KeywordSlot { keyword = "체인지", slot = 3 }, // 여우 ch3 (change: 위치 바꾸기)
         new KeywordSlot { keyword = "파워업", slot = 3 }, // 토끼 ch3 (power up: 다음 스킬 강화)
+        new KeywordSlot { keyword = "그림자", slot = ExtraSkillSlot }, // 여우 분신 (FoxShadow)
+        new KeywordSlot { keyword = "분신", slot = ExtraSkillSlot },   // 여우 분신 (FoxShadow)
+        new KeywordSlot { keyword = "스톰프", slot = ExtraSkillSlot }, // 토끼 쿵 (RabbitStomp)
+        new KeywordSlot { keyword = "쿵", slot = ExtraSkillSlot },     // 토끼 쿵 (RabbitStomp)
+        new KeywordSlot { keyword = "여기", slot = PingSlot }, // 협동 핑 마커 호출
     };
 
     [Header("인식 판정")]
@@ -81,18 +89,28 @@ public class VoiceSkillInput : MonoBehaviour
 
     // ---------------- 공개 상태 ----------------
 
+    /// <summary>음성 키워드가 인식되었을 때 메인 스레드에서 발생 (keyword, slot: 1~3 스킬 / 4 협동 핑).</summary>
+    public static event Action<string, int> OnVoiceCommandRecognized;
+
     /// <summary>현재 음성으로 스킬이 요청된 상태인가.</summary>
     public static bool IsSkillRequested =>
         Instance != null && Time.time <= Instance._activeUntil;
 
     /// <summary>현재 음성으로 요청된 스킬 슬롯(1/2/3), 없으면 0.</summary>
     public static int RequestedSlot =>
-        (Instance != null && Time.time <= Instance._activeUntil) ? Instance._requestedSlot : 0;
+        (Instance != null && Time.time <= Instance._activeUntil && Instance._requestedSlot >= 1 && Instance._requestedSlot <= 3)
+            ? Instance._requestedSlot : 0;
 
     /// <summary>마지막으로 인식된 키워드(디버그/캐릭터별 분기용).</summary>
     public static string LastKeyword => Instance != null ? Instance._lastKeyword : "";
     // 마이크에 목소리가 들어오는 중(VAD 게이트 열림). BgmManager 가 배경음을 줄이는(덕킹) 데 사용.
     public static bool IsSpeaking => Instance != null && Instance._isSpeaking;
+    /// <summary>실시간 마이크 입력 레벨 (0~1, UI 인디케이터 표시용).</summary>
+    public static float CurrentLevel => Instance != null ? Instance._smoothedLevel : 0f;
+    /// <summary>마이크가 현재 정상 청취 중인지 여부.</summary>
+    public static bool IsListening => Instance != null && Instance._isListening && !Instance._isPaused;
+    /// <summary>주변 소음 캘리브레이션 진행 중인지 여부.</summary>
+    public static bool IsCalibrating => Instance != null && Instance._calibrating;
 
     /// <summary>현재 녹음 중인 마이크 장치명</summary>
     public string CurrentMicrophone => _currentDeviceName;
@@ -101,6 +119,7 @@ public class VoiceSkillInput : MonoBehaviour
     private string _lastKeyword = "";
     private int _requestedSlot;
     private float _lastAcceptTime = -999f;
+    private float _smoothedLevel;
 
     // ---------------- 마이크 ----------------
 
@@ -207,8 +226,13 @@ public class VoiceSkillInput : MonoBehaviour
         foreach (var ks in keywordSlots)
         {
             if (string.IsNullOrWhiteSpace(ks.keyword)) continue;
-            _slotByKeyword[ks.keyword.Trim()] = Mathf.Clamp(ks.slot, 0, 3);
+            _slotByKeyword[ks.keyword.Trim()] = Mathf.Clamp(ks.slot, 0, ExtraSkillSlot);
         }
+        if (!_slotByKeyword.ContainsKey("여기")) _slotByKeyword["여기"] = PingSlot;
+        if (!_slotByKeyword.ContainsKey("그림자")) _slotByKeyword["그림자"] = ExtraSkillSlot;
+        if (!_slotByKeyword.ContainsKey("분신")) _slotByKeyword["분신"] = ExtraSkillSlot;
+        if (!_slotByKeyword.ContainsKey("스톰프")) _slotByKeyword["스톰프"] = ExtraSkillSlot;
+        if (!_slotByKeyword.ContainsKey("쿵")) _slotByKeyword["쿵"] = ExtraSkillSlot;
         if (_slotByKeyword.Count == 0)
         {
             Debug.LogWarning("[VoiceSkillInput] 등록된 키워드가 없습니다. 음성 입력을 비활성화합니다.");
@@ -406,8 +430,12 @@ public class VoiceSkillInput : MonoBehaviour
             _lastAcceptTime = Time.time;
             _lastKeyword = kw;
             _requestedSlot = SlotForKeyword(kw);
-            _activeUntil = Time.time + activeWindow;
+            if (_requestedSlot >= 1 && _requestedSlot <= 3)
+            {
+                _activeUntil = Time.time + activeWindow;
+            }
             Debug.Log($"<color=lime>[VoiceSkillInput]</color> Vosk 키워드 인식 성공: '{kw}' (슬롯 {_requestedSlot})");
+            OnVoiceCommandRecognized?.Invoke(kw, _requestedSlot);
         }
 
         // 2. 마이크 상태 관리
@@ -430,6 +458,10 @@ public class VoiceSkillInput : MonoBehaviour
         if (_isListening && !_isPaused && _micClip != null)
         {
             SampleMicrophoneAudio();
+        }
+        else
+        {
+            _smoothedLevel = Mathf.MoveTowards(_smoothedLevel, 0f, Time.unscaledDeltaTime * 4f);
         }
     }
 
@@ -660,6 +692,10 @@ public class VoiceSkillInput : MonoBehaviour
         }
         float rms = Mathf.Sqrt((float)(sumSq / count)) * sens;
         float dt = (float)count / _captureRate;
+        float normLevel = Mathf.Clamp01(rms / Mathf.Max(OpenThreshold * 2.2f, 0.025f));
+        _smoothedLevel = normLevel > _smoothedLevel
+            ? Mathf.Lerp(_smoothedLevel, normLevel, 0.55f)
+            : Mathf.Lerp(_smoothedLevel, normLevel, 0.2f);
 
         // --- 캘리브레이션: PC/마이크마다 다른 주변 소음 바닥을 직접 측정합니다 ---
         if (_calibrating)

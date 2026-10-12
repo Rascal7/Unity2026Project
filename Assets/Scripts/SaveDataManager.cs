@@ -16,6 +16,9 @@ public class SaveSlotData
     public float[] segmentTimes = new float[0];
     // 위 구간들의 스테이지 번호(병렬). 라벨을 실제 스테이지로 표기하기 위함.
     public int[] segmentStages = new int[0];
+    // 완료한 스테이지들의 개별 구슬 조각 수집 수 및 누적 조각 수
+    public int[] segmentShards = new int[0];
+    public int totalCollectedShards = 0;
 
     // Phase2: 현재 스테이지 중간 체크포인트 이어하기용
     public float stageElapsed = 0f;       // 마지막 체크포인트 시점의 현재 스테이지 경과시간
@@ -37,6 +40,7 @@ public class SaveSlotData
         stageDisplayName = "튜토리얼 (Tutorial)";
         updatedTime = "";
         totalPlayTime = 0f;
+        totalCollectedShards = 0;
         hash = "";
         isCorrupted = false;
     }
@@ -342,11 +346,13 @@ public static class SaveDataManager
         data.totalPlayTime = totalRunSeconds < 0f ? 0f : totalRunSeconds;
         data.segmentTimes = RunManager.Segments.ToArray();  // 완료한 스테이지들의 개별 기록
         data.segmentStages = RunManager.SegmentStages.ToArray(); // 각 구간의 스테이지 번호
+        data.segmentShards = RunManager.SegmentShards.ToArray(); // 각 구간의 조각 수집 개수
+        data.totalCollectedShards = RunManager.TotalCollectedShards;
         // 새 스테이지 진입이므로 중간 체크포인트 정보는 초기화 (처음부터 시작)
         data.stageElapsed = 0f;
         data.hasCheckpoint = false;
         SaveSlot(data);
-        Debug.Log($"<color=cyan>[SaveDataManager]</color> 진행+기록 저장: {data.stageDisplayName} / 누적 {data.totalPlayTime:0.00}s");
+        Debug.Log($"<color=cyan>[SaveDataManager]</color> 진행+기록 저장: {data.stageDisplayName} / 누적 {data.totalPlayTime:0.00}s / 조각 {data.totalCollectedShards}개");
     }
 
     // Phase2: 스테이지 중간 체크포인트 저장 (이어하기 시 그 지점 + 타이머부터 복원).
@@ -365,6 +371,8 @@ public static class SaveDataManager
         data.totalPlayTime = accumulatedSeconds < 0f ? 0f : accumulatedSeconds;
         data.segmentTimes = RunManager.Segments.ToArray();  // 완료한 이전 스테이지들의 개별 기록
         data.segmentStages = RunManager.SegmentStages.ToArray(); // 각 구간의 스테이지 번호
+        data.segmentShards = RunManager.SegmentShards.ToArray(); // 각 구간의 조각 수집 개수
+        data.totalCollectedShards = RunManager.TotalCollectedShards;
         data.stageElapsed = stageElapsedSeconds < 0f ? 0f : stageElapsedSeconds;
         data.checkpointX = checkpointPos.x;
         data.checkpointY = checkpointPos.y;

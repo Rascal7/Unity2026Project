@@ -47,6 +47,7 @@ public class RankingManager : MonoBehaviour
 
     private static float _lastSubmitTimestamp = -999f;
     private static float _lastSubmittedTimeVal = -1f;
+    private int _pendingSubmitShards = 0;
 
     public void SaveScore(float time)
     {
@@ -57,11 +58,19 @@ public class RankingManager : MonoBehaviour
     // 특정 플레이어 닉네임을 직접 넘길 수 있는 오버로드
     public void SaveScore(float time, string p1, string p2)
     {
+        _pendingSubmitShards = Mathf.Max(0, RunManager.TotalCollectedShards);
+
         // 1. 수치 유효성 검사 (NaN, Infinity, 0 이하, 비현실적인 타임)
         if (float.IsNaN(time) || float.IsInfinity(time) || time <= 0f)
         {
             Debug.LogWarning($"<color=red>[Ranking Security] 비정상적인 클리어 타임 값({time}) 등록 차단.</color>");
             return;
+        }
+
+        // 조각 단축 보너스로 인해 최소 유효 시간 아래로 내려간 정상 플레이 기록은 최소치로 보정
+        if (time < MinValidClearTime && _pendingSubmitShards > 0 && (time + _pendingSubmitShards * RunManager.ShardTimeBonusSeconds) >= MinValidClearTime)
+        {
+            time = MinValidClearTime;
         }
 
         if (time < MinValidClearTime)
@@ -98,8 +107,8 @@ public class RankingManager : MonoBehaviour
         p1 = SanitizePlayerName(p1, "Player1");
         p2 = SanitizePlayerName(p2, "Player2");
 
-        Debug.Log($"<color=cyan>[Ranking]</color> 클리어 {time:F2}초 랭킹 등록 시도 ({p1} & {p2})");
-        StartCoroutine(SaveAndEvaluateRoutine(p1, p2, time));
+        Debug.Log($"<color=cyan>[Ranking]</color> 클리어 {time:F2}초 (조각 {_pendingSubmitShards}개) 랭킹 등록 시도 ({p1} & {p2})");
+        StartCoroutine(SaveAndEvaluateRoutine(p1, p2, time, _pendingSubmitShards));
     }
 
     private static string SanitizePlayerName(string name, string fallback)
@@ -184,7 +193,7 @@ public class RankingManager : MonoBehaviour
     }
 
     // 클리어 즉시(캐시가 있으면) 순위를 판정해 축하 이벤트를 먼저 쏘고, 그 다음 기록을 저장한다.
-    IEnumerator SaveAndEvaluateRoutine(string p1, string p2, float time)
+    IEnumerator SaveAndEvaluateRoutine(string p1, string p2, float time, int shards)
     {
         int rank;
         if (_cachedTop != null)
@@ -202,7 +211,7 @@ public class RankingManager : MonoBehaviour
         }
 
         // 기록 저장 (POST)
-        yield return StartCoroutine(PostRankingData(p1, p2, time));
+        yield return StartCoroutine(PostRankingData(p1, p2, time, shards));
 
         // 다음 판정을 위해 캐시 갱신
         yield return StartCoroutine(FetchTopRoutine());
@@ -215,7 +224,7 @@ public class RankingManager : MonoBehaviour
         }
     }
 
-    IEnumerator PostRankingData(string p1, string p2, float time)
+    IEnumerator PostRankingData(string p1, string p2, float time, int shards)
     {
         string url = GetFirebaseEndpoint("ranks.json");
 
@@ -224,7 +233,8 @@ public class RankingManager : MonoBehaviour
             player1 = p1,
             player2 = p2,
             clearTime = (double)time,
-            createdAt = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            createdAt = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            shards = shards
         };
 
         string json = JsonUtility.ToJson(newData);
@@ -266,6 +276,7 @@ public class RankingManager : MonoBehaviour
         public string player2;
         public double clearTime;
         public long createdAt;
+        public int shards;
     }
 
     [System.Serializable]
@@ -338,7 +349,8 @@ public class RankingManager : MonoBehaviour
                     if (has)
                     {
                         var data = ranks[i];
-                        players = $"{data.player1} & {data.player2}";
+                        string shardBadge = data.shards > 0 ? $"  <color=#FFD94D>[✦{data.shards}]</color>" : "";
+                        players = $"{data.player1} & {data.player2}{shardBadge}";
                         time = FormatTime(data.clearTime);
                     }
 

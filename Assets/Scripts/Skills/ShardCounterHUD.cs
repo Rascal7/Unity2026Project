@@ -19,11 +19,15 @@ public class ShardCounterHUD : MonoBehaviour
     private RectTransform _panel;
     private Image _icon;
     private Text _countText;
+    private Text _bonusText;
 
     private int _total;
     private int _collected = -1;
     private float _nextRefresh;
     private float _popT = 1f; // 0→1, 획득 순간 살짝 커졌다 돌아오는 연출
+
+    public int CollectedCount => Mathf.Max(0, _collected);
+    public int TotalCount => _total;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void Bootstrap()
@@ -60,6 +64,7 @@ public class ShardCounterHUD : MonoBehaviour
         _total = shards.Length;
         _collected = -1;
         _nextRefresh = 0f;
+        RunManager.ResetCurrentStageShards(_total);
 
         foreach (var s in shards)
         {
@@ -87,8 +92,15 @@ public class ShardCounterHUD : MonoBehaviour
             {
                 if (_collected >= 0 && collected > _collected) _popT = 0f;
                 _collected = collected;
+                RunManager.SyncStageShards(collected, _total);
                 _countText.text = $"{collected} / {_total}";
                 _countText.color = collected >= _total ? LobbyUITheme.GreenBtn : LobbyUITheme.Gold;
+                if (_bonusText != null)
+                {
+                    float bonusSec = collected * RunManager.ShardTimeBonusSeconds;
+                    _bonusText.text = collected > 0 ? $"기록 -{bonusSec:0}초 단축!" : $"조각당 -{RunManager.ShardTimeBonusSeconds:0}초";
+                    _bonusText.color = collected > 0 ? new Color(0.55f, 1f, 0.68f, 1f) : LobbyUITheme.Hint;
+                }
             }
         }
 
@@ -119,8 +131,8 @@ public class ShardCounterHUD : MonoBehaviour
         _panel = (RectTransform)panelGo.transform;
         _panel.anchorMin = _panel.anchorMax = new Vector2(0f, 1f);
         _panel.pivot = new Vector2(0.5f, 0.5f);
-        _panel.sizeDelta = new Vector2(230f, 76f);
-        _panel.anchoredPosition = new Vector2(40f + 115f, -35f - 38f);
+        _panel.sizeDelta = new Vector2(246f, 86f);
+        _panel.anchoredPosition = new Vector2(40f + 123f, -35f - 43f);
         LobbyUITheme.StyleWoodPanel(panelGo);
 
         var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
@@ -137,13 +149,13 @@ public class ShardCounterHUD : MonoBehaviour
         var textGo = new GameObject("Count", typeof(RectTransform), typeof(Text), typeof(Outline));
         textGo.transform.SetParent(panelGo.transform, false);
         var trt = (RectTransform)textGo.transform;
-        trt.anchorMin = new Vector2(0f, 0f);
+        trt.anchorMin = new Vector2(0f, 0.32f);
         trt.anchorMax = new Vector2(1f, 1f);
         trt.offsetMin = new Vector2(76f, 0f);
-        trt.offsetMax = new Vector2(-12f, 0f);
+        trt.offsetMax = new Vector2(-12f, -4f);
         _countText = textGo.GetComponent<Text>();
         _countText.font = LobbyUITheme.PixelFont;
-        _countText.fontSize = 36;
+        _countText.fontSize = 34;
         _countText.alignment = TextAnchor.MiddleCenter;
         _countText.horizontalOverflow = HorizontalWrapMode.Overflow;
         _countText.raycastTarget = false;
@@ -151,5 +163,25 @@ public class ShardCounterHUD : MonoBehaviour
         var outline = textGo.GetComponent<Outline>();
         outline.effectColor = LobbyUITheme.GoldDeep;
         outline.effectDistance = new Vector2(2f, -2f);
+
+        var bonusGo = new GameObject("BonusText", typeof(RectTransform), typeof(Text), typeof(Outline));
+        bonusGo.transform.SetParent(panelGo.transform, false);
+        var brt = (RectTransform)bonusGo.transform;
+        brt.anchorMin = new Vector2(0f, 0f);
+        brt.anchorMax = new Vector2(1f, 0.38f);
+        brt.offsetMin = new Vector2(76f, 4f);
+        brt.offsetMax = new Vector2(-12f, 0f);
+        _bonusText = bonusGo.GetComponent<Text>();
+        _bonusText.font = LobbyUITheme.PlainFont;
+        _bonusText.fontSize = 15;
+        _bonusText.fontStyle = FontStyle.Bold;
+        _bonusText.alignment = TextAnchor.MiddleCenter;
+        _bonusText.horizontalOverflow = HorizontalWrapMode.Overflow;
+        _bonusText.raycastTarget = false;
+        _bonusText.color = LobbyUITheme.Hint;
+        var bOutline = bonusGo.GetComponent<Outline>();
+        bOutline.effectColor = LobbyUITheme.GoldDeep;
+        bOutline.effectDistance = new Vector2(1.5f, -1.5f);
     }
 }
+

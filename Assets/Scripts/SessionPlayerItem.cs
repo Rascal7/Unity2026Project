@@ -79,35 +79,51 @@ public class SessionPlayerItem : NetworkBehaviour
         }
     }
 
+    private static float _lastSceneLoadTime = -999f;
+
     private void CheckAllReady()
     {
+        TryProceedIfAllReady(Runner, "savefile");
+    }
+
+    public static bool TryProceedIfAllReady(NetworkRunner runner, string nextSceneName = "savefile")
+    {
+        if (runner == null || !runner.IsServer) return false;
+        if (SceneManager.GetActiveScene().name != "CharacterSelect") return false;
+        if (Time.unscaledTime - _lastSceneLoadTime < 2.0f) return false;
+
         var allItems = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
-        Debug.Log($"<color=white>[체크]</color> 현재 SessionPlayerItem 개수: {allItems.Length}");
+        if (allItems.Length == 0) return false;
 
         int readyCount = 0;
         bool allCharactersSelected = true;
         foreach (var item in allItems)
         {
+            if (item == null || item.Object == null) continue;
             if (item.IsReady) readyCount++;
             if (item.SelectedCharacterIndex == -1) allCharactersSelected = false;
         }
 
-        int targetCount = Mathf.Max(1, System.Linq.Enumerable.Count(Runner.ActivePlayers));
-        Debug.Log($"<color=white>[체크]</color> 준비 완료 인원: {readyCount} / 접속 인원: {targetCount}");
+        int targetCount = Mathf.Max(1, System.Linq.Enumerable.Count(runner.ActivePlayers));
+        if (allItems.Length < targetCount) return false;
 
         if (readyCount >= targetCount && allCharactersSelected)
         {
-            Debug.Log("<color=green>[출발]</color> 전원 준비 완료! 세이브 파일 선택 씬(savefile)으로 이동합니다.");
-            int sceneIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/savefile.unity");
+            _lastSceneLoadTime = Time.unscaledTime;
+            Debug.Log($"<color=green>[출발]</color> 전원 준비 완료 ({readyCount}/{targetCount})! 세이브 파일 선택 씬({nextSceneName})으로 이동합니다.");
+            int sceneIndex = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{nextSceneName}.unity");
             if (sceneIndex >= 0)
             {
-                Runner.LoadScene(SceneRef.FromIndex(sceneIndex));
+                runner.LoadScene(SceneRef.FromIndex(sceneIndex));
             }
             else
             {
-                Runner.LoadScene("savefile");
+                runner.LoadScene(nextSceneName, LoadSceneMode.Single);
             }
+            return true;
         }
+
+        return false;
     }
 
     public void OnIndexChanged()

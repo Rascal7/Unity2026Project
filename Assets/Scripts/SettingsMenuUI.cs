@@ -232,6 +232,19 @@ public class SettingsMenuUI : MonoBehaviour
 
         if (escPressed)
         {
+            if (BasicLauncher.Instance != null && BasicLauncher.Instance.IsDisconnectModalOpen)
+            {
+                return;
+            }
+            if (RankingBoardUI.Instance != null &&
+                (RankingBoardUI.Instance.IsOpen || RankingBoardUI.LastEscapeClosedFrame == Time.frameCount))
+            {
+                if (RankingBoardUI.Instance.IsOpen)
+                {
+                    RankingBoardUI.Instance.Hide();
+                }
+                return;
+            }
             ToggleMenu();
         }
 
@@ -323,9 +336,9 @@ public class SettingsMenuUI : MonoBehaviour
         }
     }
 
-    // 옵션창이 열려 있는 동안 켜짐. Spawner 가 이 값을 보고 게임플레이 입력(이동/점프/스킬)을 막는다.
+    // 옵션창이나 연결 끊김 모달이 열려 있는 동안 켜짐. Spawner 가 이 값을 보고 게임플레이 입력(이동/점프/스킬)을 막는다.
     // (키 재설정 중 실제 스킬/이동이 발동되는 것을 방지)
-    public static bool GameplayInputSuppressed { get; private set; }
+    public static bool GameplayInputSuppressed { get; set; }
 
     public void OpenMenu()
     {
@@ -750,6 +763,7 @@ public class SettingsMenuUI : MonoBehaviour
     private async void OnExitButtonClicked()
     {
         CloseMenu();
+        BasicLauncher.MarkVoluntaryExit();
 
         var runner = FindFirstObjectByType<NetworkRunner>();
         if (runner != null)
