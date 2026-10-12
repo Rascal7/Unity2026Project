@@ -164,13 +164,21 @@ public class PlayerMovement : NetworkBehaviour
     public int SniffCounter => SniffCount;
     public int PowerSpendCounter => PowerSpendCount;
     public bool IsPoweredJump => PoweredJump;
-    public bool IsClimbingNow => IsClimbing;   // 튜토리얼 안내: 사다리 등반 중인지(로컬 확인용)
+    // 튜토리얼 안내용 접근자: [Networked] 값은 Spawned() 후에만 접근 가능하므로 스폰 전엔 안전한 기본값.
+    public bool IsClimbingNow => _spawned && IsClimbing;   // 사다리 등반 중인지(로컬 확인용)
+    public bool IsGroundedNow => _spawned && IsGrounded;   // 접지 상태(점프 감지용)
+    public float VerticalVelocity => _rb != null ? _rb.linearVelocity.y : 0f; // 수직 속도(비네트워크, 안전)
+    private bool _spawned;
+
+    // 튜토리얼 미션 브리핑 중 로컬 입력을 잠근다(Spawner.OnInput 에서 빈 입력으로 전달).
+    public static bool TutorialHold;
 
     // ���� ����
     private bool _isOnLadder;
 
     public override void Spawned()
     {
+        _spawned = true;
         _rb = GetComponent<Rigidbody2D>();
         _anim = GetComponent<Animator>();
         _sr = GetComponent<SpriteRenderer>();

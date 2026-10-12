@@ -28,12 +28,21 @@ public class StageIntroUI : MonoBehaviour
     // ----- 스테이지 진입 시 새 스킬 등록 연출 -----
     private GameObject _skillCard;
     private RectTransform _skillCardRt;
+    private CanvasGroup _skillCardCg;
     private Image _skillIcon;
     private Text _skillIconLabel;
     private Text _skillName;
     private Text _skillKey;
     private bool _skillTried;     // 이번 인트로에서 공개 시도했는지
-    private float _cardAnimT;     // 카드 등장 애니메이션 진행도(0~1)
+
+    // 카드 연출 단계: 등장(pop) → 유지 → HUD 슬롯으로 날아가 꽂힘.
+    private enum CardPhase { None, In, Hold, Fly, Done }
+    private CardPhase _cardPhase = CardPhase.None;
+    private float _cardT;
+    private int _revealSlot;          // 이번에 공개(꽂을) HUD 슬롯
+    private Vector3 _flyFrom, _flyTo; // 카드가 날아가는 시작/목표(화면 좌표)
+    private const float CardInDur = 0.4f, CardHoldDur = 1.0f, CardFlyDur = 0.7f;
+    private static readonly Vector2 CardHomePos = new Vector2(0f, -220f);
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void Bootstrap()
@@ -88,7 +97,8 @@ public class StageIntroUI : MonoBehaviour
         _root.SetActive(true);
         _shown = true;
         _skillTried = false;
-        _cardAnimT = 0f;
+        _cardPhase = CardPhase.None;
+        _revealSlot = 0;
         if (_skillCard != null) _skillCard.SetActive(false);
     }
 
@@ -98,6 +108,11 @@ public class StageIntroUI : MonoBehaviour
         if (_skillCard != null) _skillCard.SetActive(false);
         _shown = false;
         _skillTried = false;
+        _cardPhase = CardPhase.None;
+        // 연출이 끝나기 전에 숨겨지더라도 슬롯 억제는 반드시 해제(실제 스킬 표시).
+        var hud = SkillCooldownHUD.Instance;
+        if (hud != null && _revealSlot > 0) hud.FinishSlotReveal(_revealSlot);
+        _revealSlot = 0;
     }
 
     // 이 스테이지에서 새로 열린 슬롯의 스킬을 찾아 카드로 공개한다. (스테이지1=슬롯1, 2=슬롯2, 3=슬롯3)
@@ -114,21 +129,82 @@ public class StageIntroUI : MonoBehaviour
 
         EnsureSkillCard();
         PopulateSkillCard(skill, newSlot);
+
+        _revealSlot = newSlot;
+        var hud = SkillCooldownHUD.Instance;
+        if (hud != null) hud.SuppressSlotForReveal(newSlot);   // 그 슬롯을 '비어있음'으로
+
         _skillCard.SetActive(true);
-        _cardAnimT = 0f;
+        if (_skillCardCg != null) _skillCardCg.alpha = 1f;
+        _skillCardRt.anchoredPosition = CardHomePos;
+        _skillCardRt.localScale = Vector3.zero;
+        _cardT = 0f;
+        _cardPhase = CardPhase.In;
         _skillTried = true;
     }
 
-    // 카드 등장: 0.4초 동안 살짝 오버슈트하며 커진다.
+    // 카드 연출: 등장(pop) → 유지 → HUD 슬롯으로 날아가 작아지며 꽂힘(슬롯 pop).
     private void AdvanceSkillAnim()
     {
         if (_skillCardRt == null || _skillCard == null || !_skillCard.activeSelf) return;
-        if (_cardAnimT < 1f)
+        float dt = Time.unscaledDeltaTime;
+
+        switch (_cardPhase)
         {
-            _cardAnimT = Mathf.Min(1f, _cardAnimT + Time.unscaledDeltaTime / 0.4f);
-            float e = EaseOutBack(_cardAnimT);
-            _skillCardRt.localScale = new Vector3(e, e, 1f);
+            case CardPhase.In:
+            {
+                _cardT += dt;
+                float t = Mathf.Clamp01(_cardT / CardInDur);
+                float e = EaseOutBack(t);
+                _skillCardRt.anchoredPosition = CardHomePos;
+                _skillCardRt.localScale = new Vector3(e, e, 1f);
+                if (_skillCardCg != null) _skillCardCg.alpha = 1f;
+                if (t >= 1f) { _cardT = 0f; _cardPhase = CardPhase.Hold; }
+                break;
+            }
+            case CardPhase.Hold:
+            {
+                _cardT += dt;
+                _skillCardRt.localScale = Vector3.one;
+                if (_cardT >= CardHoldDur)
+                {
+                    _cardT = 0f;
+                    _flyFrom = _skillCardRt.position;
+                    _flyTo = GetSlotWorld() ?? _flyFrom;
+                    _cardPhase = CardPhase.Fly;
+                }
+                break;
+            }
+            case CardPhase.Fly:
+            {
+                _cardT += dt;
+                float t = Mathf.Clamp01(_cardT / CardFlyDur);
+                float e = Mathf.SmoothStep(0f, 1f, t);
+                Vector3 to = GetSlotWorld() ?? _flyTo;   // 슬롯 위치가 안정되면 추적
+                _skillCardRt.position = Vector3.Lerp(_flyFrom, to, e);
+                float sc = Mathf.Lerp(1f, 0.22f, e);
+                _skillCardRt.localScale = new Vector3(sc, sc, 1f);
+                if (_skillCardCg != null)
+                    _skillCardCg.alpha = 1f - Mathf.Clamp01((t - 0.5f) / 0.5f); // 후반부 페이드
+                if (t >= 1f)
+                {
+                    var hud = SkillCooldownHUD.Instance;
+                    if (hud != null) hud.FinishSlotReveal(_revealSlot);  // 슬롯에 꽂힘 + pop
+                    _skillCard.SetActive(false);
+                    _cardPhase = CardPhase.Done;
+                }
+                break;
+            }
         }
+    }
+
+    // HUD 공개 슬롯 아이콘의 화면 중심(없으면 null).
+    private Vector3? GetSlotWorld()
+    {
+        var hud = SkillCooldownHUD.Instance;
+        if (hud != null && _revealSlot > 0 && hud.TryGetSlotIconWorldCenter(_revealSlot, out var w))
+            return w;
+        return null;
     }
 
     private static float EaseOutBack(float t)
@@ -242,7 +318,8 @@ public class StageIntroUI : MonoBehaviour
         _skillCardRt.anchorMin = _skillCardRt.anchorMax = new Vector2(0.5f, 0.5f);
         _skillCardRt.pivot = new Vector2(0.5f, 0.5f);
         _skillCardRt.sizeDelta = new Vector2(600f, 184f);
-        _skillCardRt.anchoredPosition = new Vector2(0f, -220f);
+        _skillCardRt.anchoredPosition = CardHomePos;
+        _skillCardCg = _skillCard.AddComponent<CanvasGroup>();
         Framed(_skillCard, WoodFill, WoodDark, WoodLight);
 
         Transform face = _skillCard.transform.Find("Face");

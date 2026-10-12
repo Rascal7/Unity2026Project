@@ -35,6 +35,9 @@ public class SkillCooldownHUD : MonoBehaviour
     private readonly List<SlotUI> _slotUIs = new List<SlotUI>();
     private Sprite _whiteFillSprite;
 
+    // 스테이지 진입 '스킬 등록 연출' 동안, 공개 예정 슬롯을 비어있는(잠김) 것처럼 표시한다.
+    private int _revealSuppressSlot = -1;
+
     // 씬 필터링: 로비, 캐릭터 선택 등 메뉴 씬에서는 숨김
     private static readonly HashSet<string> MenuSceneNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -85,7 +88,42 @@ public class SkillCooldownHUD : MonoBehaviour
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         _localPlayer = null;
+        _revealSuppressSlot = -1;   // 연출 억제 상태 초기화
         EnsureCanvas();
+    }
+
+    // ---- 스테이지 진입 스킬 등록 연출(StageIntroUI 와 연동) ----
+
+    // 공개 예정 슬롯을 비어있는(잠김)으로 표시 시작.
+    public void SuppressSlotForReveal(int slot) => _revealSuppressSlot = slot;
+
+    // 연출 종료: 억제 해제 + 해당 슬롯을 실제 스킬로 다시 적용하며 '받는' 팝 연출.
+    public void FinishSlotReveal(int slot)
+    {
+        if (_revealSuppressSlot == slot) _revealSuppressSlot = -1;
+        var s = FindSlot(slot);
+        if (s != null)
+        {
+            s.lastSkill = PlayerMovement.CharacterSkill.None; // 다음 UpdateSlot 에서 스킬 비주얼 재적용
+            s.pulseTimer = 0.5f;                              // 꽂히는 순간 pop
+        }
+    }
+
+    // 슬롯 아이콘의 화면(월드) 중심 — 카드가 날아올 목표. (오버레이 캔버스라 position=화면 픽셀)
+    public bool TryGetSlotIconWorldCenter(int slot, out Vector3 world)
+    {
+        world = default;
+        var s = FindSlot(slot);
+        if (s == null || s.iconImage == null || !s.root.activeSelf) return false;
+        world = s.iconImage.rectTransform.position;
+        return true;
+    }
+
+    private SlotUI FindSlot(int slot)
+    {
+        for (int i = 0; i < _slotUIs.Count; i++)
+            if (_slotUIs[i] != null && _slotUIs[i].slotIndex == slot) return _slotUIs[i];
+        return null;
     }
 
     private void EnsureCanvas()
@@ -439,6 +477,14 @@ public class SkillCooldownHUD : MonoBehaviour
 
     private void UpdateSlot(SlotUI slot)
     {
+        // 등록 연출 동안 공개 예정 슬롯은 아직 '비어있는(잠김)'처럼 보여준다.
+        if (slot.slotIndex == _revealSuppressSlot)
+        {
+            if (!slot.root.activeSelf) slot.root.SetActive(true);
+            ApplyEmptySlotVisuals(slot);
+            return;
+        }
+
         var status = _localPlayer.GetSkillSlotStatus(slot.slotIndex);
 
         if (status.Skill == PlayerMovement.CharacterSkill.None)
