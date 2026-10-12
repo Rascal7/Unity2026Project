@@ -164,6 +164,7 @@ public class PlayerMovement : NetworkBehaviour
     public int SniffCounter => SniffCount;
     public int PowerSpendCounter => PowerSpendCount;
     public bool IsPoweredJump => PoweredJump;
+    public bool IsClimbingNow => IsClimbing;   // 튜토리얼 안내: 사다리 등반 중인지(로컬 확인용)
 
     // ���� ����
     private bool _isOnLadder;
