@@ -125,7 +125,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
                 {
                     var timerObj = runner.Spawn(timerPrefab);
                     var nt = timerObj != null ? timerObj.GetComponent<NetworkTimer>() : null;
-                    if (nt != null) nt.StartWithIntro(2f, _resumeTimerOffset);
+                    if (nt != null) nt.StartWithIntro(3f, _resumeTimerOffset);  // 스킬 등록 연출이 들어갈 수 있게 3초
                     Debug.Log("<color=orange>[Timer]</color> NetworkTimer ?�성 �??�작 ?�료!");
                 }
                 else
@@ -204,8 +204,8 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     {
         var data = new NetworkInputData();
 
-        // 옵션창이 열려 있으면(키 재설정 포함) 게임플레이 입력을 막는다 → 재설정 중 스킬/이동 발동 방지
-        if (SettingsMenuUI.GameplayInputSuppressed)
+        // 옵션창이 열려 있으면(키 재설정 포함), 또는 튜토리얼 미션 브리핑 중이면 게임플레이 입력을 막는다.
+        if (SettingsMenuUI.GameplayInputSuppressed || PlayerMovement.TutorialHold)
         {
             input.Set(data); // 전부 0/None (이동·점프·스킬 없음)
             return;
