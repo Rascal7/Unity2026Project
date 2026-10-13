@@ -80,8 +80,14 @@ public class TutorialFlowController : MonoBehaviour
     public float trophyBriefLead = 2f;  // 사다리 위로 올라와 CP2 에 닿으면 트로피 미션 브리핑(등반 중엔 안 뜸)
 
     private PlayerMovement _localPlayer;
-    private bool _wasGrounded;
-    private bool _jumpedThisFrame;
+
+    // 협동 판정: 미션은 '전체 플레이어'가 조건을 만족해야 진행. 위치/등반/접지가 모두 [Networked] 라
+    // 피어마다 동일하게 계산되어 브리핑이 자동 동기화된다(= 호스트 기준 동일 화면).
+    private readonly System.Collections.Generic.List<PlayerMovement> _playersBuf = new System.Collections.Generic.List<PlayerMovement>();
+    private int _playersFrame = -1;
+    private readonly System.Collections.Generic.HashSet<PlayerMovement> _jumped = new System.Collections.Generic.HashSet<PlayerMovement>();
+    private readonly System.Collections.Generic.HashSet<PlayerMovement> _climbed = new System.Collections.Generic.HashSet<PlayerMovement>();
+    private readonly System.Collections.Generic.Dictionary<PlayerMovement, bool> _prevGrounded = new System.Collections.Generic.Dictionary<PlayerMovement, bool>();
 
     private readonly System.Collections.Generic.List<MissionStep> _steps = new System.Collections.Generic.List<MissionStep>();
     private int _stepIndex;
@@ -243,13 +249,8 @@ public class TutorialFlowController : MonoBehaviour
         }
 
         _phaseT += Time.deltaTime;
-        UpdateRows();   // 목록 행 등장(페이드/팝) 애니메이션
-
-        // 점프 감지(직전 접지 → 공중 + 상승). 모든 페이즈에서 추적.
-        var lp = GetLocalPlayer();
-        bool grounded = lp != null && lp.IsGroundedNow;
-        _jumpedThisFrame = lp != null && _wasGrounded && !grounded && lp.VerticalVelocity > 1f;
-        _wasGrounded = grounded;
+        UpdateRows();     // 목록 행 등장(페이드/팝) 애니메이션
+        UpdateLatches();  // 전체 플레이어의 점프/등반 달성 래치 갱신
 
         var step = _steps[_stepIndex];
 
@@ -479,8 +480,9 @@ public class TutorialFlowController : MonoBehaviour
     // 미션/연출 상태 초기화(튜토리얼 씬 진입 시).
     private void ResetMissions()
     {
-        _wasGrounded = false;
-        _jumpedThisFrame = false;
+        _jumped.Clear();
+        _climbed.Clear();
+        _prevGrounded.Clear();
         _keyPulse = 0f;
         _posMove = _posLadder = _posTrophy = _posCp2 = null;
         PlayerMovement.TutorialHold = false;
@@ -499,6 +501,49 @@ public class TutorialFlowController : MonoBehaviour
         EnterStep(0);   // 첫 미션(브리핑 조건 없음 → 바로 암전 브리핑)
     }
 
+    // ----- 협동 판정 헬퍼 -----
+
+    // 이번 프레임의 게임플레이 플레이어 목록(프레임당 1회 스캔 캐시). 온라인=유효 NetworkObject, 솔로=그대로.
+    private System.Collections.Generic.List<PlayerMovement> Players()
+    {
+        if (_playersFrame == Time.frameCount) return _playersBuf;
+        _playersFrame = Time.frameCount;
+        _playersBuf.Clear();
+        foreach (var p in FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None))
+        {
+            if (p == null) continue;
+            if (p.GetComponent<Rigidbody2D>() == null) continue;
+            if (p.gameObject.name.Contains("Spawner")) continue;
+            if (p.Object != null && !p.Object.IsValid) continue;
+            _playersBuf.Add(p);
+        }
+        return _playersBuf;
+    }
+
+    // 모든 플레이어가 조건을 만족해야 true(아무도 없으면 false).
+    private bool AllPlayers(System.Func<PlayerMovement, bool> cond)
+    {
+        var ps = Players();
+        if (ps.Count == 0) return false;
+        for (int i = 0; i < ps.Count; i++) if (!cond(ps[i])) return false;
+        return true;
+    }
+
+    // 전체 플레이어의 점프/등반 달성을 래치(한 번 하면 유지)로 기록.
+    private void UpdateLatches()
+    {
+        var ps = Players();
+        for (int i = 0; i < ps.Count; i++)
+        {
+            var p = ps[i];
+            bool grounded = p.IsGroundedNow;
+            _prevGrounded.TryGetValue(p, out bool prev);
+            if (prev && !grounded && !p.IsClimbingNow) _jumped.Add(p); // 접지→공중(등반 아님) = 점프
+            _prevGrounded[p] = grounded;
+            if (p.IsClimbingNow) _climbed.Add(p);
+        }
+    }
+
     // ----- 미션 정의 & 목표 위치 해석(런타임, 하드코딩 없이 씬 오브젝트에서) -----
     private void BuildSteps()
     {
@@ -511,7 +556,7 @@ public class TutorialFlowController : MonoBehaviour
             keyText = () => MoveKey(MovementKeybinds.Act.Left) + " / " + MoveKey(MovementKeybinds.Act.Right) + "   좌우 이동",
             briefWhen = null,
             goal    = MoveTarget,
-            isDone  = () => { var p = GetLocalPlayer(); var t = MoveTarget(); return p != null && t.HasValue && p.transform.position.x >= t.Value.x - 0.6f; }
+            isDone  = () => { var t = MoveTarget(); return t.HasValue && AllPlayers(p => p.transform.position.x >= t.Value.x - 0.6f); }
         });
         // 2) 점프: 이동 완료 직후 브리핑
         _steps.Add(new MissionStep
@@ -521,7 +566,7 @@ public class TutorialFlowController : MonoBehaviour
             keyText = () => MoveKey(MovementKeybinds.Act.Jump) + "   점프",
             briefWhen = null,
             goal    = () => null,   // 플레이어 머리 위
-            isDone  = () => _jumpedThisFrame
+            isDone  = () => AllPlayers(p => _jumped.Contains(p))
         });
         // 3) 사다리: 사다리에 다가가면 브리핑(화살표 따라 접근), 실제 등반으로 완료
         _steps.Add(new MissionStep
@@ -531,9 +576,9 @@ public class TutorialFlowController : MonoBehaviour
             keyText = () => MoveKey(MovementKeybinds.Act.Up) + " / " + MoveKey(MovementKeybinds.Act.Down) + "   오르내리기",
             travelTarget = LadderBriefSpot,   // 점프 후: 사다리 브리핑 지점 지면에 글로우를 도착할 때까지 표시
             showGlow = true,
-            briefWhen = () => { var p = GetLocalPlayer(); var t = LadderTarget(); return p != null && t.HasValue && p.transform.position.x >= t.Value.x - ladderBriefLead; },
+            briefWhen = () => { var t = LadderTarget(); return t.HasValue && AllPlayers(p => p.transform.position.x >= t.Value.x - ladderBriefLead); },
             goal    = LadderTarget,
-            isDone  = () => { var p = GetLocalPlayer(); return p != null && p.IsClimbingNow; }
+            isDone  = () => AllPlayers(p => _climbed.Contains(p))
         });
         // 4) 트로피(터미널): 꼭대기 체크포인트 도착 시 브리핑, EndPoint 가 완료 처리
         _steps.Add(new MissionStep
@@ -542,14 +587,14 @@ public class TutorialFlowController : MonoBehaviour
             prompt  = "트로피까지 달려가세요!",
             keyText = () => "결승점으로!",
             travelTarget = Cp2Target,
-            // 사다리에서 내려서(등반 아님) 땅에 선 채 CP2 에 닿았을 때만 — 등반 중엔 안 뜸
+            // 전원이 사다리에서 내려서(등반 아님) 땅에 선 채 CP2 에 닿았을 때만 — 등반 중엔 안 뜸
             briefWhen = () =>
             {
-                var p = GetLocalPlayer(); var t = Cp2Target();
-                if (p == null || !t.HasValue) return false;
-                if (p.IsClimbingNow || !p.IsGroundedNow) return false;
-                var pos = p.transform.position;
-                return pos.x >= t.Value.x - trophyBriefLead && Mathf.Abs(pos.y - t.Value.y) <= 2.5f;
+                var t = Cp2Target();
+                if (!t.HasValue) return false;
+                return AllPlayers(p => !p.IsClimbingNow && p.IsGroundedNow
+                    && p.transform.position.x >= t.Value.x - trophyBriefLead
+                    && Mathf.Abs(p.transform.position.y - t.Value.y) <= 2.5f);
             },
             goal    = TrophyTarget,
             terminal = true,
