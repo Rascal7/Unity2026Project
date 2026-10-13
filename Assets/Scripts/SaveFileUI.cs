@@ -536,7 +536,10 @@ public class SaveFileUI : MonoBehaviour
                 }
                 else if (data != null && data.hasData)
                 {
-                    row.slotInfoText.text = $"<color=#FAD16B><b>{data.stageDisplayName}</b></color>   <color=#FAF2E3>{data.updatedTime}</color>";
+                    string shardStr = data.totalCollectedShards > 0
+                        ? $"   <color=#74D974><b>✦ 조각 {data.totalCollectedShards}개</b></color>"
+                        : "";
+                    row.slotInfoText.text = $"<color=#FAD16B><b>{data.stageDisplayName}</b></color>{shardStr}   <color=#FAF2E3>{data.updatedTime}</color>";
                 }
                 else
                 {
@@ -620,8 +623,8 @@ public class SaveFileUI : MonoBehaviour
         SaveDataManager.CurrentSlotIndex = slotIndex;
         string targetScene = string.IsNullOrEmpty(data.stageName) ? "TutorialStage" : data.stageName;
 
-        // 이어하기: 합산 총합 + 개별 구간(+스테이지 번호)을 복원 (최종 합산·나열에 반영)
-        RunManager.RestoreRun(data.totalPlayTime, data.segmentTimes, data.segmentStages);
+        // 이어하기: 합산 총합 + 개별 구간(+스테이지 번호+조각 수집 수)을 복원 (최종 합산·나열에 반영)
+        RunManager.RestoreRun(data.totalPlayTime, data.segmentTimes, data.segmentStages, data.totalCollectedShards, data.segmentShards);
 
         // 리스폰 지점(정적)을 세이브 상태에 맞춰 설정:
         //  - 체크포인트 있는 세이브: 그 좌표로 복원 (Spawner 가 다시 덮어쓰지만 정적 잔존 방지)

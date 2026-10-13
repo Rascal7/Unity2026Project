@@ -132,6 +132,7 @@ public class GameEndController : MonoBehaviour
         _shownPhase = NetworkTimer.PhaseAwaitingChoice;
         _shownAtUnscaled = Time.unscaledTime;
         _root.SetActive(true);
+        SfxPlayer.StageClear();
 
         if (_finalAnim != null) { StopCoroutine(_finalAnim); _finalAnim = null; }
         if (_finalList != null) _finalList.gameObject.SetActive(false);
@@ -140,8 +141,30 @@ public class GameEndController : MonoBehaviour
 
         if (_recordText != null) _recordText.gameObject.SetActive(false); // 중간 클리어엔 New Record 없음
         _titleText.text = "STAGE CLEAR!";
-        // 이번 스테이지 기록만 표시 (어느 스테이지인지 명확히)
-        _timeText.text = CurrentStageLabel() + " 기록  " + FormatTime(segmentTime);
+
+        int shards = RunManager.LastCompletedStageShards;
+        int totalShards = RunManager.LastCompletedStageTotalShards;
+        if (shards == 0 && ShardCounterHUD.Instance != null)
+        {
+            shards = ShardCounterHUD.Instance.CollectedCount;
+            totalShards = Mathf.Max(totalShards, ShardCounterHUD.Instance.TotalCount);
+        }
+
+        string shardInfo = "";
+        if (shards > 0)
+        {
+            float bonusSec = shards * RunManager.ShardTimeBonusSeconds;
+            string denom = totalShards > 0 ? $"/{totalShards}" : "";
+            shardInfo = $"\n<size=34><color=#8CFFAA>✦ 구슬 조각 {shards}{denom}개 획득  (-{bonusSec:0.0}초 단축 적용!)</color></size>";
+        }
+        else if (totalShards > 0)
+        {
+            shardInfo = $"\n<size=30><color=#B8B0A4>구슬 조각 0/{totalShards}개 (여우의 '킁킁'으로 숨겨진 조각을 찾아보세요)</color></size>";
+        }
+
+        // 이번 스테이지 기록 및 조각 보너스 표시
+        _timeText.supportRichText = true;
+        _timeText.text = CurrentStageLabel() + " 기록  " + FormatTime(segmentTime) + shardInfo;
 
         bool isHost = IsHost();
         _nextBtn.SetActive(isHost);         // 다음 스테이지는 호스트만
@@ -158,6 +181,7 @@ public class GameEndController : MonoBehaviour
         _shownPhase = NetworkTimer.PhaseFinished;
         _shownAtUnscaled = Time.unscaledTime;
         _root.SetActive(true);
+        SfxPlayer.AllClear();
 
         _titleText.text = "ALL CLEAR!";
         _nextBtn.SetActive(false);
@@ -170,23 +194,27 @@ public class GameEndController : MonoBehaviour
         var stages = new int[count];
         for (int i = 0; i < count; i++) { times[i] = nt.SegmentTimes.Get(i); stages[i] = nt.SegmentStages.Get(i); }
         float restoredBase = nt != null ? nt.RestoredBase : 0f;
+        int totalShards = RunManager.TotalCollectedShards;
+        if (totalShards == 0 && ShardCounterHUD.Instance != null)
+            totalShards = ShardCounterHUD.Instance.CollectedCount;
 
         if (_timeText != null) _timeText.gameObject.SetActive(false); // 최종은 _finalList 로 표시
         if (_finalAnim != null) StopCoroutine(_finalAnim);
-        _finalAnim = StartCoroutine(AnimateFinalResults(times, stages, restoredBase, totalTime));
+        _finalAnim = StartCoroutine(AnimateFinalResults(times, stages, restoredBase, totalTime, totalShards));
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        Debug.Log($"<color=lime>[Ending]</color> ALL CLEAR - {FormatTime(totalTime)}");
+        Debug.Log($"<color=lime>[Ending]</color> ALL CLEAR - {FormatTime(totalTime)} (조각 {totalShards}개)");
         try { OnRunFinished?.Invoke(totalTime); }
         catch (Exception e) { Debug.LogException(e); }
     }
 
-    // 최종 결과 애니메이션: (이전 기록) + 스테이지별 기록을 하나씩 나열 → 구분선 → 합산(카운트업).
-    private IEnumerator AnimateFinalResults(float[] times, int[] stages, float restoredBase, float total)
+    // 최종 결과 애니메이션: (이전 기록) + 스테이지별 기록을 하나씩 나열 → 조각 수집 보너스 → 구분선 → 합산(카운트업).
+    private IEnumerator AnimateFinalResults(float[] times, int[] stages, float restoredBase, float total, int totalShards)
     {
         SetHintAnchorY(0.14f);                 // 자동복귀 카운트다운 힌트는 아래로 내림
+        _finalList.supportRichText = true;
         _finalList.gameObject.SetActive(true);
         _finalList.text = "";
         string acc = "";
@@ -205,6 +233,14 @@ public class GameEndController : MonoBehaviour
             acc += sn + "스테이지        " + FormatTime(times[i]) + "\n";
             _finalList.text = acc;
             yield return new WaitForSecondsRealtime(0.45f);
+        }
+
+        if (totalShards > 0)
+        {
+            float bonusTotal = totalShards * RunManager.ShardTimeBonusSeconds;
+            acc += $"<color=#8CFFAA>구슬 조각 보너스  ✦ {totalShards}개 (-{bonusTotal:0.0}초 단축 반영)</color>\n";
+            _finalList.text = acc;
+            yield return new WaitForSecondsRealtime(0.40f);
         }
 
         if (times.Length > 0 || restoredBase > 0.05f)
@@ -286,6 +322,7 @@ public class GameEndController : MonoBehaviour
     {
         if (_returning) return;
         _returning = true;
+        BasicLauncher.MarkVoluntaryExit();
         Hide();
         RunManager.ResetRun();
         CheckpointManager.ResetCheckpoint(); // 리스폰 지점(정적) 잔존 방지

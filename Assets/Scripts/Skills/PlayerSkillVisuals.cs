@@ -125,8 +125,9 @@ public class PlayerSkillVisuals : MonoBehaviour
         Vector3 feet = new Vector3(transform.position.x, _sr.bounds.min.y + groundOffset, transform.position.z);
 
         // --- 이벤트 엣지 ---
-        if (dashing && !_prevDashing)           // 여우 대시 시작 → 바닥먼지(뒤쪽)
+        if (dashing && !_prevDashing)           // 여우 대시 시작 → 바닥먼지(뒤쪽) + 대시 효과음
         {
+            SfxPlayer.Dash();
             Vector3 dashPos = feet + Vector3.right * (_pm.IsFacingRight ? -dashSmokeBackOffset : dashSmokeBackOffset);
             dashPos.y += dashSmokeLift;
             SpriteEffect.Spawn(dashSmokeFrames, dashPos, dashSmokeFps, dashSmokeScale,
@@ -149,15 +150,17 @@ public class PlayerSkillVisuals : MonoBehaviour
         }
         else _dashDustTimer = 0f;
 
-        if (airborne && !_prevAirborne)         // 토끼 발사
+        if (airborne && !_prevAirborne)         // 토끼 발사 + 슈퍼점프 효과음
         {
+            SfxPlayer.SuperJump();
             _visualScale = new Vector3(launchStretch.x, launchStretch.y, 1f);
             SpriteEffect.Spawn(jumpLaunchFrames, feet, jumpLaunchFps, jumpLaunchScale,
                 false, slId, effectSortingOrder, effectTint);
             if (localPlayer && cam != null) cam.AddImpulse(new Vector2(0f, -jumpLaunchCamKick)); // 튕겨 오르는 느낌
         }
-        if (!airborne && _prevAirborne)         // 토끼 착지
+        if (!airborne && _prevAirborne)         // 토끼 착지 + 착지 효과음
         {
+            SfxPlayer.Land();
             _visualScale = new Vector3(landSquash.x, landSquash.y, 1f);
             _landTimer = landRecoverTime;
             SpriteEffect.Spawn(jumpLandFrames, feet, jumpLandFps, jumpLandScale,
@@ -180,26 +183,31 @@ public class PlayerSkillVisuals : MonoBehaviour
             }
         }
 
-        // 여우 킁킁: 냄새 파동(킁킁 반경만큼 퍼지는 링) + 코 앞 냄새 연기 + 살짝 줌인
+        // 여우 킁킁: 냄새 파동(킁킁 반경만큼 퍼지는 링) + 코 앞 냄새 연기 + 살짝 줌인 + 킁킁 효과음
         int sniffCount = valid ? _pm.SniffCounter : 0;
-        if (_prevSniffCount >= 0 && sniffCount != _prevSniffCount && fx != null)
+        if (_prevSniffCount >= 0 && sniffCount != _prevSniffCount)
         {
-            float ringScale = Mathf.Min(fx.sniffRingMaxScale,
-                (_pm.sniffRadius * 2f) / Mathf.Max(0.01f, fx.sniffRingBaseDiameter));
-            SpriteEffect.Spawn(fx.sniffRing, transform.position, fx.sniffRingFps, ringScale,
-                false, slId, fx.sortingOrder, fx.sniffTint);
-            float dir = _pm.IsFacingRight ? 1f : -1f;
-            Vector3 nose = new Vector3(transform.position.x + dir * 0.45f, feet.y + feetToCenter * 1.3f, transform.position.z);
-            SpriteEffect.Spawn(fx.sniffSmoke, nose, fx.sniffSmokeFps, fx.sniffSmokeScale,
-                !_pm.IsFacingRight, slId, fx.sortingOrder, fx.sniffTint);
+            SfxPlayer.Sniff();
+            if (fx != null)
+            {
+                float ringScale = Mathf.Min(fx.sniffRingMaxScale,
+                    (_pm.sniffRadius * 2f) / Mathf.Max(0.01f, fx.sniffRingBaseDiameter));
+                SpriteEffect.Spawn(fx.sniffRing, transform.position, fx.sniffRingFps, ringScale,
+                    false, slId, fx.sortingOrder, fx.sniffTint);
+                float dir = _pm.IsFacingRight ? 1f : -1f;
+                Vector3 nose = new Vector3(transform.position.x + dir * 0.45f, feet.y + feetToCenter * 1.3f, transform.position.z);
+                SpriteEffect.Spawn(fx.sniffSmoke, nose, fx.sniffSmokeFps, fx.sniffSmokeScale,
+                    !_pm.IsFacingRight, slId, fx.sortingOrder, fx.sniffTint);
+            }
             if (localPlayer && cam != null) cam.AddZoomPunch(-sniffZoomIn);
         }
         _prevSniffCount = sniffCount;
 
-        // 여우 체인지: 출발/도착 두 지점에 포털 + 도착 연기. 상대방도 같은 연출을 자기 화면에서 본다.
+        // 여우 체인지: 출발/도착 두 지점에 포털 + 도착 연기 + 워프 효과음. 상대방도 같은 연출을 자기 화면에서 본다.
         int swapCount = valid ? _pm.SwapCounter : 0;
         if (_prevSwapCount >= 0 && swapCount != _prevSwapCount)
         {
+            SfxPlayer.Swap();
             Vector3 from = _pm.LastSwapFrom;
             Vector3 to = _pm.LastSwapTo;
             if (fx != null)
@@ -228,12 +236,13 @@ public class PlayerSkillVisuals : MonoBehaviour
         }
         _prevSwapCount = swapCount;
 
-        // 토끼 파워업: 먹는 순간 퍼프+별, 강화 동안 발밑 불꽃 링 반복 + 주황빛 발광
+        // 토끼 파워업: 먹는 순간 퍼프+별 + 파워업 효과음, 강화 동안 발밑 불꽃 링 반복 + 주황빛 발광
         bool powered = valid && _pm.IsPoweredUp;
         if (powered)
         {
             if (!_wasPoweredUp)
             {
+                SfxPlayer.PowerUp();
                 if (fx != null)
                     SpriteEffect.Spawn(fx.powerUpBurst, transform.position, fx.powerUpBurstFps, fx.powerUpBurstScale, false, slId, fx.sortingOrder, Color.white);
                 if (localPlayer && cam != null)

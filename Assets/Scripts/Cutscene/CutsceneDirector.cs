@@ -105,6 +105,11 @@ public class CutsceneDirector : MonoBehaviour
     private void Update()
     {
         if (_finishing) return;
+        if (BasicLauncher.Instance != null && BasicLauncher.Instance.IsDisconnectModalOpen)
+        {
+            if (_video != null && _video.isPlaying) _video.Pause();
+            return;
+        }
         TrySpawnSync();
         var sync = CutsceneSync.Instance;
 
@@ -246,6 +251,7 @@ public class CutsceneDirector : MonoBehaviour
 
     private async void ReturnToLobby()
     {
+        BasicLauncher.MarkVoluntaryExit();
         RunManager.ResetRun();
         CheckpointManager.ResetCheckpoint(); // 리스폰 지점(정적) 잔존 방지 (GameEndController.OnLobby 와 동일)
         foreach (var r in FindObjectsByType<NetworkRunner>(FindObjectsSortMode.None))

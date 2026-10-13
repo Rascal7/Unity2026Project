@@ -34,6 +34,25 @@ public class SkillCooldownHUD : MonoBehaviour
 
     private readonly List<SlotUI> _slotUIs = new List<SlotUI>();
     private Sprite _whiteFillSprite;
+    private Sprite _micSprite;
+
+    // 실시간 마이크 인디케이터 UI
+    private RectTransform _micRoot;
+    private Image _micGlowBorder;
+    private Image _micFrameImage;
+    private Image _micBevelImage;
+    private Image _micIconImage;
+    private Image _micLevelFill;
+    private Text _micStatusText;
+    private float _voiceFlashTimer;
+    private string _voiceFlashText = "";
+
+    // 토끼 파워업 공유 버프 상단 배너 UI
+    private GameObject _powerUpBanner;
+    private RectTransform _powerUpBannerRt;
+    private Image _powerUpBannerBg;
+    private Image _powerUpBarFill;
+    private Text _powerUpBannerText;
 
     // 스테이지 진입 '스킬 등록 연출' 동안, 공개 예정 슬롯을 비어있는(잠김) 것처럼 표시한다.
     private int _revealSuppressSlot = -1;
@@ -64,9 +83,11 @@ public class SkillCooldownHUD : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         _whiteFillSprite = CreateSolidSprite();
+        _micSprite = CreateMicPixelSprite();
 
         SceneManager.sceneLoaded += OnSceneLoaded;
         SkillKeybinds.OnChanged += OnKeybindsChanged;
+        VoiceSkillInput.OnVoiceCommandRecognized += OnVoiceRecognized;
         EnsureCanvas();
     }
 
@@ -74,7 +95,20 @@ public class SkillCooldownHUD : MonoBehaviour
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
         SkillKeybinds.OnChanged -= OnKeybindsChanged;
+        VoiceSkillInput.OnVoiceCommandRecognized -= OnVoiceRecognized;
         if (Instance == this) Instance = null;
+    }
+
+    private void OnVoiceRecognized(string keyword, int slot)
+    {
+        _voiceFlashText = $"{keyword}!";
+        _voiceFlashTimer = 1.35f;
+
+        if (slot >= 1 && slot <= _slotUIs.Count)
+        {
+            var s = _slotUIs[slot - 1];
+            if (s != null) s.pulseTimer = 0.55f;
+        }
     }
 
     // 단축키가 바뀌면 채워진 슬롯의 라벨도 즉시 갱신되도록 강제 재적용을 유도한다.
@@ -164,6 +198,9 @@ public class SkillCooldownHUD : MonoBehaviour
             var slot = CreateSlotUI(i);
             _slotUIs.Add(slot);
         }
+
+        CreateMicIndicatorUI();
+        CreatePowerUpBannerUI();
     }
 
     private const float SlotSize = 96f; // 기존 78f에서 약 23% 확대
@@ -185,6 +222,21 @@ public class SkillCooldownHUD : MonoBehaviour
         {
             var s = _slotUIs[i];
             s.rootTransform.anchoredPosition = new Vector2(SlotPosX(s.slotIndex, visibleCount), 0f);
+        }
+
+        if (_micRoot != null)
+        {
+            float micX = visibleCount > 0
+                ? SlotPosX(1, visibleCount) - (SlotSize + SlotSpacing)
+                : 0f;
+            _micRoot.anchoredPosition = new Vector2(micX, 0f);
+        }
+
+        if (_powerUpBannerRt != null)
+        {
+            float totalWidth = Mathf.Max(1, visibleCount) * SlotSize + Mathf.Max(0, visibleCount - 1) * SlotSpacing;
+            _powerUpBannerRt.sizeDelta = new Vector2(Mathf.Max(260f, totalWidth), 36f);
+            _powerUpBannerRt.anchoredPosition = new Vector2(0f, SlotSize + 40f);
         }
     }
 
@@ -337,14 +389,15 @@ public class SkillCooldownHUD : MonoBehaviour
         cdOutline.effectColor = LobbyUITheme.GoldDeep;
         cdOutline.effectDistance = new Vector2(2f, -2f);
 
-        // --- 준비 완료 펄스 하이라이트 (Gold Flash) ---
+        // --- 준비 완료 / 파워업 외곽 광채 테두리 (Gold Halo) ---
         var readyBorderGo = new GameObject("ReadyHighlight", typeof(RectTransform), typeof(Image));
         readyBorderGo.transform.SetParent(frameGo.transform, false);
+        readyBorderGo.transform.SetAsFirstSibling(); // 아이콘을 가리지 않도록 프레임 가장 뒤(외곽 테두리)에 배치
         var readyBorderRt = readyBorderGo.GetComponent<RectTransform>();
         readyBorderRt.anchorMin = Vector2.zero;
         readyBorderRt.anchorMax = Vector2.one;
-        readyBorderRt.offsetMin = new Vector2(-4f, -4f);
-        readyBorderRt.offsetMax = new Vector2(4f, 4f);
+        readyBorderRt.offsetMin = new Vector2(-6f, -6f);
+        readyBorderRt.offsetMax = new Vector2(6f, 6f);
 
         var readyBorderImg = readyBorderGo.GetComponent<Image>();
         readyBorderImg.color = new Color(LobbyUITheme.Gold.r, LobbyUITheme.Gold.g, LobbyUITheme.Gold.b, 0f);
@@ -395,17 +448,22 @@ public class SkillCooldownHUD : MonoBehaviour
             // 플레이어가 아직 없으면 슬롯 숨김
             for (int i = 0; i < _slotUIs.Count; i++)
                 _slotUIs[i].root.SetActive(false);
+            if (_micRoot != null && _micRoot.gameObject.activeSelf)
+                _micRoot.gameObject.SetActive(false);
+            if (_powerUpBanner != null && _powerUpBanner.activeSelf)
+                _powerUpBanner.SetActive(false);
             return;
         }
 
         // 2. 스테이지별 사용 가능 슬롯 수 (튜토리얼 0 / 1스테이지 1 / 2스테이지 2 / 3스테이지 3)
+        // 튜토리얼(maxSlots == 0)에서도 실시간 마이크 인디케이터는 표시하여 음성 감도를 확인할 수 있게 함
         int maxSlots = StageSkillRules.MaxSkillSlots(currentScene);
-        bool showHud = maxSlots > 0;
-        if (_hudContainer != null && _hudContainer.gameObject.activeSelf != showHud)
-            _hudContainer.gameObject.SetActive(showHud);
-        if (!showHud) return;
+        if (_hudContainer != null && !_hudContainer.gameObject.activeSelf)
+            _hudContainer.gameObject.SetActive(true);
 
         LayoutSlots(maxSlots);
+        UpdateMicIndicator();
+        UpdatePowerUpBanner(maxSlots);
 
         // 3. 각 슬롯 갱신 (열리지 않은 슬롯은 숨김)
         for (int i = 0; i < _slotUIs.Count; i++)
@@ -537,24 +595,24 @@ public class SkillCooldownHUD : MonoBehaviour
             slot.bevelImage.color = new Color(0.35f, 0.24f, 0.15f, 1f);
         }
 
-        // 펄스 연출 처리
+        // 펄스 연출 & 토끼 파워업 공유 버프 황금 글로우 처리
         if (slot.pulseTimer > 0f)
         {
             slot.pulseTimer -= Time.deltaTime;
             float t = Mathf.Clamp01(slot.pulseTimer / 0.45f);
-            // 테두리 플래시
             slot.readyHighlight.color = new Color(LobbyUITheme.Gold.r, LobbyUITheme.Gold.g, LobbyUITheme.Gold.b, t * 0.95f);
-            // 슬롯 살짝 확대 pop
             float scale = 1f + (Mathf.Sin(t * Mathf.PI) * 0.14f);
             slot.rootTransform.localScale = new Vector3(scale, scale, 1f);
         }
-        else if (_localPlayer.IsPoweredUp &&
-                 (status.Skill == PlayerMovement.CharacterSkill.RabbitCarrot || status.Skill == PlayerMovement.CharacterSkill.RabbitJump))
+        else if (_localPlayer.IsPoweredUp)
         {
-            // 파워업 상태: 다음에 강화될 스킬 슬롯을 주황빛으로 맥박치게 표시
-            float a = 0.45f + 0.45f * Mathf.Sin(Time.unscaledTime * 8f);
-            slot.readyHighlight.color = new Color(1f, 0.55f, 0.1f, a);
-            slot.rootTransform.localScale = Vector3.one;
+            // 파워업 공유 버프 활성 상태: 열린 모든 스킬 슬롯에 황금색 글로우 & 맥박 연출
+            float wave = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 8.5f);
+            slot.readyHighlight.color = new Color(1f, 0.84f, 0.18f, 0.55f + 0.40f * wave);
+            slot.frameImage.color = Color.Lerp(slot.frameImage.color, new Color(0.95f, 0.68f, 0.12f, 1f), 0.55f + 0.35f * wave);
+            slot.bevelImage.color = Color.Lerp(slot.bevelImage.color, new Color(1f, 0.92f, 0.45f, 1f), 0.65f + 0.30f * wave);
+            float scale = 1f + 0.035f * wave;
+            slot.rootTransform.localScale = new Vector3(scale, scale, 1f);
         }
         else
         {
@@ -722,6 +780,354 @@ public class SkillCooldownHUD : MonoBehaviour
             }
         }
         customIcons.Add(new SkillIconOverride { skill = skill, iconSprite = icon });
+    }
+
+    private void CreateMicIndicatorUI()
+    {
+        if (_micRoot != null) return;
+
+        float slotSize = SlotSize;
+        var rootGo = new GameObject("MicIndicator", typeof(RectTransform));
+        rootGo.transform.SetParent(_hudContainer, false);
+        _micRoot = rootGo.GetComponent<RectTransform>();
+        _micRoot.anchorMin = new Vector2(1f, 0f);
+        _micRoot.anchorMax = new Vector2(1f, 0f);
+        _micRoot.pivot = new Vector2(1f, 0f);
+        _micRoot.sizeDelta = new Vector2(slotSize, slotSize + 32f);
+
+        // 상단 뱃지 ("VOICE")
+        var badgeGo = new GameObject("VoiceBadge", typeof(RectTransform), typeof(Image));
+        badgeGo.transform.SetParent(rootGo.transform, false);
+        var badgeRt = badgeGo.GetComponent<RectTransform>();
+        badgeRt.anchorMin = new Vector2(0.5f, 1f);
+        badgeRt.anchorMax = new Vector2(0.5f, 1f);
+        badgeRt.pivot = new Vector2(0.5f, 1f);
+        badgeRt.anchoredPosition = Vector2.zero;
+        badgeRt.sizeDelta = new Vector2(slotSize, 28f);
+        badgeGo.GetComponent<Image>().color = LobbyUITheme.WoodDark;
+
+        var badgeTextGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
+        badgeTextGo.transform.SetParent(badgeGo.transform, false);
+        var badgeTextRt = badgeTextGo.GetComponent<RectTransform>();
+        badgeTextRt.anchorMin = Vector2.zero;
+        badgeTextRt.anchorMax = Vector2.one;
+        badgeTextRt.offsetMin = badgeTextRt.offsetMax = Vector2.zero;
+        var badgeText = badgeTextGo.GetComponent<Text>();
+        badgeText.font = LobbyUITheme.PixelFont;
+        badgeText.fontSize = 14;
+        badgeText.alignment = TextAnchor.MiddleCenter;
+        badgeText.color = LobbyUITheme.Gold;
+        badgeText.text = "VOICE\n음성인식";
+
+        // 메인 프레임
+        var frameGo = new GameObject("Frame", typeof(RectTransform), typeof(Image));
+        frameGo.transform.SetParent(rootGo.transform, false);
+        var frameRt = frameGo.GetComponent<RectTransform>();
+        frameRt.anchorMin = new Vector2(0f, 0f);
+        frameRt.anchorMax = new Vector2(1f, 0f);
+        frameRt.pivot = new Vector2(0.5f, 0f);
+        frameRt.anchoredPosition = Vector2.zero;
+        frameRt.sizeDelta = new Vector2(0f, slotSize);
+        _micFrameImage = frameGo.GetComponent<Image>();
+        _micFrameImage.color = LobbyUITheme.WoodDark;
+
+        // 발화 시 외곽 광채 테두리
+        var glowGo = new GameObject("SpeakGlow", typeof(RectTransform), typeof(Image));
+        glowGo.transform.SetParent(frameGo.transform, false);
+        glowGo.transform.SetAsFirstSibling();
+        var glowRt = glowGo.GetComponent<RectTransform>();
+        glowRt.anchorMin = Vector2.zero;
+        glowRt.anchorMax = Vector2.one;
+        glowRt.offsetMin = new Vector2(-6f, -6f);
+        glowRt.offsetMax = new Vector2(6f, 6f);
+        _micGlowBorder = glowGo.GetComponent<Image>();
+        _micGlowBorder.color = Color.clear;
+        _micGlowBorder.raycastTarget = false;
+
+        // 베벨
+        var bevelGo = new GameObject("Bevel", typeof(RectTransform), typeof(Image));
+        bevelGo.transform.SetParent(frameGo.transform, false);
+        var bevelRt = bevelGo.GetComponent<RectTransform>();
+        bevelRt.anchorMin = Vector2.zero;
+        bevelRt.anchorMax = Vector2.one;
+        bevelRt.offsetMin = new Vector2(3f, 3f);
+        bevelRt.offsetMax = new Vector2(-3f, -3f);
+        _micBevelImage = bevelGo.GetComponent<Image>();
+        _micBevelImage.color = LobbyUITheme.WoodLight;
+
+        // 내부 배경
+        var innerGo = new GameObject("InnerBg", typeof(RectTransform), typeof(Image));
+        innerGo.transform.SetParent(bevelGo.transform, false);
+        var innerRt = innerGo.GetComponent<RectTransform>();
+        innerRt.anchorMin = Vector2.zero;
+        innerRt.anchorMax = Vector2.one;
+        innerRt.offsetMin = new Vector2(3f, 3f);
+        innerRt.offsetMax = new Vector2(-3f, -3f);
+        innerGo.GetComponent<Image>().color = LobbyUITheme.FieldBg;
+
+        // 실시간 볼륨 레벨 게이지 (아래에서 위로 차오르는 반투명 바)
+        var levelGo = new GameObject("LevelBar", typeof(RectTransform), typeof(Image));
+        levelGo.transform.SetParent(innerGo.transform, false);
+        var levelRt = levelGo.GetComponent<RectTransform>();
+        levelRt.anchorMin = Vector2.zero;
+        levelRt.anchorMax = Vector2.one;
+        levelRt.offsetMin = Vector2.zero;
+        levelRt.offsetMax = Vector2.zero;
+        _micLevelFill = levelGo.GetComponent<Image>();
+        _micLevelFill.sprite = _whiteFillSprite;
+        _micLevelFill.type = Image.Type.Filled;
+        _micLevelFill.fillMethod = Image.FillMethod.Vertical;
+        _micLevelFill.fillOrigin = (int)Image.OriginVertical.Bottom;
+        _micLevelFill.fillAmount = 0f;
+        _micLevelFill.color = new Color(0.28f, 0.85f, 0.45f, 0.35f);
+        _micLevelFill.raycastTarget = false;
+
+        // 마이크 도트 아이콘
+        var iconGo = new GameObject("MicIcon", typeof(RectTransform), typeof(Image));
+        iconGo.transform.SetParent(innerGo.transform, false);
+        var iconRt = iconGo.GetComponent<RectTransform>();
+        iconRt.anchorMin = new Vector2(0.5f, 0.5f);
+        iconRt.anchorMax = new Vector2(0.5f, 0.5f);
+        iconRt.pivot = new Vector2(0.5f, 0.5f);
+        iconRt.anchoredPosition = new Vector2(0f, 10f);
+        iconRt.sizeDelta = new Vector2(46f, 46f);
+        _micIconImage = iconGo.GetComponent<Image>();
+        _micIconImage.sprite = _micSprite;
+        _micIconImage.preserveAspect = true;
+        _micIconImage.color = LobbyUITheme.Parch;
+        _micIconImage.raycastTarget = false;
+
+        // 하단 상태/인식 키워드 라벨
+        var statusGo = new GameObject("StatusText", typeof(RectTransform), typeof(Text), typeof(Outline));
+        statusGo.transform.SetParent(innerGo.transform, false);
+        var statusRt = statusGo.GetComponent<RectTransform>();
+        statusRt.anchorMin = new Vector2(0f, 0f);
+        statusRt.anchorMax = new Vector2(1f, 0f);
+        statusRt.pivot = new Vector2(0.5f, 0f);
+        statusRt.anchoredPosition = new Vector2(0f, 4f);
+        statusRt.sizeDelta = new Vector2(0f, 24f);
+        _micStatusText = statusGo.GetComponent<Text>();
+        _micStatusText.font = LobbyUITheme.PlainFont;
+        _micStatusText.fontSize = 15;
+        _micStatusText.fontStyle = FontStyle.Bold;
+        _micStatusText.alignment = TextAnchor.MiddleCenter;
+        _micStatusText.horizontalOverflow = HorizontalWrapMode.Overflow;
+        _micStatusText.color = LobbyUITheme.Parch;
+        _micStatusText.raycastTarget = false;
+        var stOutline = statusGo.GetComponent<Outline>();
+        stOutline.effectColor = LobbyUITheme.GoldDeep;
+        stOutline.effectDistance = new Vector2(1.5f, -1.5f);
+    }
+
+    private void CreatePowerUpBannerUI()
+    {
+        if (_powerUpBanner != null) return;
+
+        _powerUpBanner = new GameObject("PowerUpBanner", typeof(RectTransform), typeof(Image), typeof(Outline));
+        _powerUpBanner.transform.SetParent(_hudContainer, false);
+        _powerUpBannerRt = _powerUpBanner.GetComponent<RectTransform>();
+        _powerUpBannerRt.anchorMin = new Vector2(1f, 0f);
+        _powerUpBannerRt.anchorMax = new Vector2(1f, 0f);
+        _powerUpBannerRt.pivot = new Vector2(1f, 0f);
+        _powerUpBannerRt.anchoredPosition = new Vector2(0f, SlotSize + 40f);
+        _powerUpBannerRt.sizeDelta = new Vector2(320f, 36f);
+
+        _powerUpBannerBg = _powerUpBanner.GetComponent<Image>();
+        _powerUpBannerBg.color = new Color(0.24f, 0.14f, 0.04f, 0.95f);
+        _powerUpBannerBg.raycastTarget = false;
+
+        var bannerOutline = _powerUpBanner.GetComponent<Outline>();
+        bannerOutline.effectColor = new Color(1f, 0.84f, 0.2f, 1f);
+        bannerOutline.effectDistance = new Vector2(2f, -2f);
+
+        // 하단 잔여 시간 게이지 바
+        var barGo = new GameObject("TimeBar", typeof(RectTransform), typeof(Image));
+        barGo.transform.SetParent(_powerUpBanner.transform, false);
+        var barRt = barGo.GetComponent<RectTransform>();
+        barRt.anchorMin = new Vector2(0f, 0f);
+        barRt.anchorMax = new Vector2(1f, 0f);
+        barRt.pivot = new Vector2(0.5f, 0f);
+        barRt.anchoredPosition = Vector2.zero;
+        barRt.sizeDelta = new Vector2(0f, 5f);
+        _powerUpBarFill = barGo.GetComponent<Image>();
+        _powerUpBarFill.sprite = _whiteFillSprite;
+        _powerUpBarFill.type = Image.Type.Filled;
+        _powerUpBarFill.fillMethod = Image.FillMethod.Horizontal;
+        _powerUpBarFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+        _powerUpBarFill.color = new Color(1f, 0.86f, 0.22f, 1f);
+        _powerUpBarFill.raycastTarget = false;
+
+        var txtGo = new GameObject("BannerText", typeof(RectTransform), typeof(Text), typeof(Outline));
+        txtGo.transform.SetParent(_powerUpBanner.transform, false);
+        var txtRt = txtGo.GetComponent<RectTransform>();
+        txtRt.anchorMin = Vector2.zero;
+        txtRt.anchorMax = Vector2.one;
+        txtRt.offsetMin = new Vector2(6f, 4f);
+        txtRt.offsetMax = new Vector2(-6f, -2f);
+        _powerUpBannerText = txtGo.GetComponent<Text>();
+        _powerUpBannerText.font = LobbyUITheme.PlainFont;
+        _powerUpBannerText.fontSize = 16;
+        _powerUpBannerText.fontStyle = FontStyle.Bold;
+        _powerUpBannerText.alignment = TextAnchor.MiddleCenter;
+        _powerUpBannerText.horizontalOverflow = HorizontalWrapMode.Overflow;
+        _powerUpBannerText.color = new Color(1f, 0.92f, 0.42f, 1f);
+        _powerUpBannerText.raycastTarget = false;
+        var txtOutline = txtGo.GetComponent<Outline>();
+        txtOutline.effectColor = LobbyUITheme.GoldDeep;
+        txtOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        _powerUpBanner.SetActive(false);
+    }
+
+    private void UpdateMicIndicator()
+    {
+        if (_micRoot == null) return;
+        if (!_micRoot.gameObject.activeSelf) _micRoot.gameObject.SetActive(true);
+
+        bool speaking = VoiceSkillInput.IsSpeaking;
+        bool listening = VoiceSkillInput.IsListening;
+        bool calibrating = VoiceSkillInput.IsCalibrating;
+        float level = VoiceSkillInput.CurrentLevel;
+
+        if (_micLevelFill != null)
+        {
+            _micLevelFill.fillAmount = speaking ? Mathf.Max(0.18f, level) : level * 0.4f;
+            _micLevelFill.color = speaking
+                ? new Color(0.28f, 0.92f, 0.48f, 0.45f)
+                : new Color(0.95f, 0.80f, 0.32f, 0.20f);
+        }
+
+        if (_voiceFlashTimer > 0f)
+        {
+            _voiceFlashTimer -= Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(_voiceFlashTimer / 1.35f);
+            float pop = 1f + Mathf.Sin(t * Mathf.PI) * 0.10f;
+            _micRoot.localScale = new Vector3(pop, pop, 1f);
+            _micGlowBorder.color = new Color(1f, 0.86f, 0.22f, 0.85f);
+            _micFrameImage.color = new Color(0.55f, 0.36f, 0.10f, 1f);
+            _micBevelImage.color = LobbyUITheme.Gold;
+            _micIconImage.color = LobbyUITheme.Gold;
+            _micStatusText.text = $"✦ {_voiceFlashText}";
+            _micStatusText.color = LobbyUITheme.Gold;
+            return;
+        }
+
+        _micRoot.localScale = Vector3.one;
+
+        if (!listening)
+        {
+            _micGlowBorder.color = Color.clear;
+            _micFrameImage.color = new Color(0.18f, 0.14f, 0.11f, 0.9f);
+            _micBevelImage.color = new Color(0.28f, 0.22f, 0.18f, 0.9f);
+            _micIconImage.color = LobbyUITheme.Hint;
+            _micStatusText.text = "MIC 꺼짐";
+            _micStatusText.color = LobbyUITheme.Hint;
+        }
+        else if (calibrating)
+        {
+            _micGlowBorder.color = Color.clear;
+            _micFrameImage.color = LobbyUITheme.WoodDark;
+            _micBevelImage.color = LobbyUITheme.WoodLight;
+            _micIconImage.color = LobbyUITheme.Gold;
+            _micStatusText.text = "소음측정..";
+            _micStatusText.color = LobbyUITheme.Gold;
+        }
+        else if (speaking)
+        {
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 12f);
+            _micGlowBorder.color = new Color(0.32f, 0.95f, 0.52f, 0.55f + 0.35f * pulse);
+            _micFrameImage.color = new Color(0.16f, 0.36f, 0.20f, 1f);
+            _micBevelImage.color = new Color(0.42f, 0.92f, 0.56f, 1f);
+            _micIconImage.color = new Color(0.55f, 1f, 0.68f, 1f);
+            _micStatusText.text = "듣는 중!";
+            _micStatusText.color = new Color(0.55f, 1f, 0.68f, 1f);
+        }
+        else
+        {
+            _micGlowBorder.color = Color.clear;
+            _micFrameImage.color = LobbyUITheme.WoodDark;
+            _micBevelImage.color = LobbyUITheme.WoodLight;
+            _micIconImage.color = LobbyUITheme.Parch;
+            _micStatusText.text = "MIC 대기";
+            _micStatusText.color = LobbyUITheme.Parch;
+        }
+    }
+
+    private void UpdatePowerUpBanner(int maxSlots)
+    {
+        if (_powerUpBanner == null || _localPlayer == null) return;
+
+        bool active = maxSlots > 0 && _localPlayer.IsPoweredUp;
+        if (_powerUpBanner.activeSelf != active)
+        {
+            _powerUpBanner.SetActive(active);
+        }
+        if (!active) return;
+
+        float rem = _localPlayer.PowerUpRemainingSeconds;
+        float total = Mathf.Max(0.1f, _localPlayer.powerUpDuration);
+        float wave = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 9f);
+
+        if (_powerUpBarFill != null)
+        {
+            _powerUpBarFill.fillAmount = rem > 0f ? Mathf.Clamp01(rem / total) : 1f;
+        }
+        if (_powerUpBannerBg != null)
+        {
+            _powerUpBannerBg.color = Color.Lerp(
+                new Color(0.26f, 0.15f, 0.04f, 0.96f),
+                new Color(0.48f, 0.30f, 0.06f, 0.98f),
+                wave);
+        }
+        if (_powerUpBannerText != null)
+        {
+            string secStr = rem > 0f ? $" ({rem:0.0}s)" : "";
+            _powerUpBannerText.text = $"★ POWER UP : 다음 스킬 강화!{secStr} ★";
+        }
+    }
+
+    private static Sprite CreateMicPixelSprite()
+    {
+        const int S = 32;
+        var tex = new Texture2D(S, S, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Point;
+        var px = new Color[S * S];
+        for (int i = 0; i < px.Length; i++) px[i] = Color.clear;
+
+        // 픽셀아트 마이크 캡슐 + 받침대 스탠드
+        for (int y = 0; y < S; y++)
+        {
+            for (int x = 0; x < S; x++)
+            {
+                int dx = Mathf.Abs(x - 16);
+                // 마이크 헤드 (둥근 캡슐: y 14..28, 반폭 5)
+                bool inHead = (y >= 15 && y <= 26 && dx <= 5) ||
+                              ((y == 14 || y == 27) && dx <= 4) ||
+                              ((y == 13 || y == 28) && dx <= 2);
+                // 헤드 그릴 가로줄 디테일
+                if (inHead && (y == 19 || y == 22 || y == 25) && dx <= 3)
+                {
+                    px[y * S + x] = new Color(1f, 1f, 1f, 0.45f);
+                    continue;
+                }
+                // U자형 홀더 (y 10..17, 반폭 8..9)
+                bool inCup = (y >= 12 && y <= 17 && (dx == 8 || dx == 9)) ||
+                             (y >= 10 && y <= 11 && dx >= 4 && dx <= 8) ||
+                             (y == 9 && dx <= 4);
+                // 스탠드 기둥 & 바닥 받침대 (y 4..9)
+                bool inStand = (y >= 5 && y <= 9 && dx <= 1) ||
+                               (y >= 3 && y <= 4 && dx <= 7);
+
+                if (inHead || inCup || inStand)
+                {
+                    px[y * S + x] = Color.white;
+                }
+            }
+        }
+
+        tex.SetPixels(px);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f), 32f);
     }
 
     private static Sprite CreateSolidSprite()

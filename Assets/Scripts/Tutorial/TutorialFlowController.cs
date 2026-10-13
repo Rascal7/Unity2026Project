@@ -178,6 +178,7 @@ public class TutorialFlowController : MonoBehaviour
             EnsureGuideUI();
             _localPlayer = null;
             ResetMissions();
+            WireTutorialHintZones();
             var ep = FindFirstObjectByType<EndPoint>();
             _targetScene = (ep != null && !string.IsNullOrEmpty(ep.nextSceneName)) ? ep.nextSceneName : defaultMainStage;
         }
@@ -187,6 +188,37 @@ public class TutorialFlowController : MonoBehaviour
         {
             if (_marker != null) _marker.gameObject.SetActive(false);
             PlayerMovement.TutorialHold = false;
+        }
+    }
+
+    private void WireTutorialHintZones()
+    {
+        TutorialHintUI.EnsureInstance();
+        var hintsRoot = GameObject.Find("TutorialHints");
+        if (hintsRoot == null) return;
+
+        for (int i = 0; i < hintsRoot.transform.childCount; i++)
+        {
+            var child = hintsRoot.transform.GetChild(i).gameObject;
+            if (!child.activeInHierarchy) continue;
+
+            var col = child.GetComponent<Collider2D>();
+            if (col == null)
+            {
+                var box = child.AddComponent<BoxCollider2D>();
+                box.isTrigger = true;
+                box.size = new Vector2(5.5f, 4.5f);
+                box.offset = new Vector2(0f, -0.8f);
+            }
+            else
+            {
+                col.isTrigger = true;
+            }
+
+            if (child.GetComponent<TutorialHintZone>() == null)
+            {
+                child.AddComponent<TutorialHintZone>();
+            }
         }
     }
 
@@ -707,6 +739,7 @@ public class TutorialFlowController : MonoBehaviour
     {
         if (_busy) return;
         _busy = true;
+        BasicLauncher.MarkVoluntaryExit();
         HideAll();
 
         Cursor.lockState = CursorLockMode.None;

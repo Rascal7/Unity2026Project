@@ -115,6 +115,20 @@ public class NetworkTimer : NetworkBehaviour
     }
 
     // ���� ��: �ջ� �ð�(totalSeconds)�� Ȯ���ϰ� ���� �ܰ��.
+    public void SyncStageChoiceBonus(float rawSegmentTime)
+    {
+        if (!HasStateAuthority) return;
+        if (RunManager.Segments.Count > 0)
+        {
+            FinalTime = RunManager.Segments[RunManager.Segments.Count - 1];
+        }
+        RPC_SyncShardStats(
+            RunManager.LastCompletedStageShards,
+            RunManager.LastCompletedStageTotalShards,
+            RunManager.TotalCollectedShards,
+            rawSegmentTime);
+    }
+
     public void FinishRun(float totalSeconds)
     {
         if (!HasStateAuthority) return;
@@ -134,7 +148,19 @@ public class NetworkTimer : NetworkBehaviour
         SegmentCount = n;
         RestoredBase = RunManager.RestoredBase;
 
+        RPC_SyncShardStats(
+            RunManager.LastCompletedStageShards,
+            RunManager.LastCompletedStageTotalShards,
+            RunManager.TotalCollectedShards,
+            RunManager.LastCompletedStageRawTime);
+
         Phase = PhaseFinished;
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    public void RPC_SyncShardStats(int stageShards, int stageTotalShards, int totalRunShards, float rawSegmentTime)
+    {
+        RunManager.ApplySyncedResultStats(stageShards, stageTotalShards, totalRunShards, rawSegmentTime);
     }
 
     // (����ȣȯ) ���� �ڵ尡 �θ��� �ܼ� ����. �����ð� Ȯ����.

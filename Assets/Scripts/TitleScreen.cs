@@ -228,7 +228,10 @@ public class TitleScreen : MonoBehaviour
         if (!Application.isPlaying) return;
 
         // Tab / Shift+Tab 으로 입력칸 이동 (레거시 InputField는 자동 이동이 없음)
-        if (_tabOrder != null && _tabOrder.Length > 1 && Input.GetKeyDown(KeyCode.Tab))
+        // 단, 랭킹 보드나 ESC 설정 메뉴가 열려 있을 때는 입력칸 포커스를 옮기지 않음
+        bool modalOpen = (RankingBoardUI.Instance != null && RankingBoardUI.Instance.IsOpen) ||
+                         (SettingsMenuUI.Instance != null && SettingsMenuUI.Instance.IsOpen);
+        if (!modalOpen && _tabOrder != null && _tabOrder.Length > 1 && Input.GetKeyDown(KeyCode.Tab))
         {
             var es = EventSystem.current;
             GameObject cur = es != null ? es.currentSelectedGameObject : null;
