@@ -101,6 +101,12 @@ public class SkillCooldownHUD : MonoBehaviour
 
     private void OnVoiceRecognized(string keyword, int slot)
     {
+        if (_localPlayer != null)
+        {
+            if (_localPlayer.IsFoxCharacter && VoiceSkillInput.IsRabbitKeyword(keyword)) return;
+            if (_localPlayer.IsRabbitCharacter && VoiceSkillInput.IsFoxKeyword(keyword)) return;
+        }
+
         _voiceFlashText = $"{keyword}!";
         _voiceFlashTimer = 1.35f;
 
