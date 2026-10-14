@@ -225,6 +225,21 @@ public class CharacterSelectUI : MonoBehaviour
         // 우드 프레임 적용
         LobbyUITheme.StyleWoodPanel(cardGo, LobbyUITheme.WoodFill, 8f, 6f);
 
+        // 카드 자체 클릭 바인딩 (카드 전체를 눌러도 선택 및 취소 가능)
+        var cardBaseImg = cardGo.GetComponent<Image>();
+        if (cardBaseImg != null)
+        {
+            cardBaseImg.raycastTarget = true;
+        }
+        var cardBtn = cardGo.GetComponent<Button>();
+        if (cardBtn == null)
+        {
+            cardBtn = cardGo.AddComponent<Button>();
+        }
+        cardBtn.transition = Selectable.Transition.None;
+        cardBtn.onClick.RemoveAllListeners();
+        cardBtn.onClick.AddListener(() => OnClickSelect(cardIndex));
+
         // 카드 내 이름 텍스트
         Transform nameTrans = cardTrans.Find("NameText");
         if (nameTrans != null)
@@ -232,6 +247,7 @@ public class CharacterSelectUI : MonoBehaviour
             var nameTmp = nameTrans.GetComponent<TextMeshProUGUI>();
             if (nameTmp != null)
             {
+                nameTmp.raycastTarget = false;
                 LobbyUITheme.StyleTitle(nameTmp, defaultTitle, 32f);
             }
         }
@@ -254,6 +270,7 @@ public class CharacterSelectUI : MonoBehaviour
             if (iconImg != null)
             {
                 iconImg.preserveAspect = true;
+                iconImg.raycastTarget = false;
                 if (iconImg.sprite == null)
                 {
                     var sp = Resources.Load<Sprite>(spritePath);
@@ -298,31 +315,45 @@ public class CharacterSelectUI : MonoBehaviour
         Debug.Log($"<color=cyan>[UI]</color> {index}번 버튼 클릭!");
         SessionPlayerItem myItem = FindLocalPlayerItem();
 
+        // 이미 선택된 캐릭터를 다시 클릭하면 선택 취소(-1) 처리
+        int currentIndex = myItem != null ? myItem.SelectedCharacterIndex : _currentSelectedIndex;
+        int targetIndex = (currentIndex == index) ? -1 : index;
+
         if (myItem != null)
         {
-            // 준비 완료 상태에서는 캐릭터 변경 차단
+            // 준비 완료 상태에서는 캐릭터 변경 및 취소 차단
             if (myItem.IsReady)
             {
-                Debug.LogWarning("<color=yellow>[UI]</color> 준비 완료 상태에서는 캐릭터를 변경할 수 없습니다. 먼저 준비를 취소하세요.");
+                Debug.LogWarning("<color=yellow>[UI]</color> 준비 완료 상태에서는 캐릭터를 변경하거나 취소할 수 없습니다. 먼저 준비를 취소하세요.");
                 return;
             }
 
-            // 중복 픽 방지: 상대방이 이미 선택한 캐릭터인지 클라이언트 단에서 사전 차단
-            var allItems = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
-            foreach (var item in allItems)
+            // 중복 픽 방지: 상대방이 이미 선택한 캐릭터인지 클라이언트 단에서 사전 차단 (취소인 경우는 검사 불필요)
+            if (targetIndex != -1)
             {
-                if (item != myItem && item.SelectedCharacterIndex == index && index != -1)
+                var allItems = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
+                foreach (var item in allItems)
                 {
-                    Debug.LogWarning($"<color=yellow>[UI]</color> 상대방이 이미 선택한 캐릭터({index})이므로 중복 선택할 수 없습니다.");
-                    return;
+                    if (item != myItem && item.SelectedCharacterIndex == targetIndex)
+                    {
+                        Debug.LogWarning($"<color=yellow>[UI]</color> 상대방이 이미 선택한 캐릭터({targetIndex})이므로 중복 선택할 수 없습니다.");
+                        return;
+                    }
                 }
             }
 
             if (myItem.HasInputAuthority || (myItem.Runner != null && myItem.Object.InputAuthority == myItem.Runner.LocalPlayer))
             {
-                Debug.Log($"<color=lime>[UI]</color> {index}번 캐릭터 선택 요청 전송!");
-                myItem.RPC_SelectCharacter(index);
-                UpdateCharacterSelectionUI(index);
+                if (targetIndex == -1)
+                {
+                    Debug.Log($"<color=lime>[UI]</color> {index}번 캐릭터 선택 취소 요청 전송!");
+                }
+                else
+                {
+                    Debug.Log($"<color=lime>[UI]</color> {targetIndex}번 캐릭터 선택 요청 전송!");
+                }
+                myItem.RPC_SelectCharacter(targetIndex);
+                UpdateCharacterSelectionUI(targetIndex);
             }
             else
             {
@@ -331,7 +362,8 @@ public class CharacterSelectUI : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("<color=yellow>[UI]</color> 내 플레이어 세션 아이템을 동기화 중입니다. 잠시 후 다시 클릭해 주세요.");
+            UpdateCharacterSelectionUI(targetIndex);
+            Debug.LogWarning("<color=yellow>[UI]</color> 내 플레이어 세션 아이템을 동기화 중입니다. 로컬 UI 상태를 먼저 업데이트했습니다.");
         }
     }
 
@@ -478,6 +510,13 @@ public class CharacterSelectUI : MonoBehaviour
             bool isMine = (myIndex == i);
             bool isRemote = (remoteIndex == i);
 
+            // 카드 자체 버튼 상호작용 동기화
+            var cardBtn = cardRoots[i].GetComponent<Button>();
+            if (cardBtn != null)
+            {
+                cardBtn.interactable = !myReady && !isRemote;
+            }
+
             // 1. 카드 외곽선 골드 테두리 (내 선택 우선)
             if (selectHighlights != null && i < selectHighlights.Length && selectHighlights[i] != null)
             {
@@ -504,7 +543,8 @@ public class CharacterSelectUI : MonoBehaviour
             {
                 if (isMine)
                 {
-                    LobbyUITheme.StylePixelButton(selectButtons[i], LobbyUITheme.ButtonType.Gold, "선택완료!", 24);
+                    string btnText = myReady ? "선택완료!" : "선택 취소";
+                    LobbyUITheme.StylePixelButton(selectButtons[i], LobbyUITheme.ButtonType.Gold, btnText, 24);
                     selectButtons[i].interactable = !myReady;
                 }
                 else if (isRemote)
@@ -573,6 +613,11 @@ public class CharacterSelectUI : MonoBehaviour
         else
         {
             badgeTmp = badgeTrans.GetComponentInChildren<TextMeshProUGUI>();
+        }
+
+        if (badgeTrans != null)
+        {
+            badgeTrans.gameObject.SetActive(isMine || isRemote);
         }
 
         if (badgeTmp == null) return;

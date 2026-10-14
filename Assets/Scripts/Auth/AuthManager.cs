@@ -28,9 +28,11 @@ public class AuthManager : MonoBehaviour
     // ---------------- 세션 상태 ----------------
     public bool IsLoggedIn { get; private set; }
     public bool IsGuest { get; private set; }
+    public bool IsAnonymous { get; private set; }
     public string Uid { get; private set; }
     public string Email { get; private set; }
     public string Nickname { get; private set; }
+    public string IdToken => _idToken;
 
     private string _idToken;
     private string _refreshToken;
@@ -54,6 +56,9 @@ public class AuthManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
         StartCoroutine(WarmupRoutine());
+
+        // 게임 시작 시 백그라운드에서 익명 로그인 자동 호출
+        SignInAnonymously();
     }
 
     // 에디터에서 Play 진입 후 '첫 HTTPS 요청'은 인증서 검사(revocation) 등으로 15~20초 지연될 수 있다.
@@ -129,23 +134,58 @@ public class AuthManager : MonoBehaviour
         StartCoroutine(ResendVerifyRoutine(email, password, onSuccess, onError));
     }
 
-    // 게스트 플레이: 계정 없이 진행. 닉네임만 세션에 둔다.
+    // 익명 로그인: Firebase Auth 계정을 생성/발급받아 idToken과 Uid를 확보한다.
+    public void SignInAnonymously(Action onSuccess = null, Action<string> onError = null)
+    {
+        if (!HasApiKey) { onError?.Invoke("웹 API 키가 설정되지 않았습니다."); return; }
+        StartCoroutine(SignInAnonymouslyRoutine(onSuccess, onError));
+    }
+
+    // 유효한 토큰이 준비될 때까지 대기하거나 필요 시 자동 갱신/발급
+    public IEnumerator EnsureTokenRoutine(Action<string> onTokenReady)
+    {
+        if (!string.IsNullOrEmpty(_idToken))
+        {
+            onTokenReady?.Invoke(_idToken);
+            yield break;
+        }
+
+        bool done = false;
+        SignInAnonymously(() => done = true, _ => done = true);
+        float timeout = Time.realtimeSinceStartup + 8f;
+        while (!done && Time.realtimeSinceStartup < timeout)
+        {
+            yield return null;
+        }
+        onTokenReady?.Invoke(_idToken);
+    }
+
+    // 게스트 플레이: 계정 없이 진행. 닉네임 설정 및 백그라운드 익명 토큰 유지.
     public void PlayAsGuest(string nickname)
     {
         IsGuest = true;
         IsLoggedIn = false;
-        Uid = null; Email = null; _idToken = null; _refreshToken = null;
         Nickname = string.IsNullOrWhiteSpace(nickname) ? ("Guest" + UnityEngine.Random.Range(1000, 9999)) : nickname.Trim();
         PlayerPrefs.SetString("PlayerName", Nickname);
         PlayerPrefs.Save();
-        Debug.Log($"<color=cyan>[Auth]</color> 게스트 플레이: {Nickname}");
+
+        // 아직 익명 토큰이 없다면 발급
+        if (string.IsNullOrEmpty(_idToken))
+        {
+            SignInAnonymously();
+        }
+        Debug.Log($"<color=cyan>[Auth]</color> 게스트 플레이: {Nickname} (UID: {Uid})");
     }
 
     public void Logout()
     {
-        IsLoggedIn = false; IsGuest = false;
+        IsLoggedIn = false; IsGuest = false; IsAnonymous = false;
         Uid = null; Email = null; Nickname = null; _idToken = null; _refreshToken = null;
         ClearPending();
+        PlayerPrefs.DeleteKey("Auth_AnonRefreshToken");
+        PlayerPrefs.Save();
+        // 로그아웃 후 다시 익명 세션 준비
+        SignInAnonymously();
     }
 
     private void ClearPending() { _pendingEmail = _pendingPassword = _pendingNickname = _pendingUid = null; }
@@ -189,7 +229,7 @@ public class AuthManager : MonoBehaviour
         if (!verified) { onNotYet?.Invoke(); yield break; }
 
         // 인증됨 → 곧바로 로그인 세션 확립
-        IsLoggedIn = true; IsGuest = false;
+        IsLoggedIn = true; IsGuest = false; IsAnonymous = false;
         Uid = uid; Email = _pendingEmail; _idToken = idToken; _refreshToken = refresh;
         Nickname = !string.IsNullOrEmpty(_pendingNickname) ? _pendingNickname : (string.IsNullOrEmpty(displayName) ? _pendingEmail : displayName);
         PlayerPrefs.SetString("PlayerName", Nickname);
@@ -198,8 +238,6 @@ public class AuthManager : MonoBehaviour
         Debug.Log($"<color=lime>[Auth]</color> 이메일 인증 확인 → 로그인: {Email} / {Nickname}");
         onVerified?.Invoke();
     }
-
-    // 닉네임 사용 가능 여부만 조회 (UI 실시간 체크용).
 
     // 닉네임 사용 가능 여부만 조회 (UI 실시간 체크용).
     public void CheckNicknameAvailable(string nickname, Action<bool> cb)
@@ -212,6 +250,99 @@ public class AuthManager : MonoBehaviour
     // ==================================================================
     //  코루틴
     // ==================================================================
+
+    private IEnumerator SignInAnonymouslyRoutine(Action onSuccess, Action<string> onError)
+    {
+        // 이미 유효한 토큰이 있으면 그대로 사용
+        if (!string.IsNullOrEmpty(_idToken))
+        {
+            onSuccess?.Invoke();
+            yield break;
+        }
+
+        // 이전 익명 세션의 리프레시 토큰이 저장되어 있다면 계정 재사용(UID 유지) 시도
+        string savedRefresh = PlayerPrefs.GetString("Auth_AnonRefreshToken", null);
+        if (!string.IsNullOrEmpty(savedRefresh))
+        {
+            bool refreshed = false;
+            yield return RefreshTokenRoutine(savedRefresh, ok => refreshed = ok);
+            if (refreshed)
+            {
+                IsAnonymous = true;
+                Debug.Log($"<color=lime>[Auth]</color> 이전 익명 세션 복원 성공 (UID: {Uid})");
+                onSuccess?.Invoke();
+                yield break;
+            }
+        }
+
+        // 신규 익명 계정 발급 (POST accounts:signUp?key=... body: {"returnSecureToken":true})
+        string body = "{\"returnSecureToken\":true}";
+        string idToken = null, refresh = null, uid = null, errMsg = null;
+        yield return PostJson(IDTOOLKIT + "signUp?key=" + WEB_API_KEY, body,
+            resp =>
+            {
+                idToken = ReadJsonString(resp, "idToken");
+                refresh = ReadJsonString(resp, "refreshToken");
+                uid = ReadJsonString(resp, "localId");
+            },
+            e => errMsg = MapAuthError(e));
+
+        if (errMsg != null)
+        {
+            Debug.LogWarning($"<color=orange>[Auth]</color> 익명 로그인 실패: {errMsg}");
+            onError?.Invoke(errMsg);
+            yield break;
+        }
+
+        if (string.IsNullOrEmpty(idToken) || string.IsNullOrEmpty(uid))
+        {
+            onError?.Invoke("익명 로그인 토큰 수신에 실패했습니다.");
+            yield break;
+        }
+
+        _idToken = idToken;
+        _refreshToken = refresh;
+        Uid = uid;
+        IsAnonymous = true;
+        PlayerPrefs.SetString("Auth_AnonRefreshToken", refresh);
+        PlayerPrefs.Save();
+
+        Debug.Log($"<color=lime>[Auth]</color> Firebase 익명 로그인 성공! (UID: {Uid})");
+        onSuccess?.Invoke();
+    }
+
+    private IEnumerator RefreshTokenRoutine(string refreshToken, Action<bool> onComplete)
+    {
+        string url = "https://securetoken.googleapis.com/v1/token?key=" + WEB_API_KEY;
+        string formBody = "grant_type=refresh_token&refresh_token=" + UnityWebRequest.EscapeURL(refreshToken);
+
+        using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+        {
+            req.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(formBody));
+            req.downloadHandler = new DownloadHandlerBuffer();
+            req.SetRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            req.timeout = 15;
+            yield return req.SendWebRequest();
+
+            if (req.result == UnityWebRequest.Result.Success)
+            {
+                string resp = req.downloadHandler.text;
+                string newIdToken = ReadJsonString(resp, "id_token");
+                string newRefresh = ReadJsonString(resp, "refresh_token");
+                string newUid = ReadJsonString(resp, "user_id");
+
+                if (!string.IsNullOrEmpty(newIdToken))
+                {
+                    _idToken = newIdToken;
+                    if (!string.IsNullOrEmpty(newRefresh)) _refreshToken = newRefresh;
+                    if (!string.IsNullOrEmpty(newUid)) Uid = newUid;
+                    onComplete?.Invoke(true);
+                    yield break;
+                }
+            }
+            onComplete?.Invoke(false);
+        }
+    }
 
     private IEnumerator SignUpRoutine(string email, string password, string nickname,
         Action onSuccess, Action<string> onError)
@@ -286,7 +417,7 @@ public class AuthManager : MonoBehaviour
             if (!string.IsNullOrEmpty(n)) nick = n;
         }, _ => { });
 
-        IsLoggedIn = true; IsGuest = false;
+        IsLoggedIn = true; IsGuest = false; IsAnonymous = false;
         Uid = uid; Email = email; _idToken = idToken; _refreshToken = refresh;
         Nickname = string.IsNullOrEmpty(nick) ? email : nick;
         PlayerPrefs.SetString("PlayerName", Nickname);

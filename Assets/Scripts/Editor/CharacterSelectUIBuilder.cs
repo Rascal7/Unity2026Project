@@ -191,6 +191,10 @@ public static class CharacterSelectUIBuilder
 
         // 우드 프레임 적용
         LobbyUITheme.StyleWoodPanel(cardGo, LobbyUITheme.WoodFill, 8f, 6f);
+        var baseImg = cardGo.GetComponent<Image>();
+        if (baseImg != null) baseImg.raycastTarget = true;
+        Button cardBtn = cardGo.AddComponent<Button>();
+        cardBtn.transition = Selectable.Transition.None;
 
         // 2. 캐릭터 이름
         GameObject titleGo = new GameObject("NameText");
@@ -204,6 +208,7 @@ public static class CharacterSelectUIBuilder
 
         TextMeshProUGUI titleTmp = titleGo.AddComponent<TextMeshProUGUI>();
         if (fontAsset != null) titleTmp.font = fontAsset;
+        titleTmp.raycastTarget = false;
         LobbyUITheme.StyleTitle(titleTmp, title, 32f);
 
         // 3. 캐릭터 아이콘 인셋 영역 (중앙 정렬)
@@ -230,6 +235,7 @@ public static class CharacterSelectUIBuilder
         {
             iconImg.sprite = iconSprite;
             iconImg.preserveAspect = true;
+            iconImg.raycastTarget = false;
         }
 
         // 4. 선택 버튼

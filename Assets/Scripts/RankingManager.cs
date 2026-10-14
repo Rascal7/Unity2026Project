@@ -150,7 +150,16 @@ public class RankingManager : MonoBehaviour
     {
         string baseUrl = _firebaseBaseUrl.Trim();
         if (!baseUrl.EndsWith("/")) baseUrl += "/";
-        return baseUrl + pathAndQuery;
+        string url = baseUrl + pathAndQuery;
+
+        // Firebase Auth 인증 토큰이 존재하고, 쿼리에 auth 파라미터가 없으면 자동 첨부
+        string token = AuthManager.Instance != null ? AuthManager.Instance.IdToken : null;
+        if (!string.IsNullOrEmpty(token) && !url.Contains("auth="))
+        {
+            char sep = url.Contains("?") ? '&' : '?';
+            url = $"{url}{sep}auth={token}";
+        }
+        return url;
     }
 
     // 최근 리더보드(상위 5) 캐시 — 클리어 즉시 순위 판정용. Prefetch 로 미리 채운다.
@@ -165,12 +174,32 @@ public class RankingManager : MonoBehaviour
 
     private IEnumerator FetchTopRoutine()
     {
+        if (AuthManager.Instance != null && string.IsNullOrEmpty(AuthManager.Instance.IdToken))
+        {
+            yield return StartCoroutine(AuthManager.Instance.EnsureTokenRoutine(_ => { }));
+        }
+
         string url = GetFirebaseEndpoint("ranks.json?orderBy=\"clearTime\"&limitToFirst=5");
         using (UnityWebRequest req = UnityWebRequest.Get(url))
         {
             yield return req.SendWebRequest();
             if (req.result == UnityWebRequest.Result.Success)
+            {
                 _cachedTop = ParseFirebaseRanks(req.downloadHandler.text);
+            }
+            else
+            {
+                // 인덱스 미설정 등으로 실패 시 일반 ranks.json 으로 폴백
+                string fallbackUrl = GetFirebaseEndpoint("ranks.json");
+                using (UnityWebRequest reqFallback = UnityWebRequest.Get(fallbackUrl))
+                {
+                    yield return reqFallback.SendWebRequest();
+                    if (reqFallback.result == UnityWebRequest.Result.Success)
+                    {
+                        _cachedTop = ParseFirebaseRanks(reqFallback.downloadHandler.text);
+                    }
+                }
+            }
         }
     }
 
@@ -226,6 +255,11 @@ public class RankingManager : MonoBehaviour
 
     IEnumerator PostRankingData(string p1, string p2, float time, int shards)
     {
+        if (AuthManager.Instance != null && string.IsNullOrEmpty(AuthManager.Instance.IdToken))
+        {
+            yield return StartCoroutine(AuthManager.Instance.EnsureTokenRoutine(_ => { }));
+        }
+
         string url = GetFirebaseEndpoint("ranks.json");
 
         RankData newData = new RankData
@@ -325,8 +359,14 @@ public class RankingManager : MonoBehaviour
 
     IEnumerator GetRankingData()
     {
+        if (AuthManager.Instance != null && string.IsNullOrEmpty(AuthManager.Instance.IdToken))
+        {
+            yield return StartCoroutine(AuthManager.Instance.EnsureTokenRoutine(_ => { }));
+        }
+
         // Firebase Realtime Database: clearTime 기준 오름차순(빠른 순) 상위 20개 조회
         string url = GetFirebaseEndpoint("ranks.json?orderBy=\"clearTime\"&limitToFirst=20");
+        string rawJson = null;
 
         using (UnityWebRequest request = UnityWebRequest.Get(url))
         {
@@ -334,43 +374,62 @@ public class RankingManager : MonoBehaviour
 
             if (request.result == UnityWebRequest.Result.Success)
             {
-                string rawJson = request.downloadHandler.text;
-                List<RankData> ranks = ParseFirebaseRanks(rawJson);
-
-                var board = RankingBoardUI.Instance;
-                int rowCount = board != null ? RankingBoardUI.RowCount
-                             : (rankRows != null ? rankRows.Length : 0);
-
-                for (int i = 0; i < rowCount; i++)
-                {
-                    bool has = ranks != null && i < ranks.Count;
-                    string players = "-";
-                    string time = "--:--.--";
-                    if (has)
-                    {
-                        var data = ranks[i];
-                        string shardBadge = data.shards > 0 ? $"  <color=#FFD94D>[✦{data.shards}]</color>" : "";
-                        players = $"{data.player1} & {data.player2}{shardBadge}";
-                        time = FormatTime(data.clearTime);
-                    }
-
-                    if (board != null)
-                    {
-                        if (has) board.SetEntry(i, i + 1, players, time);
-                        else board.SetEmpty(i, i + 1);
-                    }
-
-                    if (rankRows != null && i < rankRows.Length && rankRows[i] != null)
-                    {
-                        if (rankRows[i].rankText != null) rankRows[i].rankText.text = Ordinal(i + 1);
-                        if (rankRows[i].namesText != null) rankRows[i].namesText.text = has ? players : "---";
-                        if (rankRows[i].timeText != null) rankRows[i].timeText.text = time;
-                    }
-                }
+                rawJson = request.downloadHandler.text;
             }
             else
             {
-                Debug.LogError($"<color=red>[Firebase]</color> 랭킹 조회 실패: {request.error} | Response: {request.downloadHandler?.text}");
+                Debug.LogWarning($"<color=yellow>[Firebase]</color> 인덱스 정렬 쿼리 실패 ({request.error}). 일반 조회로 폴백합니다.");
+            }
+        }
+
+        // orderBy 쿼리 실패 시 (규칙에 indexOn 미설정 등), 전체 ranks.json 을 받아와 클라이언트에서 정렬
+        if (string.IsNullOrEmpty(rawJson))
+        {
+            string fallbackUrl = GetFirebaseEndpoint("ranks.json");
+            using (UnityWebRequest reqFallback = UnityWebRequest.Get(fallbackUrl))
+            {
+                yield return reqFallback.SendWebRequest();
+                if (reqFallback.result == UnityWebRequest.Result.Success)
+                {
+                    rawJson = reqFallback.downloadHandler.text;
+                }
+                else
+                {
+                    Debug.LogError($"<color=red>[Firebase]</color> 랭킹 조회 실패: {reqFallback.error} | Response: {reqFallback.downloadHandler?.text}");
+                }
+            }
+        }
+
+        List<RankData> ranks = ParseFirebaseRanks(rawJson);
+
+        var board = RankingBoardUI.Instance;
+        int rowCount = board != null ? RankingBoardUI.RowCount
+                     : (rankRows != null ? rankRows.Length : 0);
+
+        for (int i = 0; i < rowCount; i++)
+        {
+            bool has = ranks != null && i < ranks.Count;
+            string players = "-";
+            string time = "--:--.--";
+            if (has)
+            {
+                var data = ranks[i];
+                string shardBadge = data.shards > 0 ? $"  <color=#FFD94D>[✦{data.shards}]</color>" : "";
+                players = $"{data.player1} & {data.player2}{shardBadge}";
+                time = FormatTime(data.clearTime);
+            }
+
+            if (board != null)
+            {
+                if (has) board.SetEntry(i, i + 1, players, time);
+                else board.SetEmpty(i, i + 1);
+            }
+
+            if (rankRows != null && i < rankRows.Length && rankRows[i] != null)
+            {
+                if (rankRows[i].rankText != null) rankRows[i].rankText.text = Ordinal(i + 1);
+                if (rankRows[i].namesText != null) rankRows[i].namesText.text = has ? players : "---";
+                if (rankRows[i].timeText != null) rankRows[i].timeText.text = time;
             }
         }
     }
