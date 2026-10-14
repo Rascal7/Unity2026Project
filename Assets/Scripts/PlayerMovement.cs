@@ -1253,7 +1253,8 @@ public class PlayerMovement : NetworkBehaviour
         if (other.CompareTag("Ladder"))
         {
             _isOnLadder = false;
-            IsClimbing = false;
+            // 디스폰/셧다운 중 콜라이더 파괴로 이 콜백이 불릴 때 [Networked] 세터 접근 예외 방지.
+            if (NetworkedAccessSafe) IsClimbing = false;
 
             if (_rb != null)
                 _rb.gravityScale = _originalGravity;
