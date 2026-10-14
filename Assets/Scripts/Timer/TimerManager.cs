@@ -62,14 +62,62 @@ public class TimerManager : MonoBehaviour
         timerText.text = string.Format("{0:00}:{1:00}.{2:00}", minutes, seconds, centiseconds);
     }
 
-    // ���ο� ���� �ε�� ������ �ش� ���� UI�� ã�� �����ϴ� �Լ�
+    // 새로운 씬이 로드될 때마다 해당 씬의 UI를 찾아 연결하는 함수
     public void FindTimerUI()
     {
-        GameObject uiObj = GameObject.Find("TimerText"); // �� �� "TimerText"��� �̸��� ������Ʈ �˻�
+        GameObject uiObj = GameObject.Find("TimerText"); // 씬 안 "TimerText" 이름의 오브젝트 검색
         if (uiObj != null)
         {
-            timerText = uiObj.GetComponent<TextMeshProUGUI>();
+            var found = uiObj.GetComponent<TextMeshProUGUI>();
+            if (found != null) { timerText = found; return; }
         }
+
+        // 씬에 TimerText가 없는 경우(일부 스테이지 씬에서 UI 오브젝트 누락)에도 타이머가
+        // 사라지지 않도록 런타임에 동일 스타일로 생성한다. 실제 타이머가 동작할 때만 만든다.
+        if (timerText == null && (NetworkTimer.Instance != null || isTimerRunning))
+        {
+            timerText = CreateFallbackTimerText();
+        }
+    }
+
+    // 표준 타이머와 동일한 스타일(우상단, NotoSansKR-Bold, 60pt)의 TMP 텍스트를 런타임 생성.
+    private TextMeshProUGUI CreateFallbackTimerText()
+    {
+        // 화면 오버레이 캔버스를 찾거나 없으면 새로 만든다.
+        Canvas canvas = null;
+        foreach (var c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+        {
+            if (c.renderMode == RenderMode.ScreenSpaceOverlay && c.isActiveAndEnabled) { canvas = c; break; }
+        }
+        if (canvas == null)
+        {
+            var canvasObj = new GameObject("TimerCanvas");
+            canvas = canvasObj.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 100;
+            var scaler = canvasObj.AddComponent<UnityEngine.UI.CanvasScaler>();
+            scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            canvasObj.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+        }
+
+        var go = new GameObject("TimerText");
+        var rt = go.AddComponent<RectTransform>();
+        rt.SetParent(canvas.transform, false);
+        rt.anchorMin = new Vector2(1, 1);
+        rt.anchorMax = new Vector2(1, 1);
+        rt.pivot = new Vector2(1, 1);
+        rt.anchoredPosition = new Vector2(-40, -40);
+        rt.sizeDelta = new Vector2(500, 120);
+
+        var tmp = go.AddComponent<TextMeshProUGUI>();
+        tmp.font = TMPro.TMP_Settings.defaultFontAsset; // NotoSansKR-Bold SDF (표준 타이머와 동일)
+        tmp.fontSize = 60;
+        tmp.color = Color.white;
+        tmp.alignment = TMPro.TextAlignmentOptions.TopRight;
+        tmp.raycastTarget = false;
+        tmp.text = "00:00.00";
+        return tmp;
     }
 
     private void UpdateTimerUI()
