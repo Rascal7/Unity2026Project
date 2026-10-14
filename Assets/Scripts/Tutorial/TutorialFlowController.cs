@@ -184,7 +184,7 @@ public class TutorialFlowController : MonoBehaviour
             EnsureGuideUI();
             _localPlayer = null;
             ResetMissions();
-            WireTutorialHintZones();
+            DisableLegacyTutorialHints();
             var ep = FindFirstObjectByType<EndPoint>();
             _targetScene = (ep != null && !string.IsNullOrEmpty(ep.nextSceneName)) ? ep.nextSceneName : defaultMainStage;
         }
@@ -197,35 +197,17 @@ public class TutorialFlowController : MonoBehaviour
         }
     }
 
-    private void WireTutorialHintZones()
+    // 신(新) 미션 시스템(브리핑 카드 + 사이드 목록 + 월드 화살표/글로우)이 모든 안내를 담당하므로,
+    // 구(舊) 힌트 시스템(Hint_* 표지판의 트리거 존 배너 + 떠 있는 월드 키 라벨)은 끈다.
+    // 이 존들은 미션 흐름과 무관하게 플레이어가 지나가기만 하면 발동해, 미션 브리핑 지점에
+    // 도착하기 전에 점프/사다리 안내가 미리 떠버리는 중복/혼선을 유발했다.
+    private void DisableLegacyTutorialHints()
     {
-        TutorialHintUI.EnsureInstance();
+        // 혹시 열려 있던 구 배너를 닫는다.
+        if (TutorialHintUI.Instance != null) TutorialHintUI.Instance.Hide();
+
         var hintsRoot = GameObject.Find("TutorialHints");
-        if (hintsRoot == null) return;
-
-        for (int i = 0; i < hintsRoot.transform.childCount; i++)
-        {
-            var child = hintsRoot.transform.GetChild(i).gameObject;
-            if (!child.activeInHierarchy) continue;
-
-            var col = child.GetComponent<Collider2D>();
-            if (col == null)
-            {
-                var box = child.AddComponent<BoxCollider2D>();
-                box.isTrigger = true;
-                box.size = new Vector2(5.5f, 4.5f);
-                box.offset = new Vector2(0f, -0.8f);
-            }
-            else
-            {
-                col.isTrigger = true;
-            }
-
-            if (child.GetComponent<TutorialHintZone>() == null)
-            {
-                child.AddComponent<TutorialHintZone>();
-            }
-        }
+        if (hintsRoot != null) hintsRoot.SetActive(false); // 표지판 스프라이트/트리거존/월드 라벨 일괄 제거
     }
 
     private void Update()
