@@ -15,6 +15,7 @@ public interface ILeverMechanism
 /// Sniff 로 드러난 동안에만 당길 수 있는 레버. (Revealable 상속)
 /// 드러난 상태에서 플레이어(또는 여우 분신 / 토끼 당근 / 스톰프 충격파)가 닿으면 On 토글 →
 /// 연결된 대상(문, 이동 발판, 가시 함정 등)을 활성/비활성 및 기믹 동작 수행.
+/// stayOnOnceActivated 이면 한 번 ON 된 뒤로는 고정된다.
 /// </summary>
 public class LeverSwitch : Revealable
 {
@@ -24,6 +25,8 @@ public class LeverSwitch : Revealable
     public GameObject[] activateOnTargets;
     [Tooltip("레버 ON 일 때 비활성화할 대상들 (철창/문 제거, 가시 함정 비활성화 등)")]
     public GameObject[] deactivateOnTargets;
+    [Tooltip("켜면 한 번 ON 된 뒤로는 다시 OFF 되지 않는다")]
+    public bool stayOnOnceActivated = true;
 
     [Header("레버 시각 연출")]
     [Tooltip("레버 조작 시 스프라이트 좌우 반전 여부")]
@@ -64,6 +67,7 @@ public class LeverSwitch : Revealable
     {
         if (Object == null || !Object.HasStateAuthority) return false;
         if (!IsRevealed) return false;
+        if (stayOnOnceActivated && On) return false; // 한 번 ON 되면 고정
         if (Time.time - _lastToggleTime < 0.35f) return false;
 
         _lastToggleTime = Time.time;
