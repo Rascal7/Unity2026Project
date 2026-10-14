@@ -183,9 +183,11 @@ public class PlayerMovement : NetworkBehaviour
     public int SniffCounter => SniffCount;
     public int PowerSpendCounter => PowerSpendCount;
     public bool IsPoweredJump => PoweredJump;
-    // 튜토리얼 안내용 접근자: [Networked] 값은 Spawned() 후에만 접근 가능하므로 스폰 전엔 안전한 기본값.
-    public bool IsClimbingNow => _spawned && IsClimbing;   // 사다리 등반 중인지(로컬 확인용)
-    public bool IsGroundedNow => _spawned && IsGrounded;   // 접지 상태(점프 감지용)
+    // 튜토리얼 안내용 접근자: [Networked] 값은 Spawned()~Despawned() 사이, 오브젝트가 유효할 때만 접근 가능.
+    // 연결 끊김/디스폰 직후에도 안전하도록 Object 유효성까지 함께 확인한다. (NetworkedAccessSafe)
+    private bool NetworkedAccessSafe => _spawned && Object != null && Object.IsValid;
+    public bool IsClimbingNow => NetworkedAccessSafe && IsClimbing;   // 사다리 등반 중인지(로컬 확인용)
+    public bool IsGroundedNow => NetworkedAccessSafe && IsGrounded;   // 접지 상태(점프 감지용)
     public float VerticalVelocity => _rb != null ? _rb.linearVelocity.y : 0f; // 수직 속도(비네트워크, 안전)
     private bool _spawned;
 
@@ -246,6 +248,12 @@ public class PlayerMovement : NetworkBehaviour
                 hudObj.AddComponent<SkillCooldownHUD>();
             }
         }
+    }
+
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        // 디스폰(연결 끊김 포함) 후에는 [Networked] 값 접근이 예외를 던지므로 즉시 접근을 막는다.
+        _spawned = false;
     }
 
     public override void FixedUpdateNetwork()
