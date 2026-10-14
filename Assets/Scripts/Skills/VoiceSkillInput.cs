@@ -47,12 +47,89 @@ public class VoiceSkillInput : MonoBehaviour
         new KeywordSlot { keyword = "점프", slot = 2 }, // 토끼 ch2
         new KeywordSlot { keyword = "체인지", slot = 3 }, // 여우 ch3 (change: 위치 바꾸기)
         new KeywordSlot { keyword = "파워업", slot = 3 }, // 토끼 ch3 (power up: 다음 스킬 강화)
-        new KeywordSlot { keyword = "그림자", slot = ExtraSkillSlot }, // 여우 분신 (FoxShadow)
-        new KeywordSlot { keyword = "분신", slot = ExtraSkillSlot },   // 여우 분신 (FoxShadow)
-        new KeywordSlot { keyword = "스톰프", slot = ExtraSkillSlot }, // 토끼 쿵 (RabbitStomp)
-        new KeywordSlot { keyword = "쿵", slot = ExtraSkillSlot },     // 토끼 쿵 (RabbitStomp)
         new KeywordSlot { keyword = "여기", slot = PingSlot }, // 협동 핑 마커 호출
     };
+
+    public enum CharacterType
+    {
+        Unknown,
+        Fox,
+        Rabbit
+    }
+
+    /// <summary>여우 캐릭터 전용 스킬 키워드 여부</summary>
+    public static bool IsFoxKeyword(string keyword)
+    {
+        if (string.IsNullOrEmpty(keyword)) return false;
+        return keyword == "대시" || keyword == "킁킁" || keyword == "체인지" || keyword == "그림자";
+    }
+
+    /// <summary>토끼 캐릭터 전용 스킬 키워드 여부</summary>
+    public static bool IsRabbitKeyword(string keyword)
+    {
+        if (string.IsNullOrEmpty(keyword)) return false;
+        return keyword == "당근" || keyword == "점프" || keyword == "파워업" || keyword == "쿵";
+    }
+
+    /// <summary>공용 음성 명령 키워드 여부 (협동 핑 등)</summary>
+    public static bool IsSharedKeyword(string keyword)
+    {
+        if (string.IsNullOrEmpty(keyword)) return false;
+        return keyword == "여기";
+    }
+
+    /// <summary>현재 로컬 플레이어의 캐릭터 타입(여우/토끼)을 감지합니다.</summary>
+    public static CharacterType GetLocalCharacterType()
+    {
+        // 1. 현재 씬의 로컬 PlayerMovement 확인
+        var localPm = PlayerMovement.GetLocalPlayer();
+        if (localPm != null)
+        {
+            if (localPm.IsFoxCharacter) return CharacterType.Fox;
+            if (localPm.IsRabbitCharacter) return CharacterType.Rabbit;
+        }
+
+        // 2. 캐릭터 선택 씬 등에서 SessionPlayerItem 확인
+        var items = FindObjectsByType<SessionPlayerItem>(FindObjectsSortMode.None);
+        if (items != null)
+        {
+            foreach (var item in items)
+            {
+                if (item != null && item.Object != null && item.Object.IsValid && item.Object.HasInputAuthority)
+                {
+                    if (item.SelectedCharacterIndex == 0) return CharacterType.Fox;
+                    if (item.SelectedCharacterIndex == 1) return CharacterType.Rabbit;
+                }
+            }
+        }
+
+        return CharacterType.Unknown;
+    }
+
+    /// <summary>현재 로컬 캐릭터에게 허용된 키워드인지 확인합니다.</summary>
+    public static bool IsKeywordAllowedForLocalCharacter(string keyword)
+    {
+        if (string.IsNullOrEmpty(keyword)) return false;
+
+        // 협동 핑("여기") 등 공용 음성 명령은 항상 허용
+        if (IsSharedKeyword(keyword)) return true;
+
+        CharacterType charType = GetLocalCharacterType();
+        switch (charType)
+        {
+            case CharacterType.Fox:
+                // 여우는 여우 스킬만 인식
+                return IsFoxKeyword(keyword);
+
+            case CharacterType.Rabbit:
+                // 토끼는 토끼 스킬만 인식
+                return IsRabbitKeyword(keyword);
+
+            default:
+                // 캐릭터가 아직 확정되지 않은 상태(메인 메뉴 등)에서는 허용
+                return true;
+        }
+    }
 
     [Header("인식 판정")]
     [Tooltip("키워드 인식 후 스킬 입력이 유지되는 시간(초).")]
@@ -229,10 +306,6 @@ public class VoiceSkillInput : MonoBehaviour
             _slotByKeyword[ks.keyword.Trim()] = Mathf.Clamp(ks.slot, 0, ExtraSkillSlot);
         }
         if (!_slotByKeyword.ContainsKey("여기")) _slotByKeyword["여기"] = PingSlot;
-        if (!_slotByKeyword.ContainsKey("그림자")) _slotByKeyword["그림자"] = ExtraSkillSlot;
-        if (!_slotByKeyword.ContainsKey("분신")) _slotByKeyword["분신"] = ExtraSkillSlot;
-        if (!_slotByKeyword.ContainsKey("스톰프")) _slotByKeyword["스톰프"] = ExtraSkillSlot;
-        if (!_slotByKeyword.ContainsKey("쿵")) _slotByKeyword["쿵"] = ExtraSkillSlot;
         if (_slotByKeyword.Count == 0)
         {
             Debug.LogWarning("[VoiceSkillInput] 등록된 키워드가 없습니다. 음성 입력을 비활성화합니다.");
@@ -427,15 +500,22 @@ public class VoiceSkillInput : MonoBehaviour
 
         if (kw != null && Time.time - _lastAcceptTime >= retriggerGuard)
         {
-            _lastAcceptTime = Time.time;
-            _lastKeyword = kw;
-            _requestedSlot = SlotForKeyword(kw);
-            if (_requestedSlot >= 1 && _requestedSlot <= 3)
+            if (!IsKeywordAllowedForLocalCharacter(kw))
             {
-                _activeUntil = Time.time + activeWindow;
+                Debug.Log($"<color=orange>[VoiceSkillInput]</color> 키워드 '{kw}' 무시됨: 현재 캐릭터({GetLocalCharacterType()})의 스킬이 아닙니다.");
             }
-            Debug.Log($"<color=lime>[VoiceSkillInput]</color> Vosk 키워드 인식 성공: '{kw}' (슬롯 {_requestedSlot})");
-            OnVoiceCommandRecognized?.Invoke(kw, _requestedSlot);
+            else
+            {
+                _lastAcceptTime = Time.time;
+                _lastKeyword = kw;
+                _requestedSlot = SlotForKeyword(kw);
+                if (_requestedSlot >= 1 && _requestedSlot <= 3)
+                {
+                    _activeUntil = Time.time + activeWindow;
+                }
+                Debug.Log($"<color=lime>[VoiceSkillInput]</color> Vosk 키워드 인식 성공: '{kw}' (슬롯 {_requestedSlot})");
+                OnVoiceCommandRecognized?.Invoke(kw, _requestedSlot);
+            }
         }
 
         // 2. 마이크 상태 관리

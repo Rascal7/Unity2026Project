@@ -43,6 +43,60 @@ public class PlayerMovement : NetworkBehaviour
     public CharacterSkill skillCh2 = CharacterSkill.None; // 슬롯2 (여우 킁킁 / 토끼 점프)
     public CharacterSkill skillCh3 = CharacterSkill.None; // 슬롯3 (여우 위치 바꾸기 / 토끼 파워업)
 
+    public static PlayerMovement Local { get; private set; }
+
+    public bool IsFoxCharacter =>
+        skillCh1 == CharacterSkill.FoxDash ||
+        skillCh2 == CharacterSkill.FoxSniff ||
+        skillCh3 == CharacterSkill.FoxSwap ||
+        gameObject.name.IndexOf("Fox", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+        gameObject.name.IndexOf("Player1", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+    public bool IsRabbitCharacter =>
+        skillCh1 == CharacterSkill.RabbitCarrot ||
+        skillCh2 == CharacterSkill.RabbitJump ||
+        skillCh3 == CharacterSkill.RabbitPowerUp ||
+        gameObject.name.IndexOf("Rabbit", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+        gameObject.name.IndexOf("Player2", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+    public static PlayerMovement GetLocalPlayer()
+    {
+        if (Local != null && Local.gameObject != null && Local.Object != null && Local.Object.IsValid)
+            return Local;
+
+        var players = FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None);
+        if (players == null || players.Length == 0) return null;
+
+        PlayerMovement candidate = null;
+        foreach (var p in players)
+        {
+            if (p == null || p.gameObject == null) continue;
+            if (p.GetComponent<Rigidbody2D>() == null) continue;
+            if (p.gameObject.name.Contains("Spawner")) continue;
+
+            if (p.Object != null && p.Object.IsValid)
+            {
+                if (p.Object.HasInputAuthority)
+                {
+                    Local = p;
+                    return p;
+                }
+                if (p.Runner != null && p.Object.InputAuthority == p.Runner.LocalPlayer)
+                {
+                    Local = p;
+                    return p;
+                }
+                if (p.Object.HasStateAuthority && candidate == null) candidate = p;
+            }
+            else if (candidate == null)
+            {
+                candidate = p;
+            }
+        }
+        if (candidate != null) Local = candidate;
+        return candidate;
+    }
+
     [Header("Cooldowns (초)")]
     public float dashCooldown = 1.5f;
     public float jumpCooldown = 1.5f;
@@ -237,6 +291,7 @@ public class PlayerMovement : NetworkBehaviour
 
         if (Object.HasInputAuthority)
         {
+            Local = this;
             CameraFollow cam = FindFirstObjectByType<CameraFollow>();
             if (cam != null)
                 cam.SetTarget(transform);
@@ -254,6 +309,13 @@ public class PlayerMovement : NetworkBehaviour
     {
         // 디스폰(연결 끊김 포함) 후에는 [Networked] 값 접근이 예외를 던지므로 즉시 접근을 막는다.
         _spawned = false;
+        base.Despawned(runner, hasState);
+        if (Local == this) Local = null;
+    }
+
+    private void OnDestroy()
+    {
+        if (Local == this) Local = null;
     }
 
     public override void FixedUpdateNetwork()
@@ -536,7 +598,7 @@ public class PlayerMovement : NetworkBehaviour
         if (IsDead || IsClimbing || IsIntroLocked()) return;
         if (Time.time < _extraSkillReadyAt) return;
 
-        bool isFox = skillCh1 == CharacterSkill.FoxDash || skillCh2 == CharacterSkill.FoxSniff || gameObject.name.Contains("Fox") || gameObject.name.Contains("Player1");
+        bool isFox = IsFoxCharacter;
         if (skill == CharacterSkill.FoxShadow && !isFox) return;
         if (skill == CharacterSkill.RabbitStomp && isFox) return;
 

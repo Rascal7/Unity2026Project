@@ -90,26 +90,13 @@ public class PlayerNameTag : NetworkBehaviour
             return;
         }
 
-        // 확장 스킬 음성 명령 ("그림자"/"분신" -> FoxShadow, "스톰프"/"쿵" -> RabbitStomp)
-        if (slot == VoiceSkillInput.ExtraSkillSlot ||
-            keyword == "그림자" || keyword == "분신" || keyword == "스톰프" || keyword == "쿵")
-        {
-            bool isFox = IsFoxCharacter();
-            if (isFox && (keyword == "그림자" || keyword == "분신"))
-            {
-                RequestVoiceBubble("분신!");
-                if (_pm != null) _pm.RPC_RequestExtraSkill(PlayerMovement.CharacterSkill.FoxShadow);
-            }
-            else if (!isFox && (keyword == "스톰프" || keyword == "쿵"))
-            {
-                RequestVoiceBubble("쿵!");
-                if (_pm != null) _pm.RPC_RequestExtraSkill(PlayerMovement.CharacterSkill.RabbitStomp);
-            }
-            return;
-        }
-
         // 스테이지에서 아직 열리지 않은 스킬 슬롯이면 무시
         if (slot < 1 || slot > 3 || !StageSkillRules.IsSlotAllowed(slot)) return;
+
+        // 자신의 캐릭터에 맞지 않는 음성 키워드는 무시
+        bool isFox = IsFoxCharacter();
+        if (isFox && VoiceSkillInput.IsRabbitKeyword(keyword)) return;
+        if (!isFox && VoiceSkillInput.IsFoxKeyword(keyword)) return;
 
         string shout = ResolveSkillShoutText(keyword, slot);
         RequestVoiceBubble(shout);
@@ -178,12 +165,7 @@ public class PlayerNameTag : NetworkBehaviour
         if (_pm == null) _pm = GetComponent<PlayerMovement>();
         if (_pm != null)
         {
-            if (_pm.skillCh1 == PlayerMovement.CharacterSkill.FoxDash ||
-                _pm.skillCh2 == PlayerMovement.CharacterSkill.FoxSniff)
-                return true;
-            if (_pm.skillCh1 == PlayerMovement.CharacterSkill.RabbitCarrot ||
-                _pm.skillCh2 == PlayerMovement.CharacterSkill.RabbitJump)
-                return false;
+            return _pm.IsFoxCharacter;
         }
         return gameObject.name.IndexOf("Player1", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
                gameObject.name.IndexOf("Fox", System.StringComparison.OrdinalIgnoreCase) >= 0;
@@ -417,16 +399,29 @@ public class CoopPingAndIndicatorHUD : MonoBehaviour
     private Canvas _canvas;
     private RectTransform _canvasRt;
 
-    // 화면 밖 파트너 위치 표시기 UI
+    // 화면 밖 파트너 위치 표시기 UI (글자 없이 얼굴 아이콘만 표시)
     private GameObject _partnerIndicatorRoot;
     private RectTransform _partnerIndicatorRt;
     private CanvasGroup _partnerIndicatorGroup;
     private RectTransform _partnerArrowRt;
-    private Image _partnerArrowImg;
+    private Text _partnerArrowText;
     private Image _partnerBadgeBorder;
-    private Image _partnerCharDot;
-    private Text _partnerNameText;
-    private Text _partnerDistText;
+    private Image _partnerFaceImg;
+
+    private static Sprite _foxFaceSprite;
+    private static Sprite _rabbitFaceSprite;
+
+    private static Sprite GetFoxFaceSprite()
+    {
+        if (_foxFaceSprite == null) _foxFaceSprite = Resources.Load<Sprite>("Title/char1");
+        return _foxFaceSprite;
+    }
+
+    private static Sprite GetRabbitFaceSprite()
+    {
+        if (_rabbitFaceSprite == null) _rabbitFaceSprite = Resources.Load<Sprite>("Title/char2");
+        return _rabbitFaceSprite;
+    }
 
     // 화면 밖 핑 위치 표시기 UI
     private GameObject _pingOffscreenRoot;
@@ -525,7 +520,7 @@ public class CoopPingAndIndicatorHUD : MonoBehaviour
         _partnerIndicatorRt = _partnerIndicatorRoot.GetComponent<RectTransform>();
         _partnerIndicatorRt.anchorMin = _partnerIndicatorRt.anchorMax = new Vector2(0.5f, 0.5f);
         _partnerIndicatorRt.pivot = new Vector2(0.5f, 0.5f);
-        _partnerIndicatorRt.sizeDelta = new Vector2(160f, 64f);
+        _partnerIndicatorRt.sizeDelta = new Vector2(72f, 72f);
 
         _partnerIndicatorGroup = _partnerIndicatorRoot.GetComponent<CanvasGroup>();
         _partnerIndicatorGroup.alpha = 0f;
@@ -538,26 +533,26 @@ public class CoopPingAndIndicatorHUD : MonoBehaviour
         _partnerArrowRt = arrowGo.GetComponent<RectTransform>();
         _partnerArrowRt.anchorMin = _partnerArrowRt.anchorMax = new Vector2(0.5f, 0.5f);
         _partnerArrowRt.pivot = new Vector2(0.5f, 0.5f);
-        _partnerArrowRt.sizeDelta = new Vector2(44f, 44f);
-        var arrowTxt = arrowGo.GetComponent<Text>();
-        arrowTxt.font = LobbyUITheme.PlainFont;
-        arrowTxt.fontSize = 32;
-        arrowTxt.fontStyle = FontStyle.Bold;
-        arrowTxt.alignment = TextAnchor.MiddleCenter;
-        arrowTxt.color = LobbyUITheme.Gold;
-        arrowTxt.text = "▶";
-        arrowTxt.raycastTarget = false;
+        _partnerArrowRt.sizeDelta = new Vector2(36f, 36f);
+        _partnerArrowText = arrowGo.GetComponent<Text>();
+        _partnerArrowText.font = LobbyUITheme.PlainFont;
+        _partnerArrowText.fontSize = 28;
+        _partnerArrowText.fontStyle = FontStyle.Bold;
+        _partnerArrowText.alignment = TextAnchor.MiddleCenter;
+        _partnerArrowText.color = LobbyUITheme.Gold;
+        _partnerArrowText.text = "▶";
+        _partnerArrowText.raycastTarget = false;
         var arrowOutline = arrowGo.GetComponent<Outline>();
         arrowOutline.effectColor = LobbyUITheme.GoldDeep;
         arrowOutline.effectDistance = new Vector2(2f, -2f);
 
-        // 항상 수평을 유지하는 파트너 카드 배지
+        // 항상 수평을 유지하는 파트너 얼굴 배지 (외곽 테두리)
         var cardGo = new GameObject("PartnerCard", typeof(RectTransform), typeof(Image), typeof(Outline));
         cardGo.transform.SetParent(_partnerIndicatorRoot.transform, false);
         var cardRt = cardGo.GetComponent<RectTransform>();
         cardRt.anchorMin = cardRt.anchorMax = new Vector2(0.5f, 0.5f);
         cardRt.pivot = new Vector2(0.5f, 0.5f);
-        cardRt.sizeDelta = new Vector2(142f, 54f);
+        cardRt.sizeDelta = new Vector2(60f, 60f);
         _partnerBadgeBorder = cardGo.GetComponent<Image>();
         _partnerBadgeBorder.color = new Color(0.95f, 0.52f, 0.18f, 0.96f);
         _partnerBadgeBorder.raycastTarget = false;
@@ -565,6 +560,7 @@ public class CoopPingAndIndicatorHUD : MonoBehaviour
         cardOutline.effectColor = new Color(0.10f, 0.06f, 0.02f, 0.95f);
         cardOutline.effectDistance = new Vector2(2.5f, -2.5f);
 
+        // 내부 어두운 면
         var innerGo = new GameObject("Inner", typeof(RectTransform), typeof(Image));
         innerGo.transform.SetParent(cardGo.transform, false);
         var innerRt = innerGo.GetComponent<RectTransform>();
@@ -576,49 +572,17 @@ public class CoopPingAndIndicatorHUD : MonoBehaviour
         innerImg.color = new Color(0.16f, 0.10f, 0.05f, 0.94f);
         innerImg.raycastTarget = false;
 
-        // 캐릭터 구분 컬러 아이콘 점
-        var dotGo = new GameObject("CharDot", typeof(RectTransform), typeof(Image));
-        dotGo.transform.SetParent(innerGo.transform, false);
-        var dotRt = dotGo.GetComponent<RectTransform>();
-        dotRt.anchorMin = dotRt.anchorMax = new Vector2(0f, 0.5f);
-        dotRt.pivot = new Vector2(0f, 0.5f);
-        dotRt.anchoredPosition = new Vector2(8f, 0f);
-        dotRt.sizeDelta = new Vector2(14f, 32f);
-        _partnerCharDot = dotGo.GetComponent<Image>();
-        _partnerCharDot.color = new Color(0.95f, 0.52f, 0.18f, 1f);
-        _partnerCharDot.raycastTarget = false;
-
-        // 파트너 이름
-        var nameGo = new GameObject("Name", typeof(RectTransform), typeof(Text));
-        nameGo.transform.SetParent(innerGo.transform, false);
-        var nameRt = nameGo.GetComponent<RectTransform>();
-        nameRt.anchorMin = new Vector2(0f, 0.45f);
-        nameRt.anchorMax = new Vector2(1f, 1f);
-        nameRt.offsetMin = new Vector2(28f, 0f);
-        nameRt.offsetMax = new Vector2(-6f, -2f);
-        _partnerNameText = nameGo.GetComponent<Text>();
-        _partnerNameText.font = LobbyUITheme.PlainFont;
-        _partnerNameText.fontSize = 16;
-        _partnerNameText.fontStyle = FontStyle.Bold;
-        _partnerNameText.alignment = TextAnchor.MiddleLeft;
-        _partnerNameText.horizontalOverflow = HorizontalWrapMode.Overflow;
-        _partnerNameText.color = LobbyUITheme.Parch;
-        _partnerNameText.raycastTarget = false;
-
-        // 파트너 거리 ("18m")
-        var distGo = new GameObject("Distance", typeof(RectTransform), typeof(Text));
-        distGo.transform.SetParent(innerGo.transform, false);
-        var distRt = distGo.GetComponent<RectTransform>();
-        distRt.anchorMin = new Vector2(0f, 0f);
-        distRt.anchorMax = new Vector2(1f, 0.50f);
-        distRt.offsetMin = new Vector2(28f, 2f);
-        distRt.offsetMax = new Vector2(-6f, 0f);
-        _partnerDistText = distGo.GetComponent<Text>();
-        _partnerDistText.font = LobbyUITheme.PixelFont;
-        _partnerDistText.fontSize = 15;
-        _partnerDistText.alignment = TextAnchor.MiddleLeft;
-        _partnerDistText.color = LobbyUITheme.Gold;
-        _partnerDistText.raycastTarget = false;
+        // 파트너 캐릭터 얼굴 아이콘 (Title/char1 또는 Title/char2)
+        var faceGo = new GameObject("FaceIcon", typeof(RectTransform), typeof(Image));
+        faceGo.transform.SetParent(innerGo.transform, false);
+        var faceRt = faceGo.GetComponent<RectTransform>();
+        faceRt.anchorMin = Vector2.zero;
+        faceRt.anchorMax = Vector2.one;
+        faceRt.offsetMin = new Vector2(2f, 2f);
+        faceRt.offsetMax = new Vector2(-2f, -2f);
+        _partnerFaceImg = faceGo.GetComponent<Image>();
+        _partnerFaceImg.preserveAspect = true;
+        _partnerFaceImg.raycastTarget = false;
 
         _partnerIndicatorRoot.SetActive(false);
     }
@@ -708,19 +672,6 @@ public class CoopPingAndIndicatorHUD : MonoBehaviour
         PlayerNameTag localTag = FindLocalPlayerNameTag();
         if (localTag == null) return;
 
-        // 0) 확장 스킬 단축키(F): 여우는 그림자 분신(FoxShadow), 토끼는 쿵(RabbitStomp) 발동
-        if (Input.GetKeyDown(KeyCode.F))
-        {
-            var pm = localTag.GetComponent<PlayerMovement>();
-            if (pm != null)
-            {
-                bool isFox = localTag.IsFoxCharacter();
-                localTag.RequestVoiceBubble(isFox ? "분신!" : "쿵!");
-                pm.RPC_RequestExtraSkill(isFox ? PlayerMovement.CharacterSkill.FoxShadow : PlayerMovement.CharacterSkill.RabbitStomp);
-            }
-            return;
-        }
-
         // 1) 빠른 핑: G 키 또는 마우스 휠클릭(Mouse2) → 캐릭터 정면(당근/발판 위치)에 즉시 핑 + "여기!" 말풍선
         if (Input.GetKeyDown(KeyCode.G) || Input.GetKeyDown(KeyCode.Mouse2))
         {
@@ -807,23 +758,19 @@ public class CoopPingAndIndicatorHUD : MonoBehaviour
         if (!_partnerIndicatorRoot.activeSelf) _partnerIndicatorRoot.SetActive(true);
         _partnerIndicatorGroup.alpha = 1f;
 
-        PlaceIndicatorOnScreenEdge(vp, _partnerIndicatorRt, _partnerArrowRt, 92f, 68f);
+        PlaceIndicatorOnScreenEdge(vp, _partnerIndicatorRt, _partnerArrowRt, 54f, 54f, 48f);
 
-        // 파트너 정보(여우/토끼 색상, 닉네임, 거리) 갱신
+        // 파트너 정보(여우/토끼 얼굴 아이콘 및 테두리/화살표 색상) 갱신
         var tag = partnerPlayer.GetComponent<PlayerNameTag>();
         bool isFox = tag != null && tag.IsFoxCharacter();
-        string charLabel = isFox ? "여우" : "토끼";
-        string nick = tag != null ? tag.GetResolvedName() : null;
-        if (string.IsNullOrEmpty(nick) || nick == "Unknown") nick = charLabel;
 
         Color charCol = isFox ? new Color(0.96f, 0.52f, 0.16f, 1f) : new Color(0.32f, 0.78f, 0.96f, 1f);
-        _partnerBadgeBorder.color = charCol;
-        _partnerCharDot.color = charCol;
-        _partnerNameText.text = nick;
-
-        Vector3 refPos = localPlayer != null ? localPlayer.transform.position : cam.transform.position;
-        float dist = Vector2.Distance(refPos, partnerWorld);
-        _partnerDistText.text = $"[{charLabel}] {dist:0}m";
+        if (_partnerBadgeBorder != null) _partnerBadgeBorder.color = charCol;
+        if (_partnerArrowText != null) _partnerArrowText.color = charCol;
+        if (_partnerFaceImg != null)
+        {
+            _partnerFaceImg.sprite = isFox ? GetFoxFaceSprite() : GetRabbitFaceSprite();
+        }
     }
 
     private void UpdatePingOffscreenIndicator()
@@ -848,13 +795,13 @@ public class CoopPingAndIndicatorHUD : MonoBehaviour
         }
 
         if (!_pingOffscreenRoot.activeSelf) _pingOffscreenRoot.SetActive(true);
-        PlaceIndicatorOnScreenEdge(vp, _pingOffscreenRt, _pingOffscreenArrowRt, 110f, 88f);
+        PlaceIndicatorOnScreenEdge(vp, _pingOffscreenRt, _pingOffscreenArrowRt, 110f, 88f, 74f);
 
         float dist = Vector2.Distance(cam.transform.position, latest.worldPos);
         _pingOffscreenText.text = $"✦ 핑 {dist:0}m";
     }
 
-    private void PlaceIndicatorOnScreenEdge(Vector3 viewportPos, RectTransform rootRt, RectTransform arrowRt, float marginX, float marginY)
+    private void PlaceIndicatorOnScreenEdge(Vector3 viewportPos, RectTransform rootRt, RectTransform arrowRt, float marginX, float marginY, float arrowOffset = 74f)
     {
         if (_canvasRt == null) return;
         Vector2 canvasSize = _canvasRt.rect.size;
@@ -885,7 +832,7 @@ public class CoopPingAndIndicatorHUD : MonoBehaviour
         {
             float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
             arrowRt.localRotation = Quaternion.Euler(0f, 0f, angle);
-            arrowRt.anchoredPosition = dir * 74f;
+            arrowRt.anchoredPosition = dir * arrowOffset;
         }
     }
 

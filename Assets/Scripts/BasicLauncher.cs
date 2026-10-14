@@ -18,6 +18,7 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
 
     private NetworkRunner _runner;
     private string _roomCode = ""; // 사용자가 입력할 방 코드
+    private float _roomCodeCopiedUntil = 0f;
     private bool _isStarting = false;
     private bool _isReturningToLobby = false;
     private static bool _isVoluntaryExit = false;
@@ -181,21 +182,38 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
             // 게임 시작(인게임 플레이) 시 방 코드 안 보이게 숨김
             if (IsInGameStage()) return;
 
-            // 대기실 / 캐릭터 선택 / 세이브파일 화면: 화면 상단에 방 코드 안내
+            // 대기실 / 캐릭터 선택 / 세이브파일 화면: 화면 상단에 방 코드 안내 (기존 UI 외형 유지 + 클릭 시 복사)
             GUIStyle roomCodeStyle = new GUIStyle(GUI.skin.label);
             roomCodeStyle.fontSize = 22;
             roomCodeStyle.fontStyle = FontStyle.Bold;
-            roomCodeStyle.normal.textColor = Color.white;
             roomCodeStyle.alignment = TextAnchor.MiddleCenter;
 
-            // 타이틀(중앙)과 겹치지 않도록 좌상단 구석으로 배치
+            bool isCopied = Time.realtimeSinceStartup < _roomCodeCopiedUntil;
+            roomCodeStyle.normal.textColor = isCopied ? new Color(0.45f, 1f, 0.45f) : Color.white;
+
+            // 타이틀(중앙)과 겹치지 않도록 좌상단 구석으로 배치 (기존 크기 230x42 그대로 유지)
             float labelWidth = 230f;
             float labelHeight = 42f;
             float xPos = 20f;
             float yPos = 20f;
+            Rect rect = new Rect(xPos, yPos, labelWidth, labelHeight);
 
-            GUI.Box(new Rect(xPos, yPos, labelWidth, labelHeight), "");
-            GUI.Label(new Rect(xPos, yPos, labelWidth, labelHeight), $"방 코드: {_roomCode}", roomCodeStyle);
+            // 기존 Box와 Label 외형 100% 동일하게 렌더링
+            GUI.Box(rect, "");
+            string labelText = isCopied ? $"복사됨! ({_roomCode})" : $"방 코드: {_roomCode}";
+            GUI.Label(rect, labelText, roomCodeStyle);
+
+            // 해당 영역 클릭 시 클립보드 복사
+            if (GUI.Button(rect, GUIContent.none, GUIStyle.none))
+            {
+                if (!string.IsNullOrEmpty(_roomCode))
+                {
+                    GUIUtility.systemCopyBuffer = _roomCode;
+                    _roomCodeCopiedUntil = Time.realtimeSinceStartup + 1.5f;
+                    UiSfx.Click();
+                    Debug.Log($"<color=lime>[Launcher]</color> 방 코드 '{_roomCode}' 클립보드 복사 완료!");
+                }
+            }
 
             GUI.Label(new Rect(10, Screen.height - 30, 200, 25), $"Status: {(_runner.IsServer ? "Host" : "Client")}");
         }

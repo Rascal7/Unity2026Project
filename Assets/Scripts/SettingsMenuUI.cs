@@ -397,7 +397,7 @@ public class SettingsMenuUI : MonoBehaviour
         SelectTab(_currentTab);
     }
 
-    // 하단 버튼: 인게임이면 '나가기'(로비로), 로비면 '닫기'(창만 닫기)
+    // 하단 버튼: 인게임이면 '로비 이동', 로비면 '게임 종료' (빨강)
     private void ConfigureExitButton(bool inGame)
     {
         if (_exitBtn2 == null) return;
@@ -409,8 +409,8 @@ public class SettingsMenuUI : MonoBehaviour
         }
         else
         {
-            StyleFlatButton(_exitBtn2, OptBtnFace, "닫기", 28);
-            _exitBtn2.onClick.AddListener(CloseMenu);
+            StyleFlatButton(_exitBtn2, OptQuit, "게임 종료", 28);
+            _exitBtn2.onClick.AddListener(OnQuitButtonClicked);
         }
         // 인게임: 다시하기(좌) 옆 우측 배치 / 로비: 다시하기 숨김 → 단독 중앙 정렬
         var ert = _exitBtn2.GetComponent<RectTransform>();
@@ -778,6 +778,17 @@ public class SettingsMenuUI : MonoBehaviour
         SceneManager.LoadScene("Lobby");
     }
 
+    private void OnQuitButtonClicked()
+    {
+        UiSfx.Click();
+        PlayerPrefs.Save();
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+
     #endregion
 
     #region 게임플레이 설정 (스킬 단축키 재설정 + 다시하기)
@@ -808,7 +819,8 @@ public class SettingsMenuUI : MonoBehaviour
     private GameObject _controlsPanel;    // '조작' 탭 내용
     private GameObject _audioPanel;       // '음향' 탭 내용 (= 기존 SettingsPanel 재사용)
     private Button _tabBtnControls, _tabBtnAudio;
-    private Button _exitBtn2;             // 하단 나가기/닫기 버튼 (상황에 따라 라벨·동작 변경)
+    private Button _exitBtn2;             // 하단 나가기/게임종료 버튼 (상황에 따라 라벨·동작 변경)
+    private Button _closeBtn;             // 우측 상단 X 닫기 버튼
     private GameObject _gearButton;       // 로비용 톱니바퀴 버튼
     private GameObject _dimOverlay;       // 모달 딤 오버레이
     private int _currentTab = 0;          // 0=조작, 1=음향
@@ -830,6 +842,7 @@ public class SettingsMenuUI : MonoBehaviour
     private static readonly Color OptKeycapBd  = Hex(0x6A, 0x6B, 0x78);   // 키캡 밝은 테두리
     private static readonly Color OptRespawn   = Hex(0x48, 0x4C, 0x5C);   // 통일(기본 버튼 톤)
     private static readonly Color OptExit      = Hex(0x48, 0x4C, 0x5C);   // 통일(기본 버튼 톤)
+    private static readonly Color OptQuit      = LobbyUITheme.RedBtn;     // 로비 게임종료 버튼 (레드)
 
     // === 공통 레이아웃 그리드 (모든 요소를 하나의 그리드에 정렬) ===
     // 창을 약 12% 축소하고, 탭↔콘텐츠 간격을 줄여 하나의 그룹처럼 보이게 함.
@@ -954,8 +967,11 @@ public class SettingsMenuUI : MonoBehaviour
         // 타이틀 (골드 강조 + 어두운 외곽선) — 중앙 상단
         var titleT = AddFixedLabel(F, "옵션", 40, OptGold, new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(200f, 50f));
         AddPixelOutline(titleT, 2f);
-        MakeTitleDivider(F, -250f, 260f, -42f); // 왼쪽 세그먼트
-        MakeTitleDivider(F,  250f, 260f, -42f); // 오른쪽 세그먼트
+        MakeTitleDivider(F, -235f, 220f, -42f); // 왼쪽 세그먼트
+        MakeTitleDivider(F,  235f, 220f, -42f); // 오른쪽 세그먼트 (X 버튼과의 간격 확보)
+
+        // 오른쪽 상단 X(닫기) 버튼
+        _closeBtn = MakeCloseButton(F);
 
         // 두 탭 공통 TMP 폰트 확보(글씨체 통일)
         if (_audioPanel != null)
@@ -1133,6 +1149,54 @@ public class SettingsMenuUI : MonoBehaviour
         rt.sizeDelta = new Vector2(BTN_W, BTN_H);
         var btn = go.GetComponent<Button>();
         StyleFlatButton(btn, face, label, 28);
+        return btn;
+    }
+
+    // 옵션 창 오른쪽 상단 X(닫기) 버튼
+    private Button MakeCloseButton(Transform parent)
+    {
+        var go = new GameObject("Btn_Close", typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(1f, 1f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(1f, 1f);
+        rt.anchoredPosition = new Vector2(-12f, -12f);
+        rt.sizeDelta = new Vector2(36f, 36f);
+
+        var img = go.GetComponent<Image>();
+        img.sprite = null;
+        img.type = Image.Type.Simple;
+        img.color = OptBtnFace;
+        AddPixelOutline(img, 2f);
+
+        var btn = go.GetComponent<Button>();
+        btn.targetGraphic = img;
+        var cb = btn.colors;
+        cb.normalColor = Color.white;
+        cb.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
+        cb.pressedColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+        cb.fadeDuration = 0.05f;
+        btn.colors = cb;
+
+        var textGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+        textGo.transform.SetParent(go.transform, false);
+        var trt = textGo.GetComponent<RectTransform>();
+        trt.anchorMin = Vector2.zero;
+        trt.anchorMax = Vector2.one;
+        trt.offsetMin = Vector2.zero;
+        trt.offsetMax = Vector2.zero;
+
+        var t = textGo.GetComponent<Text>();
+        t.font = LobbyUITheme.PlainFont;
+        t.fontSize = 22;
+        t.fontStyle = FontStyle.Bold;
+        t.alignment = TextAnchor.MiddleCenter;
+        t.color = OptText;
+        t.text = "X";
+        AddPixelOutline(t, 1.5f);
+
+        btn.onClick.AddListener(CloseMenu);
         return btn;
     }
 
