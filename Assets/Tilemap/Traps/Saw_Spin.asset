@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13b75c95f34a00d4e8c04f76b73312e6, type: 3}
+  m_Name: Saw_Spin
+  m_EditorClassIdentifier: Unity.2D.Tilemap.Extras::UnityEngine.Tilemaps.AnimatedTile
+  m_AnimatedSprites:
+  - {fileID: 5349589959875171640, guid: 9fb8e208bfecd8046918e8d2496ff0bc, type: 3}
+  - {fileID: -4480296328117996207, guid: 9fb8e208bfecd8046918e8d2496ff0bc, type: 3}
+  - {fileID: 8750267296682176525, guid: 9fb8e208bfecd8046918e8d2496ff0bc, type: 3}
+  - {fileID: 5368050182274203747, guid: 9fb8e208bfecd8046918e8d2496ff0bc, type: 3}
+  - {fileID: -881128770044388413, guid: 9fb8e208bfecd8046918e8d2496ff0bc, type: 3}
+  - {fileID: -964316368513458362, guid: 9fb8e208bfecd8046918e8d2496ff0bc, type: 3}
+  - {fileID: 2009724784607913546, guid: 9fb8e208bfecd8046918e8d2496ff0bc, type: 3}
+  - {fileID: 6755829902112679702, guid: 9fb8e208bfecd8046918e8d2496ff0bc, type: 3}
+  m_MinSpeed: 18
+  m_MaxSpeed: 18
+  m_AnimationStartTime: 0
+  m_AnimationStartFrame: 0
+  m_TileColliderType: 1
+  m_TileAnimationFlags: 0

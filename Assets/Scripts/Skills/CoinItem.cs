@@ -9,12 +9,16 @@ public class CoinItem : Revealable
 {
     [Tooltip("획득 조각 수")]
     public int value = 1;
+    [Tooltip("켜면 Sniff 없이 처음부터 보이고 먹을 수 있다 (킁킁 스킬이 없는 1스테이지용)")]
+    public bool alwaysVisible;
 
     private bool _collectedByPlayer;
 
+    protected override void Apply(bool revealed) => base.Apply(revealed || alwaysVisible);
+
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (!IsRevealed) return;
+        if (!alwaysVisible && !IsRevealed) return;
         if (!other.CompareTag("Player")) return;
         if (Object == null || !Object.HasStateAuthority) return; // 획득 판정은 호스트
         if (_collectedByPlayer) return;
