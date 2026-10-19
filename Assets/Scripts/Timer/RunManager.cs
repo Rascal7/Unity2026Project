@@ -19,9 +19,10 @@ public static class RunManager
     public static readonly List<int> SegmentStages = new List<int>();
     public static readonly List<int> SegmentShards = new List<int>();
 
-    // 현재 스테이지에서 수집한 조각 수 및 전체 조각 수
+    // 현재 스테이지에서 수집한 조각 수, 전체 조각 수 및 수집한 조각 좌표 키 목록(체크포인트 이어하기용)
     public static int CurrentStageCollectedShards { get; private set; }
     public static int CurrentStageTotalShards { get; private set; }
+    public static readonly HashSet<string> CurrentStageCollectedCoinKeys = new HashSet<string>();
 
     // 이번 런 전체에서 누적 수집한 총 조각 수
     public static int TotalCollectedShards { get; private set; }
@@ -38,6 +39,29 @@ public static class RunManager
     // 호스트가 다음 스테이지로 넘어갈 때 로드할 씬 이름(종료 화면 [다음] 버튼에서 사용).
     public static string PendingNextScene { get; set; }
 
+    public static string GetCoinKey(Vector3 pos)
+    {
+        return string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:F1}_{1:F1}", pos.x, pos.y);
+    }
+
+    public static string[] GetCollectedCoinKeysArray()
+    {
+        if (CurrentStageCollectedCoinKeys.Count == 0) return new string[0];
+        var arr = new string[CurrentStageCollectedCoinKeys.Count];
+        CurrentStageCollectedCoinKeys.CopyTo(arr);
+        return arr;
+    }
+
+    /// <summary>초 단위 시간을 "00:00.00" 형식 문자열로 변환하는 공용 포맷터.</summary>
+    public static string FormatTime(float t)
+    {
+        if (t < 0f) t = 0f;
+        int m = Mathf.FloorToInt(t / 60f);
+        int s = Mathf.FloorToInt(t % 60f);
+        int cs = Mathf.FloorToInt((t * 100f) % 100f);
+        return string.Format("{0:00}:{1:00}.{2:00}", m, s, cs);
+    }
+
     public static void ResetRun()
     {
         AccumulatedTime = 0f;
@@ -46,6 +70,7 @@ public static class RunManager
         SegmentShards.Clear();
         CurrentStageCollectedShards = 0;
         CurrentStageTotalShards = 0;
+        CurrentStageCollectedCoinKeys.Clear();
         TotalCollectedShards = 0;
         LastCompletedStageRawTime = 0f;
         LastCompletedStageShards = 0;
@@ -55,9 +80,11 @@ public static class RunManager
         Debug.Log("<color=orange>[Run]</color> 런 누적 기록 및 조각 카운트 초기화");
     }
 
-    public static void RecordShardCollected(int count = 1)
+    public static void RecordShardCollected(int count = 1, Vector3? worldPos = null)
     {
         if (count <= 0) return;
+        if (worldPos.HasValue)
+            CurrentStageCollectedCoinKeys.Add(GetCoinKey(worldPos.Value));
         CurrentStageCollectedShards += count;
         if (CurrentStageCollectedShards > CurrentStageTotalShards)
             CurrentStageTotalShards = CurrentStageCollectedShards;
@@ -73,6 +100,21 @@ public static class RunManager
     {
         CurrentStageCollectedShards = 0;
         CurrentStageTotalShards = Mathf.Max(0, total);
+        CurrentStageCollectedCoinKeys.Clear();
+    }
+
+    public static void RestoreCheckpointStageShards(int stageShards, string[] coinKeys)
+    {
+        if (stageShards > CurrentStageCollectedShards)
+            CurrentStageCollectedShards = stageShards;
+        if (coinKeys != null)
+        {
+            for (int i = 0; i < coinKeys.Length; i++)
+            {
+                if (!string.IsNullOrEmpty(coinKeys[i]))
+                    CurrentStageCollectedCoinKeys.Add(coinKeys[i]);
+            }
+        }
     }
 
     public static void ApplySyncedResultStats(int stageShards, int stageTotalShards, int totalRunShards, float rawSegmentTime)
@@ -109,6 +151,7 @@ public static class RunManager
 
         CurrentStageCollectedShards = 0;
         CurrentStageTotalShards = 0;
+        CurrentStageCollectedCoinKeys.Clear();
 
         Debug.Log($"<color=orange>[Run]</color> {stageNumber}스테이지 구간 원본 {rawSegmentSeconds:0.00}s - 조각보너스({stageShards}개, -{bonus:0.0}s) = {adjustedSeconds:0.00}s → 합산 {AccumulatedTime:0.00}s (총 조각 {TotalCollectedShards}개)");
         return AccumulatedTime;
@@ -122,6 +165,7 @@ public static class RunManager
         SegmentShards.Clear();
         CurrentStageCollectedShards = 0;
         CurrentStageTotalShards = 0;
+        CurrentStageCollectedCoinKeys.Clear();
 
         float segSum = 0f;
         int shardSum = 0;

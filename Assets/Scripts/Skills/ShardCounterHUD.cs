@@ -61,7 +61,14 @@ public class ShardCounterHUD : MonoBehaviour
     private void ResetForScene()
     {
         var shards = FindShards();
-        _total = shards.Length;
+        CoinItem.ActiveShards.Clear();
+        foreach (var s in shards)
+        {
+            if (s != null && !CoinItem.ActiveShards.Contains(s))
+                CoinItem.ActiveShards.Add(s);
+        }
+
+        _total = CoinItem.ActiveShards.Count;
         _collected = -1;
         _nextRefresh = 0f;
         RunManager.ResetCurrentStageShards(_total);
@@ -78,6 +85,16 @@ public class ShardCounterHUD : MonoBehaviour
     private static CoinItem[] FindShards() =>
         FindObjectsByType<CoinItem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
 
+    private static int CountRemainingShards()
+    {
+        var list = CoinItem.ActiveShards;
+        for (int i = list.Count - 1; i >= 0; i--)
+        {
+            if (list[i] == null) list.RemoveAt(i);
+        }
+        return list.Count;
+    }
+
     private void Update()
     {
         if (_total <= 0) return;
@@ -85,7 +102,7 @@ public class ShardCounterHUD : MonoBehaviour
         if (Time.unscaledTime >= _nextRefresh)
         {
             _nextRefresh = Time.unscaledTime + RefreshInterval;
-            int remaining = FindShards().Length;
+            int remaining = CountRemainingShards();
             if (remaining > _total) _total = remaining; // 씬 로드 시점에 덜 잡혔던 경우 보정
             int collected = _total - remaining;
             if (collected != _collected)

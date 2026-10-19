@@ -103,41 +103,17 @@ public class Checkpoint : MonoBehaviour
         if (sr != null) top = sr.bounds.max.y;
         else if (_col != null) top = _col.bounds.max.y;
 
-        var go = new GameObject("ReachedLabel", typeof(RectTransform), typeof(Canvas), typeof(CanvasGroup));
-        go.transform.SetParent(transform, true);
-        go.transform.position = new Vector3(transform.position.x, top + labelHeight, 0f);
-        go.transform.rotation = Quaternion.identity;
-        // 부모 스케일(뒤집힘 포함)과 무관하게 항상 같은 크기로 보이게 한다.
-        Vector3 ls = transform.lossyScale;
-        go.transform.localScale = new Vector3(0.01f / Mathf.Max(0.0001f, Mathf.Abs(ls.x)) * Mathf.Sign(ls.x),
-                                              0.01f / Mathf.Max(0.0001f, Mathf.Abs(ls.y)) * Mathf.Sign(ls.y), 1f);
-
-        var canvas = go.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.WorldSpace;
-        canvas.sortingOrder = 200; // 타일/캐릭터 위
-        ((RectTransform)go.transform).sizeDelta = new Vector2(200f, 60f);
-        _labelGroup = go.GetComponent<CanvasGroup>();
-        _labelGroup.alpha = 0f;
-
-        var textGo = new GameObject("Text", typeof(RectTransform), typeof(Text), typeof(Outline));
-        textGo.transform.SetParent(go.transform, false);
-        var rt = (RectTransform)textGo.transform;
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
-
-        _label = textGo.GetComponent<Text>();
-        _label.font = LobbyUITheme.PixelFont;
-        _label.fontSize = 52;
-        _label.alignment = TextAnchor.MiddleCenter;
-        _label.horizontalOverflow = HorizontalWrapMode.Overflow;
-        _label.verticalOverflow = VerticalWrapMode.Overflow;
-        _label.raycastTarget = false;
-        _label.color = LobbyUITheme.Gold;
-
-        var outline = textGo.GetComponent<Outline>();
-        outline.effectColor = LobbyUITheme.GoldDeep;
-        outline.effectDistance = new Vector2(3f, -3f);
+        WorldCountLabel.Create(
+            transform,
+            "ReachedLabel",
+            top,
+            labelHeight,
+            new Vector2(200f, 60f),
+            52,
+            3f,
+            0f,
+            out _label,
+            out _labelGroup);
     }
 
     private void OnTriggerEnter2D(Collider2D other)

@@ -486,52 +486,7 @@ public class SkillCooldownHUD : MonoBehaviour
 
     private void FindLocalPlayer()
     {
-        var players = FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None);
-        if (players == null || players.Length == 0)
-        {
-            _localPlayer = null;
-            return;
-        }
-
-        PlayerMovement candidate = null;
-
-        foreach (var p in players)
-        {
-            if (p == null) continue;
-
-            // 가짜 플레이어나 Spawner 제외
-            if (p.GetComponent<Rigidbody2D>() == null) continue;
-            if (p.gameObject.name.Contains("Spawner")) continue;
-
-            // 스킬이 전혀 없는 더미 오브젝트 제외
-            if (p.skillCh1 == PlayerMovement.CharacterSkill.None && p.skillCh2 == PlayerMovement.CharacterSkill.None)
-                continue;
-
-            // 1순위: Fusion InputAuthority 소유
-            if (p.Object != null && p.Object.IsValid)
-            {
-                if (p.Object.HasInputAuthority)
-                {
-                    candidate = p;
-                    break;
-                }
-                if (p.Runner != null && p.Object.InputAuthority == p.Runner.LocalPlayer)
-                {
-                    candidate = p;
-                    break;
-                }
-                if (p.Object.HasStateAuthority && candidate == null)
-                {
-                    candidate = p;
-                }
-            }
-            else if (candidate == null)
-            {
-                // 오프라인 / 단독 씬 테스트
-                candidate = p;
-            }
-        }
-
+        var candidate = PlayerMovement.GetLocalPlayer();
         if (candidate != null && candidate != _localPlayer)
         {
             _localPlayer = candidate;

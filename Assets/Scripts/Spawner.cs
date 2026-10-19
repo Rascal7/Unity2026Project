@@ -21,7 +21,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     private Vector3? _resumeSpawnPos = null;
     private float _resumeTimerOffset = 0f;
 
-    // ?�게???�테?��?�?취급?????�름??(?�기?????�테?��? 추�??�면 ??
+    // 인게임 스테이지로 취급할 씬 이름들 (여기에 새 스테이지 추가하면 됨)
     private static readonly string[] InGameStageNames = { "TutorialStage", "Main Stage1", "Main Stage2", "Main Stage3", "TestStage", "GameStage" };
 
     private bool IsInGameStage(string sceneName)
@@ -60,7 +60,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         {
             runner.RemoveCallbacks(this);
             runner.AddCallbacks(this);
-            Debug.Log("<color=green>[Spawner]</color> 콜백 ?�록 ?�료!");
+            Debug.Log("<color=green>[Spawner]</color> 콜백 등록 완료!");
         }
     }
 
@@ -71,11 +71,17 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
         string currentScene = SceneManager.GetActiveScene().name;
 
+        // 세이브 파일 선택(savefile) 및 이후 인게임 씬에서는 방 참가를 차단하고, 로비/캐릭터 선택에서만 열어둔다.
+        if (runner.SessionInfo != null && runner.SessionInfo.IsValid)
+        {
+            runner.SessionInfo.IsOpen = BasicLauncher.CanJoinInScene(currentScene);
+        }
+
         // 씬이 바뀌면 이전 씬의 NetworkObject 는 모두 Despawn 된다.
         // 여기서 비워두지 않으면 다음 스테이지에서 스폰 가드에 걸려 캐릭터가 안 나온다.
         _spawnedCharacters.Clear();
 
-        // 1. 캐릭???�택 ??
+        // 1. 캐릭터 선택 씬
         if (currentScene == "CharacterSelect")
         {
             var oldItems = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
@@ -89,16 +95,15 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
                 runner.Spawn(sessionItemPrefab, Vector3.zero, Quaternion.identity, p);
             }
         }
-        // 2. ?�게???�테?��? (Tutorial, Stage1, Stage2 공통 처리)
+        // 2. 인게임 스테이지 (Tutorial, Stage1, Stage2, Stage3 공통 처리)
         else if (IsInGameStage(currentScene))
         {
-            Debug.Log($"<color=yellow>[Spawner]</color> ??로드 ?�료: {currentScene}. ?�레?�어 ?�폰 ?�작!");
+            Debug.Log($"<color=yellow>[Spawner]</color> 씬 로드 완료: {currentScene}. 플레이어 스폰 시작!");
 
-            // ?�트?�크 ?�?�머 ?�성 + ?�작 (?�스?�만, ?�테?��?마다 ?�로 ?�성??
             // 랭킹 리더보드를 미리 캐시해 둔다 (클리어 시 New Record 즉시 판정용).
             RankingManager.PrefetchLeaderboard();
 
-            // Phase2: resume info (checkpoint pos + timer offset) from the save slot, if any.
+            // Phase2: resume info (checkpoint pos + timer offset + collected coins) from the save slot, if any.
             _resumeSpawnPos = null;
             _resumeTimerOffset = 0f;
             if (currentScene != "TutorialStage")
@@ -110,13 +115,30 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
                     _resumeTimerOffset = slot.stageElapsed;
                     CheckpointManager.lastCheckpointPosition = _resumeSpawnPos.Value;
                     CheckpointManager.hasCheckpoint = true;
-                    Debug.Log($"<color=orange>[Spawner]</color> resume checkpoint @ ({slot.checkpointX:0.0},{slot.checkpointY:0.0}) offset {slot.stageElapsed:0.00}s");
+
+                    // 체크포인트 저장 당시 획득했던 현재 스테이지 코인 복원 및 중복 코인 제거
+                    RunManager.RestoreCheckpointStageShards(slot.checkpointStageShards, slot.checkpointCoinKeys);
+                    if (RunManager.CurrentStageCollectedCoinKeys.Count > 0)
+                    {
+                        var coins = FindObjectsByType<CoinItem>(UnityEngine.FindObjectsSortMode.None);
+                        foreach (var coin in coins)
+                        {
+                            if (coin == null) continue;
+                            string key = RunManager.GetCoinKey(coin.transform.position);
+                            if (RunManager.CurrentStageCollectedCoinKeys.Contains(key))
+                            {
+                                coin.DespawnAsAlreadyCollected(runner);
+                            }
+                        }
+                    }
+
+                    Debug.Log($"<color=orange>[Spawner]</color> resume checkpoint @ ({slot.checkpointX:0.0},{slot.checkpointY:0.0}) offset {slot.stageElapsed:0.00}s, restoredShards={slot.checkpointStageShards}");
                 }
             }
 
             if (currentScene == "TutorialStage")
             {
-                RunManager.ResetRun(); // �� �� ����: ���� �ʱ�ȭ (Ʃ�丮���� Ÿ�̸� ����)
+                RunManager.ResetRun(); // 새 런 시작: 누적 초기화 (튜토리얼은 타이머 없음)
             }
             else if (NetworkTimer.Instance == null)
             {
@@ -126,11 +148,11 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
                     var timerObj = runner.Spawn(timerPrefab);
                     var nt = timerObj != null ? timerObj.GetComponent<NetworkTimer>() : null;
                     if (nt != null) nt.StartWithIntro(3f, _resumeTimerOffset);  // 스킬 등록 연출이 들어갈 수 있게 3초
-                    Debug.Log("<color=orange>[Timer]</color> NetworkTimer ?�성 �??�작 ?�료!");
+                    Debug.Log("<color=orange>[Timer]</color> NetworkTimer 생성 및 시작 완료!");
                 }
                 else
                 {
-                    Debug.LogError("<color=red>[Spawner]</color> Resources/NetworkTimer 찾을 ???�습?�다! 로컬 ?�?�머�??�체합?�다.");
+                    Debug.LogError("<color=red>[Spawner]</color> Resources/NetworkTimer를 찾을 수 없습니다! 로컬 타이머로 대체합니다.");
                     if (TimerManager.Instance != null)
                     {
                         TimerManager.Instance.ResetTimer();
@@ -168,13 +190,12 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             }
         }
 
-        // StartPoint ?�브?�트 찾기
-        Vector3 spawnPos = new Vector3(-20f, -7f, 0f); // 기본�?
+        // StartPoint 오브젝트 찾기
+        Vector3 spawnPos = new Vector3(-20f, -7f, 0f); // 기본값
         // Phase2: resume at the saved checkpoint position when loading mid-stage.
         if (_resumeSpawnPos.HasValue)
         {
-            Vector3 rp = _resumeSpawnPos.Value;
-            rp.x += PlayerMovement.SpawnOffsetX(runner, player);
+            Vector3 rp = PlayerMovement.GetSafeSpawnPosition(runner, player, _resumeSpawnPos.Value);
             NetworkObject rpf = (selectedIndex == 0) ? player1Prefab : player2Prefab;
             Debug.Log($"<color=green>[Spawn]</color> resume player {player} @ checkpoint");
             var resumed = runner.Spawn(rpf, rp, Quaternion.identity, player);
@@ -187,19 +208,19 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         if (startPoint != null)
         {
             spawnPos = startPoint.transform.position;
-            // ?�레?�어?�리 겹치지 ?�게 ?�짝 ?�동
-            spawnPos.x += PlayerMovement.SpawnOffsetX(runner, player);
+            // 플레이어끼리 겹치지 않게 살짝 이동
+            spawnPos = PlayerMovement.GetSafeSpawnPosition(runner, player, startPoint.transform.position);
         }
 
         NetworkObject prefabToSpawn = (selectedIndex == 0) ? player1Prefab : player2Prefab;
 
-        Debug.Log($"<color=green>[Spawn]</color> ?�레?�어 {player} (?�덱??{selectedIndex}) ?�폰 ?�료");
+        Debug.Log($"<color=green>[Spawn]</color> 플레이어 {player} (인덱스 {selectedIndex}) 스폰 완료");
         var spawned = runner.Spawn(prefabToSpawn, spawnPos, Quaternion.identity, player);
         if (spawned != null) _spawnedCharacters[player] = spawned;
-        // ?�?�머??OnSceneLoadDone ?�서 NetworkTimer �?처리?�다.
+        // 타이머는 OnSceneLoadDone 에서 NetworkTimer 로 처리한다.
     }
 
-    // --- ?�력 처리 ---
+    // --- 입력 처리 ---
     public void OnInput(NetworkRunner runner, NetworkInput input)
     {
         var data = new NetworkInputData();
@@ -261,9 +282,9 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         if (!runner.IsServer) return;
 
         string currentScene = SceneManager.GetActiveScene().name;
-        Debug.Log($"<color=cyan>[Spawner]</color> ?�레?�어 {player} 참�?! ?�재 ?? {currentScene}");
+        Debug.Log($"<color=cyan>[Spawner]</color> 플레이어 {player} 참가! 현재 씬: {currentScene}");
 
-        // 1. 캐릭???�택 ?�에?????�레?�어가 ?�어??경우
+        // 1. 캐릭터 선택 씬에서 새 플레이어가 들어온 경우
         if (currentScene == "CharacterSelect")
         {
             bool alreadyExists = false;
@@ -279,16 +300,32 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
             if (!alreadyExists && sessionItemPrefab != null)
             {
-                Debug.Log($"<color=lime>[Spawner]</color> 참�????�레?�어 {player}�??�한 SessionPlayerItem ?�성 ?�료!");
+                Debug.Log($"<color=lime>[Spawner]</color> 참가한 플레이어 {player}를 위한 SessionPlayerItem 생성 완료!");
                 runner.Spawn(sessionItemPrefab, Vector3.zero, Quaternion.identity, player);
             }
         }
-        // 2. ?�게???�테?��??�서 중간 참�???경우 (Tutorial, Stage1, Stage2 공통 처리)
-        else if (IsInGameStage(currentScene))
+        // 2. 세이브 파일 선택 또는 인게임 스테이지에서 중간 참가한 경우 차단
+        else if (!BasicLauncher.CanJoinInScene(currentScene))
         {
-            if (!_spawnedCharacters.ContainsKey(player))
+            if (player != runner.LocalPlayer)
             {
-                SpawnSelectedPlayer(runner, player);
+                bool hadSessionItem = false;
+                var items = FindObjectsByType<SessionPlayerItem>(UnityEngine.FindObjectsSortMode.None);
+                foreach (var item in items)
+                {
+                    if (item != null && item.Object != null && item.Object.InputAuthority == player)
+                    {
+                        hadSessionItem = true;
+                        break;
+                    }
+                }
+
+                if (!hadSessionItem)
+                {
+                    Debug.LogWarning($"<color=red>[Spawner]</color> 진행 중인 게임({currentScene})에 외부 플레이어({player}) 참가 시도 -> 연결 해제");
+                    runner.Disconnect(player);
+                    return;
+                }
             }
         }
     }
@@ -368,7 +405,17 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             _returningToLobby = false;
         }
     }
-    public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
+    public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token)
+    {
+        if (runner != null && runner.IsServer)
+        {
+            string currentScene = SceneManager.GetActiveScene().name;
+            if (!BasicLauncher.CanJoinInScene(currentScene))
+            {
+                request.Refuse();
+            }
+        }
+    }
     public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
     public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }

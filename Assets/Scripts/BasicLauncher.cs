@@ -62,7 +62,6 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
             return;
         }
 
-        Application.logMessageReceived += OnLogMessageReceived;
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
@@ -73,7 +72,6 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
 
     private void OnDestroy()
     {
-        Application.logMessageReceived -= OnLogMessageReceived;
         SceneManager.sceneLoaded -= OnSceneLoaded;
         if (Instance == this)
         {
@@ -83,6 +81,12 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        if (!IsDisconnectModalOpen)
+        {
+            Time.timeScale = 1f;
+            SettingsMenuUI.GameplayInputSuppressed = false;
+        }
+
         if (scene.name == "Lobby")
         {
             _isVoluntaryExit = false;
@@ -90,19 +94,48 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
-    private void OnLogMessageReceived(string condition, string stackTrace, UnityEngine.LogType type)
+    /// <summary>
+    /// 방 참가가 허용되는 씬인지 확인합니다.
+    /// 로비 또는 캐릭터 선택(CharacterSelect) 씬까지만 참가를 허용하며,
+    /// 세이브 파일 선택(savefile) 이후(컷씬, 튜토리얼, 본 스테이지 등)에는 방 참가를 차단합니다.
+    /// </summary>
+    public static bool CanJoinInScene(string sceneName)
     {
-        if (string.IsNullOrEmpty(condition) || _isVoluntaryExit) return;
+        return sceneName == "Lobby" || sceneName == "CharacterSelect";
+    }
 
-        // Photon Fusion의 서버 연결 해제 메시지 감지
-        // 예: [Fusion] Got DisconnectMessage. Code: 104 Msg: "Server has disconnected. "
-        if (condition.Contains("Code: 104") || condition.Contains("Server has disconnected"))
+    /// <summary>
+    /// 네트워크 러너가 실행 중이면 호스트 권한으로 네트워크 씬을 로드하고,
+    /// 로컬/솔로 상태이면 SceneManager.LoadScene으로 씬을 로드하는 공용 헬퍼입니다.
+    /// </summary>
+    public static void LoadNetworkOrLocalScene(string sceneName)
+    {
+        var runner = Instance != null && Instance._runner != null
+            ? Instance._runner
+            : FindFirstObjectByType<NetworkRunner>();
+
+        if (runner != null && runner.IsRunning)
         {
-            if (_runner != null && !_runner.IsServer)
+            if (runner.IsServer)
             {
-                Debug.LogWarning("[Launcher] 호스트 접속 종료 감지 (Code 104). 연결 끊김 안내 팝업을 표시합니다.");
-                HandleClientDisconnected("호스트가 접속을 종료했습니다.");
+                int sceneIndex = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{sceneName}.unity");
+                if (sceneIndex >= 0)
+                {
+                    runner.LoadScene(SceneRef.FromIndex(sceneIndex));
+                }
+                else
+                {
+                    runner.LoadScene(sceneName, LoadSceneMode.Single);
+                }
             }
+            else
+            {
+                Debug.LogWarning($"[BasicLauncher] 클라이언트는 직접 씬({sceneName})을 전환할 수 없습니다.");
+            }
+        }
+        else
+        {
+            SceneManager.LoadScene(sceneName);
         }
     }
 
@@ -120,6 +153,32 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
         return false;
     }
 
+    private GUIStyle _imguiLabelStyle;
+    private GUIStyle _imguiRoomCodeStyle;
+
+    private void EnsureIMGUIStyles()
+    {
+        if (_imguiLabelStyle == null)
+        {
+            _imguiLabelStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 14,
+                fontStyle = FontStyle.Bold
+            };
+            _imguiLabelStyle.normal.textColor = Color.white;
+        }
+
+        if (_imguiRoomCodeStyle == null)
+        {
+            _imguiRoomCodeStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 22,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+        }
+    }
+
     private void OnGUI()
     {
         // 랭킹 보드나 ESC 설정 메뉴가 열려있으면 레거시 GUI를 일체 그리지 않음
@@ -129,6 +188,7 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
         // 아직 룸에 접속하지 않은 상태 (로비 화면) - _useIMGUIMenu가 true일 때만 레거시 IMGUI 표시
         if (_useIMGUIMenu && (_runner == null || !_runner.IsRunning))
         {
+            EnsureIMGUIStyles();
             float buttonWidth = 260f;
             float buttonHeight = 44f;
             float spacing = 12f;
@@ -137,18 +197,13 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
             // 타이틀 "보이스 히어로" 아래쪽의 패널 안으로 들어가도록 Y축 위치를 아래로 이동
             float startY = Screen.height * 0.38f;
 
-            GUIStyle labelStyle = new GUIStyle(GUI.skin.label);
-            labelStyle.fontSize = 14;
-            labelStyle.fontStyle = FontStyle.Bold;
-            labelStyle.normal.textColor = Color.white;
-
             // 1. 닉네임 입력창
-            GUI.Label(new Rect(centerX, startY, buttonWidth, 20), "닉네임 (Nickname):", labelStyle);
+            GUI.Label(new Rect(centerX, startY, buttonWidth, 20), "닉네임 (Nickname):", _imguiLabelStyle);
             _playerName = GUI.TextField(new Rect(centerX, startY + 22, buttonWidth, 32), _playerName);
             PlayerPrefs.SetString("PlayerName", _playerName);
 
             // 2. 방 코드 입력창
-            GUI.Label(new Rect(centerX, startY + 62, buttonWidth, 20), "방 코드 입력 (Join 시 필요):", labelStyle);
+            GUI.Label(new Rect(centerX, startY + 62, buttonWidth, 20), "방 코드 입력 (Join 시 필요):", _imguiLabelStyle);
             _roomCode = GUI.TextField(new Rect(centerX, startY + 84, buttonWidth, 32), _roomCode);
 
             // 3. Host 버튼 (방 만들기)
@@ -182,14 +237,11 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
             // 게임 시작(인게임 플레이) 시 방 코드 안 보이게 숨김
             if (IsInGameStage()) return;
 
-            // 대기실 / 캐릭터 선택 / 세이브파일 화면: 화면 상단에 방 코드 안내 (기존 UI 외형 유지 + 클릭 시 복사)
-            GUIStyle roomCodeStyle = new GUIStyle(GUI.skin.label);
-            roomCodeStyle.fontSize = 22;
-            roomCodeStyle.fontStyle = FontStyle.Bold;
-            roomCodeStyle.alignment = TextAnchor.MiddleCenter;
+            EnsureIMGUIStyles();
 
+            // 대기실 / 캐릭터 선택 / 세이브파일 화면: 화면 상단에 방 코드 안내 (기존 UI 외형 유지 + 클릭 시 복사)
             bool isCopied = Time.realtimeSinceStartup < _roomCodeCopiedUntil;
-            roomCodeStyle.normal.textColor = isCopied ? new Color(0.45f, 1f, 0.45f) : Color.white;
+            _imguiRoomCodeStyle.normal.textColor = isCopied ? new Color(0.45f, 1f, 0.45f) : Color.white;
 
             // 타이틀(중앙)과 겹치지 않도록 좌상단 구석으로 배치 (기존 크기 230x42 그대로 유지)
             float labelWidth = 230f;
@@ -201,7 +253,7 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
             // 기존 Box와 Label 외형 100% 동일하게 렌더링
             GUI.Box(rect, "");
             string labelText = isCopied ? $"복사됨! ({_roomCode})" : $"방 코드: {_roomCode}";
-            GUI.Label(rect, labelText, roomCodeStyle);
+            GUI.Label(rect, labelText, _imguiRoomCodeStyle);
 
             // 해당 영역 클릭 시 클립보드 복사
             if (GUI.Button(rect, GUIContent.none, GUIStyle.none))
@@ -456,7 +508,8 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
             case ShutdownReason.GameIsFull:
                 return "방이 꽉 찼습니다.";
             case ShutdownReason.GameClosed:
-                return "이미 종료되었거나 닫힌 방입니다.";
+            case ShutdownReason.ConnectionRefused:
+                return "이미 시작된 게임(세이브 선택 이후)이거나 닫힌 방입니다.";
             case ShutdownReason.GameIdAlreadyExists:
                 return "이미 존재하는 방 코드입니다.";
             case ShutdownReason.ConnectionTimeout:
@@ -921,8 +974,34 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
     public void OnInput(NetworkRunner runner, NetworkInput input) { }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
     public void OnConnectedToServer(NetworkRunner runner) { }
-    public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
-    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
+    public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token)
+    {
+        if (runner != null && runner.IsServer)
+        {
+            string currentScene = SceneManager.GetActiveScene().name;
+            if (!CanJoinInScene(currentScene))
+            {
+                Debug.LogWarning($"[Launcher] 세이브 파일 선택 이후({currentScene})에는 새로운 참가 요청을 거부합니다.");
+                request.Refuse();
+                return;
+            }
+        }
+        request.Accept();
+    }
+
+    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
+    {
+        if (_isVoluntaryExit) return;
+        Debug.LogWarning($"<color=red>[Launcher]</color> 서버 연결 거부/실패: {reason}");
+        if (reason == NetConnectFailedReason.ServerRefused)
+        {
+            OnConnectionFailed?.Invoke("이미 시작된 게임(세이브 선택 이후)이거나 참가할 수 없는 방입니다.");
+        }
+        else if (reason == NetConnectFailedReason.ServerFull)
+        {
+            OnConnectionFailed?.Invoke("방이 꽉 찼습니다.");
+        }
+    }
     public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
     public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }

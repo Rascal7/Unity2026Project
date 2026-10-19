@@ -110,7 +110,11 @@ public class SessionPlayerItem : NetworkBehaviour
         if (readyCount >= targetCount && allCharactersSelected)
         {
             _lastSceneLoadTime = Time.unscaledTime;
-            Debug.Log($"<color=green>[출발]</color> 전원 준비 완료 ({readyCount}/{targetCount})! 세이브 파일 선택 씬({nextSceneName})으로 이동합니다.");
+            if (runner.SessionInfo != null && runner.SessionInfo.IsValid)
+            {
+                runner.SessionInfo.IsOpen = false;
+            }
+            Debug.Log($"<color=green>[출발]</color> 전원 준비 완료 ({readyCount}/{targetCount})! 방 입장을 잠그고 세이브 파일 선택 씬({nextSceneName})으로 이동합니다.");
             int sceneIndex = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{nextSceneName}.unity");
             if (sceneIndex >= 0)
             {

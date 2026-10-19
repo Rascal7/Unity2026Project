@@ -59,17 +59,23 @@ public class PlayerMovement : NetworkBehaviour
         gameObject.name.IndexOf("Rabbit", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
         gameObject.name.IndexOf("Player2", System.StringComparison.OrdinalIgnoreCase) >= 0;
 
+    public bool IsFox => IsFoxCharacter;
+    public bool IsRabbit => IsRabbitCharacter;
+
     public static PlayerMovement GetLocalPlayer()
     {
         if (Local != null && Local.gameObject != null && Local.Object != null && Local.Object.IsValid)
             return Local;
 
-        var players = FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None);
-        if (players == null || players.Length == 0) return null;
+        System.Collections.Generic.IList<PlayerMovement> players = _registeredPlayers.Count > 0
+            ? (System.Collections.Generic.IList<PlayerMovement>)_registeredPlayers
+            : FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None);
+        if (players == null || players.Count == 0) return null;
 
         PlayerMovement candidate = null;
-        foreach (var p in players)
+        for (int i = 0; i < players.Count; i++)
         {
+            var p = players[i];
             if (p == null || p.gameObject == null) continue;
             if (p.GetComponent<Rigidbody2D>() == null) continue;
             if (p.gameObject.name.Contains("Spawner")) continue;
@@ -163,7 +169,7 @@ public class PlayerMovement : NetworkBehaviour
     private SpriteRenderer _sr;
     private float _originalGravity;
 
-    // Ŭ���� ��ܿ� ���� �߰�
+    // 사망 및 리스폰 설정
     [Header("Death Settings")]
     [Tooltip("낙사 판정 Y. Spawned() 에서 스테이지 지형을 읽어 자동으로 덮어쓴다.")]
     public float fallDeathY = -10f;
@@ -179,7 +185,7 @@ public class PlayerMovement : NetworkBehaviour
     private NetworkRigidbody2D _nrb;
     private bool _respawnRequested;
 
-    // ��Ʈ��ũ ����ȭ ����
+    // 네트워크 동기화 상태
     [Networked] private NetworkBool IsClimbing { get; set; }
     [Networked] private NetworkBool IsGrounded { get; set; }
     [Networked] private NetworkBool IsDead { get; set; }
@@ -209,6 +215,9 @@ public class PlayerMovement : NetworkBehaviour
     [Networked] private NetworkBool FacingRight { get; set; }      // 바라보는 방향 (대시 방향 결정)
 
     [Networked] private NetworkBool SkillAirborne { get; set; } // 토끼 도약 중(발사~착지)
+    [Networked] private NetworkBool StompAirborne { get; set; } // 토끼 스톰프 급강하 중(발사~착지)
+    [Networked] private NetworkBool StompPowered { get; set; }  // 이번 스톰프가 강화 스톰프인가
+    [Networked] private TickTimer ExtraSkillCd { get; set; }    // 확장 스킬(RPC_RequestExtraSkill) 쿨다운
     [Networked] private TickTimer PowerUpTimer { get; set; }    // 토끼 파워업 유지(다음 당근/도약 1회 강화)
     [Networked] private byte SwapCount { get; set; }            // 위치 바꾸기 횟수(연출 엣지 감지용)
     [Networked] private Vector2 SwapFrom { get; set; }          // 위치 바꾸기 출발/도착 지점(포털 연출용)
@@ -216,6 +225,8 @@ public class PlayerMovement : NetworkBehaviour
     [Networked] private byte SniffCount { get; set; }           // 킁킁 사용 횟수(연출 엣지 감지용)
     [Networked] private byte PowerSpendCount { get; set; }      // 파워업 소모 횟수(연출 엣지 감지용)
     [Networked] private NetworkBool PoweredJump { get; set; }   // 이번 도약이 강화 도약인가(발사~착지)
+
+    private static readonly System.Collections.Generic.List<PlayerMovement> _registeredPlayers = new System.Collections.Generic.List<PlayerMovement>();
 
     // --- 연출(PlayerSkillVisuals)용 공개 상태 ---
     public bool IsDashingNow => Runner != null && !DashTimer.ExpiredOrNotRunning(Runner);
@@ -248,11 +259,8 @@ public class PlayerMovement : NetworkBehaviour
     // 튜토리얼 미션 브리핑 중 로컬 입력을 잠근다(Spawner.OnInput 에서 빈 입력으로 전달).
     public static bool TutorialHold;
 
-    // ���� ����
+    // 사다리 상태
     private bool _isOnLadder;
-    private bool _stompAirborne;
-    private bool _stompPowered;
-    private float _extraSkillReadyAt;
 
     // 로컬 오디오(점프/착지/사망/리스폰) 엣지 감지용 상태
     private bool _visInitialized;
@@ -263,14 +271,15 @@ public class PlayerMovement : NetworkBehaviour
     public override void Spawned()
     {
         _spawned = true;
+        if (!_registeredPlayers.Contains(this))
+            _registeredPlayers.Add(this);
         _rb = GetComponent<Rigidbody2D>();
         _anim = GetComponent<Animator>();
         _sr = GetComponent<SpriteRenderer>();
 
-        
         if (_rb == null)
         {
-            Debug.LogError($"[PlayerMovement] {gameObject.name}�� Rigidbody2D�� �����ϴ�! ������Ʈ�� �߰����ּ���.");
+            Debug.LogError($"[PlayerMovement] {gameObject.name}에 Rigidbody2D가 없습니다! 컴포넌트를 추가해주세요.");
             return;
         }
         // Fusion NetworkRigidbody2D 자체 렌더 보간과의 지터 충돌을 방지하기 위해 내장 interpolation은 None으로 설정
@@ -309,12 +318,14 @@ public class PlayerMovement : NetworkBehaviour
     {
         // 디스폰(연결 끊김 포함) 후에는 [Networked] 값 접근이 예외를 던지므로 즉시 접근을 막는다.
         _spawned = false;
+        _registeredPlayers.Remove(this);
         base.Despawned(runner, hasState);
         if (Local == this) Local = null;
     }
 
     private void OnDestroy()
     {
+        _registeredPlayers.Remove(this);
         if (Local == this) Local = null;
     }
 
@@ -376,11 +387,11 @@ public class PlayerMovement : NetworkBehaviour
     // 토끼 도약/스톰프 착지 감지: 공중 상태였다가 땅에 닿고 하강/정지하면 종료
     private void UpdateSkillAirborne()
     {
-        if (_stompAirborne && IsGrounded && _rb.linearVelocity.y <= 0.5f)
+        if (StompAirborne && IsGrounded && _rb.linearVelocity.y <= 0.5f)
         {
-            _stompAirborne = false;
-            bool powered = _stompPowered;
-            _stompPowered = false;
+            StompAirborne = false;
+            bool powered = StompPowered;
+            StompPowered = false;
             if (Runner != null && Runner.IsServer)
             {
                 TriggerStompImpactOnServer(powered);
@@ -424,8 +435,7 @@ public class PlayerMovement : NetworkBehaviour
 
         if (IsClimbing)
         {
-            // ���� �ڵ�ó�� ��ٸ������� �¿� �Է��� ����
-            // ��, ���Ʒ� �Է��� ������ y���� 0���� ����
+            // 사다리에서도 좌우 이동 허용, 위아래 입력이 없으면 y속도를 0으로 고정
             xVelocity = data.direction.x * speed;
             yVelocity = Mathf.Abs(data.direction.y) > 0.1f
                 ? data.direction.y * climbSpeed
@@ -470,7 +480,7 @@ public class PlayerMovement : NetworkBehaviour
         }
 
         // 낙하 속도 제한: 카메라가 따라잡지 못할 만큼 빨리 떨어져 아래가 안 보이는 것을 막는다.
-        float fallCap = _stompAirborne ? Mathf.Max(maxFallSpeed, stompDownSpeed) : maxFallSpeed;
+        float fallCap = StompAirborne ? Mathf.Max(maxFallSpeed, stompDownSpeed) : maxFallSpeed;
         if (fallCap > 0f && !IsClimbing && yVelocity < -fallCap)
             yVelocity = -fallCap;
 
@@ -596,14 +606,14 @@ public class PlayerMovement : NetworkBehaviour
     public void RPC_RequestExtraSkill(CharacterSkill skill)
     {
         if (IsDead || IsClimbing || IsIntroLocked()) return;
-        if (Time.time < _extraSkillReadyAt) return;
+        if (Runner == null || !ExtraSkillCd.ExpiredOrNotRunning(Runner)) return;
 
         bool isFox = IsFoxCharacter;
         if (skill == CharacterSkill.FoxShadow && !isFox) return;
         if (skill == CharacterSkill.RabbitStomp && isFox) return;
 
         float cd = GetSkillCooldownTotal(skill);
-        _extraSkillReadyAt = Time.time + Mathf.Max(1.0f, cd);
+        ExtraSkillCd = TickTimer.CreateFromSeconds(Runner, Mathf.Max(1.0f, cd));
         ExecuteSkillByType(skill, 0);
     }
 
@@ -633,8 +643,8 @@ public class PlayerMovement : NetworkBehaviour
     {
         if (!IsGrounded)
         {
-            _stompAirborne = true;
-            _stompPowered = powered;
+            StompAirborne = true;
+            StompPowered = powered;
             if (_rb != null)
             {
                 _rb.linearVelocity = new Vector2(_rb.linearVelocity.x * 0.25f, -stompDownSpeed);
@@ -689,9 +699,10 @@ public class PlayerMovement : NetworkBehaviour
         SfxPlayer.Stomp();
 
         // 반경 내 균열 블록(BreakableCrackedBlock) 파괴 (모든 클라이언트 동기화)
-        var blocks = FindObjectsByType<BreakableCrackedBlock>(FindObjectsSortMode.None);
-        foreach (var b in blocks)
+        var blocks = BreakableCrackedBlock.ActiveBlocks;
+        for (int i = blocks.Count - 1; i >= 0; i--)
         {
+            var b = blocks[i];
             if (b != null) b.TryBreak(origin, radius, powered);
         }
 
@@ -745,7 +756,7 @@ public class PlayerMovement : NetworkBehaviour
         float bestSq = float.MaxValue;
         float maxSq = swapMaxDistance > 0f ? swapMaxDistance * swapMaxDistance : float.MaxValue;
 
-        foreach (var p in FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None))
+        foreach (var p in ActivePlayers())
         {
             if (p == null || p == this) continue;
             if (p.Object == null || !p.Object.IsValid || p._rb == null) continue;
@@ -788,8 +799,8 @@ public class PlayerMovement : NetworkBehaviour
         DashTimer = TickTimer.None;
         SkillAirborne = false;
         PoweredJump = false;
-        _stompAirborne = false;
-        _stompPowered = false;
+        StompAirborne = false;
+        StompPowered = false;
     }
 
     public struct SkillSlotStatus
@@ -918,14 +929,18 @@ public class PlayerMovement : NetworkBehaviour
     // 사다리에서 점프로 빠져나가면 그 점프 입력은 여기서 소비한다(pressed 에서 지움).
     private void HandleLadder(NetworkInputData data, ref NetworkButtons pressed)
     {
+        if (!_isOnLadder && Mathf.Abs(data.direction.y) > 0.1f && HasOverlappingLadder(null))
+        {
+            _isOnLadder = true;
+        }
+
         if (_isOnLadder)
         {
             IsClimbing = true;
             _rb.gravityScale = 0f;
             JumpCutReady = false; // 사다리를 잡으면 이전 점프의 가변 점프 판정은 끝
 
-            // ���� �ڵ� ���� ����:
-            // ��ٸ� ���� ������ ���Ʒ� �Է� ���� �� y�ӵ� 0
+            // 사다리 위에서 위아래 입력이 없으면 y속도를 0으로 유지
             if (Mathf.Abs(data.direction.y) > 0.1f)
             {
                 _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, data.direction.y * climbSpeed);
@@ -935,7 +950,7 @@ public class PlayerMovement : NetworkBehaviour
                 _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, 0f);
             }
 
-            // ��ٸ����� �����ϸ� Ż��
+            // 사다리에서 점프하면 탈출
             if (pressed.IsSet(InputButton.Jump))
             {
                 pressed.Set(InputButton.Jump, false);
@@ -989,7 +1004,6 @@ public class PlayerMovement : NetworkBehaviour
         return false;
     }
 
-    // �޼��� �߰�
     /// <summary>
     /// 낙사 기준선을 스테이지 지형에서 산출한다.
     /// groundLayer 에 속한 고정 콜라이더들의 최하단에서 fallDeathMargin 만큼 더 아래가 기준선이다.
@@ -1065,11 +1079,27 @@ public class PlayerMovement : NetworkBehaviour
     /// </summary>
     public static System.Collections.Generic.List<PlayerMovement> ActivePlayers()
     {
-        var list = new System.Collections.Generic.List<PlayerMovement>();
-        foreach (var p in FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None))
+        var list = new System.Collections.Generic.List<PlayerMovement>(_registeredPlayers.Count);
+        for (int i = _registeredPlayers.Count - 1; i >= 0; i--)
         {
-            if (p == null || p.Object == null || !p.Object.IsValid) continue;
+            var p = _registeredPlayers[i];
+            if (p == null)
+            {
+                _registeredPlayers.RemoveAt(i);
+                continue;
+            }
+            if (p.Object == null || !p.Object.IsValid) continue;
             list.Add(p);
+        }
+
+        if (list.Count == 0)
+        {
+            foreach (var p in FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None))
+            {
+                if (p == null || p.Object == null || !p.Object.IsValid) continue;
+                if (!_registeredPlayers.Contains(p)) _registeredPlayers.Add(p);
+                list.Add(p);
+            }
         }
         return list;
     }
@@ -1102,13 +1132,58 @@ public class PlayerMovement : NetworkBehaviour
         return slot * SpawnSpacingX;
     }
 
+    /// <summary>
+    /// 오프셋 위치(basePos + SpawnOffsetX)가 벽(Ground 레이어 콜라이더) 안이거나 바닥이 없는 낭떠러지라면
+    /// 반대쪽 오프셋이나 원래 기준 좌표로 폴백하여 지형 끼임/낙사를 방지한다.
+    /// </summary>
+    public static Vector3 GetSafeSpawnPosition(NetworkRunner runner, PlayerRef player, Vector3 basePos)
+    {
+        basePos.z = 0f;
+        float offsetX = SpawnOffsetX(runner, player);
+        if (Mathf.Approximately(offsetX, 0f)) return basePos;
+
+        int groundMask = LayerMask.GetMask("Ground");
+        if (groundMask == 0) groundMask = ~0;
+
+        Vector3 candidate = new Vector3(basePos.x + offsetX, basePos.y, 0f);
+        if (IsSpawnPointClear(candidate, groundMask))
+            return candidate;
+
+        Vector3 opposite = new Vector3(basePos.x - offsetX, basePos.y, 0f);
+        if (IsSpawnPointClear(opposite, groundMask))
+            return opposite;
+
+        return basePos;
+    }
+
+    private static bool IsSpawnPointClear(Vector3 pt, int groundMask)
+    {
+        var cols = Physics2D.OverlapCircleAll(pt, 0.25f, groundMask);
+        if (cols != null)
+        {
+            foreach (var c in cols)
+            {
+                if (c != null && !c.isTrigger && c.GetComponentInParent<PlayerMovement>() == null)
+                    return false; // 벽/지형 내부에 막혀 있음
+            }
+        }
+        return true;
+    }
+
     private void Respawn()
     {
-        Vector3 pos = CheckpointManager.hasCheckpoint
-            ? CheckpointManager.lastCheckpointPosition
-            : Vector3.zero;
-        pos.x += SpawnOffsetX(Runner, Object.InputAuthority);
-        pos.z = 0f;
+        Vector3 basePos = Vector3.zero;
+        if (CheckpointManager.hasCheckpoint)
+        {
+            basePos = CheckpointManager.lastCheckpointPosition;
+        }
+        else
+        {
+            GameObject startPoint = GameObject.Find("StartPoint");
+            if (startPoint != null) basePos = startPoint.transform.position;
+        }
+
+        Vector3 pos = GetSafeSpawnPosition(Runner, Object.InputAuthority, basePos);
 
         // transform.position 직접 대입은 NetworkRigidbody2D 가 캡처하는 RBPosition 과
         // 네트워크 상태를 갱신하지 않아 다음 틱에 원위치로 되돌아간다. 반드시 Teleport 를 쓴다.
@@ -1136,8 +1211,7 @@ public class PlayerMovement : NetworkBehaviour
     /// </summary>
     public static bool RequestLocalRespawn()
     {
-        var all = FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None);
-        foreach (var p in all)
+        foreach (var p in ActivePlayers())
         {
             if (p != null && p.Object != null && p.Object.HasInputAuthority)
             {
@@ -1198,7 +1272,7 @@ public class PlayerMovement : NetworkBehaviour
                         SfxPlayer.Jump();
                     }
                     // 일반 착지 엣지 (토끼 슈퍼점프/스톰프 착지는 각 스킬 연출에서 재생)
-                    else if (!_prevGroundedVis && grounded && _prevVelYVis < -2.0f && !SkillAirborne && !_stompAirborne)
+                    else if (!_prevGroundedVis && grounded && _prevVelYVis < -2.0f && !SkillAirborne && !StompAirborne)
                     {
                         SfxPlayer.Land();
                     }
@@ -1234,6 +1308,21 @@ public class PlayerMovement : NetworkBehaviour
         }
     }
 
+    private bool HasOverlappingLadder(Collider2D ignoreCollider)
+    {
+        var myCol = GetComponent<Collider2D>();
+        Vector2 center = myCol != null ? (Vector2)myCol.bounds.center : (Vector2)transform.position;
+        Vector2 size = myCol != null ? (Vector2)myCol.bounds.size * 0.9f : new Vector2(0.4f, 0.8f);
+        var hits = Physics2D.OverlapBoxAll(center, size, 0f);
+        if (hits == null) return false;
+        foreach (var h in hits)
+        {
+            if (h != null && h != ignoreCollider && h.CompareTag("Ladder"))
+                return true;
+        }
+        return false;
+    }
+
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (other.CompareTag("Ladder"))
@@ -1241,7 +1330,6 @@ public class PlayerMovement : NetworkBehaviour
             _isOnLadder = true;
         }
 
-        // �� �κ� �߰�
         if (other.CompareTag("Trap"))
         {
             Die();
@@ -1252,6 +1340,8 @@ public class PlayerMovement : NetworkBehaviour
     {
         if (other.CompareTag("Ladder"))
         {
+            if (HasOverlappingLadder(other)) return;
+
             _isOnLadder = false;
             IsClimbing = false;
 

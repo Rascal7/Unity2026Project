@@ -320,10 +320,17 @@ public class SaveFileUI : MonoBehaviour
         }
     }
 
+    private NetworkRunner GetRunner()
+    {
+        if (BasicLauncher.Instance != null && BasicLauncher.Instance.Runner != null)
+            return BasicLauncher.Instance.Runner;
+        return FindFirstObjectByType<NetworkRunner>();
+    }
+
     private void Update()
     {
         // 멀티플레이 클라이언트인지 지속 확인하여 세이브 파일 패널이 뜨지 않도록 방어
-        var runner = FindFirstObjectByType<NetworkRunner>();
+        var runner = GetRunner();
         if (runner != null && runner.IsRunning && !runner.IsServer)
         {
             if (_waitingPanelGo == null || !_waitingPanelGo.activeSelf)
@@ -335,7 +342,7 @@ public class SaveFileUI : MonoBehaviour
 
     private void CheckNetworkAuthority()
     {
-        var runner = FindFirstObjectByType<NetworkRunner>();
+        var runner = GetRunner();
         bool isMultiplayer = runner != null && runner.IsRunning;
         bool isHost = isMultiplayer ? runner.IsServer : true;
 
@@ -536,8 +543,9 @@ public class SaveFileUI : MonoBehaviour
                 }
                 else if (data != null && data.hasData)
                 {
-                    string shardStr = data.totalCollectedShards > 0
-                        ? $"   <color=#74D974><b>✦ 조각 {data.totalCollectedShards}개</b></color>"
+                    int displayShards = data.totalCollectedShards + (data.hasCheckpoint ? Mathf.Max(0, data.checkpointStageShards) : 0);
+                    string shardStr = displayShards > 0
+                        ? $"   <color=#74D974><b>✦ 조각 {displayShards}개</b></color>"
                         : "";
                     row.slotInfoText.text = $"<color=#FAD16B><b>{data.stageDisplayName}</b></color>{shardStr}   <color=#FAF2E3>{data.updatedTime}</color>";
                 }
@@ -668,30 +676,7 @@ public class SaveFileUI : MonoBehaviour
 
     private void LoadTargetScene(string sceneName)
     {
-        var runner = FindFirstObjectByType<NetworkRunner>();
-        if (runner != null && runner.IsRunning)
-        {
-            if (runner.IsServer)
-            {
-                int sceneIndex = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{sceneName}.unity");
-                if (sceneIndex >= 0)
-                {
-                    runner.LoadScene(SceneRef.FromIndex(sceneIndex));
-                }
-                else
-                {
-                    runner.LoadScene(sceneName, LoadSceneMode.Single);
-                }
-            }
-            else
-            {
-                Debug.LogWarning("[SaveFileUI] 클라이언트는 직접 씬을 전환할 수 없습니다.");
-            }
-        }
-        else
-        {
-            SceneManager.LoadScene(sceneName);
-        }
+        BasicLauncher.LoadNetworkOrLocalScene(sceneName);
     }
 
     private void ShowConfirmModal(string message)

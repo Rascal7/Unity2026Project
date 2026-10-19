@@ -99,7 +99,8 @@ public class GameEndController : MonoBehaviour
         if (_shownPhase == NetworkTimer.PhaseFinished)
         {
             bool ending = HasEndingCutscene();
-            bool canAdvance = !ending || IsHost() || FindFirstObjectByType<NetworkRunner>() == null; // 엔딩 전환은 호스트(또는 솔로)만
+            var runner = GetRunner();
+            bool canAdvance = !ending || (runner != null && runner.IsServer) || runner == null; // 엔딩 전환은 호스트(또는 솔로)만
             float elapsed = Time.unscaledTime - _shownAtUnscaled;
             if (_hintText != null && autoReturnDelay > 0f)
             {
@@ -297,10 +298,17 @@ public class GameEndController : MonoBehaviour
         if (_root != null) _root.SetActive(false);
     }
 
+    private NetworkRunner GetRunner()
+    {
+        if (BasicLauncher.Instance != null && BasicLauncher.Instance.Runner != null)
+            return BasicLauncher.Instance.Runner;
+        return FindFirstObjectByType<NetworkRunner>();
+    }
+
     // ---------- 버튼 핸들러 ----------
     private void OnNext()
     {
-        var runner = FindFirstObjectByType<NetworkRunner>();
+        var runner = GetRunner();
         if (runner == null || !runner.IsServer) return; // 씬 로드는 호스트만
 
         string next = RunManager.PendingNextScene;
@@ -314,8 +322,7 @@ public class GameEndController : MonoBehaviour
         SaveDataManager.SaveProgressWithTime(next, RunManager.AccumulatedTime);
         Hide();
 
-        int idx = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{next}.unity");
-        runner.LoadScene(SceneRef.FromIndex(idx));
+        BasicLauncher.LoadNetworkOrLocalScene(next);
     }
 
     private async void OnLobby()
@@ -342,7 +349,7 @@ public class GameEndController : MonoBehaviour
 
     private bool IsHost()
     {
-        var runner = FindFirstObjectByType<NetworkRunner>();
+        var runner = GetRunner();
         return runner != null && runner.IsServer;
     }
 
@@ -472,10 +479,6 @@ public class GameEndController : MonoBehaviour
 
     public static string FormatTime(float t)
     {
-        if (t < 0f) t = 0f;
-        int m = Mathf.FloorToInt(t / 60f);
-        int s = Mathf.FloorToInt(t % 60f);
-        int cs = Mathf.FloorToInt((t * 100f) % 100f);
-        return string.Format("{0:00}:{1:00}.{2:00}", m, s, cs);
+        return RunManager.FormatTime(t);
     }
 }

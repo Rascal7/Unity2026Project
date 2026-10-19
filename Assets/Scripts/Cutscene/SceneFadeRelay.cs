@@ -56,15 +56,6 @@ public class SceneFadeRelay : NetworkBehaviour
 
     private static void LoadNow(NetworkRunner runner, bool networked, string sceneName)
     {
-        int idx = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{sceneName}.unity");
-        if (networked && runner != null && runner.IsRunning)
-        {
-            if (idx >= 0) runner.LoadScene(SceneRef.FromIndex(idx));
-            else runner.LoadScene(sceneName, LoadSceneMode.Single);
-        }
-        else
-        {
-            SceneManager.LoadScene(sceneName);
-        }
+        BasicLauncher.LoadNetworkOrLocalScene(sceneName);
     }
 }
