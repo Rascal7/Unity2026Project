@@ -189,6 +189,7 @@ public class PlayerMovement : NetworkBehaviour
     [Networked] private NetworkBool IsClimbing { get; set; }
     [Networked] private NetworkBool IsGrounded { get; set; }
     [Networked] private NetworkBool IsDead { get; set; }
+    [Networked] private Vector2 NetVelocity { get; set; }
     [Networked] private TickTimer RespawnGrace { get; set; }
 
     // 입력 엣지 판정: 이전 틱 버튼과 비교해 "눌린 순간"만 발동한다. (재시뮬레이션에서도 맞도록 Networked)
@@ -333,6 +334,11 @@ public class PlayerMovement : NetworkBehaviour
     {
         if (_rb == null) return;
 
+        // 원격 프록시(클라이언트에서 보는 다른 플레이어)는 입력이 없으므로
+        // 로컬에서 CheckGround/HandleLadder를 돌리면 호스트가 보내준 네트워크 상태(IsGrounded, IsClimbing, 속도)가 덮어써진다.
+        if (!Object.HasStateAuthority && !Object.HasInputAuthority)
+            return;
+
         CheckGround();
 
         // 땅에 서 있는 동안 코요테 타이머를 계속 채워 둔다. (점프로 상승 중일 때는 채우지 않는다)
@@ -382,6 +388,7 @@ public class PlayerMovement : NetworkBehaviour
         }
 
         UpdateSkillAirborne();
+        NetVelocity = _rb.linearVelocity;
     }
 
     // 토끼 도약/스톰프 착지 감지: 공중 상태였다가 땅에 닿고 하강/정지하면 종료
@@ -467,6 +474,7 @@ public class PlayerMovement : NetworkBehaviour
                 // 토끼 강한 도약 (파워업 상태면 더 높이)
                 yVelocity = superJumpY;
                 JumpCutReady = false;
+                IsGrounded = false;
             }
             else if (wantJump && CanGroundJump)
             {
@@ -475,6 +483,7 @@ public class PlayerMovement : NetworkBehaviour
                 bool launcher = IsGrounded && IsOnLauncher();
                 yVelocity = launcher ? launcherJumpForce : jumpForce;
                 JumpCutReady = !launcher;
+                IsGrounded = false;
                 ConsumeGroundJump();
             }
         }
@@ -796,6 +805,7 @@ public class PlayerMovement : NetworkBehaviour
         else transform.position = pos;
 
         _rb.linearVelocity = Vector2.zero;
+        NetVelocity = Vector2.zero;
         DashTimer = TickTimer.None;
         SkillAirborne = false;
         PoweredJump = false;
@@ -955,6 +965,7 @@ public class PlayerMovement : NetworkBehaviour
             {
                 pressed.Set(InputButton.Jump, false);
                 IsClimbing = false;
+                IsGrounded = false;
                 _isOnLadder = false;
                 _rb.gravityScale = _originalGravity;
 
@@ -1193,6 +1204,7 @@ public class PlayerMovement : NetworkBehaviour
             transform.position = pos;
 
         _rb.linearVelocity = Vector2.zero;
+        NetVelocity = Vector2.zero;
         RespawnGrace = TickTimer.CreateFromSeconds(Runner, respawnGraceSeconds);
         IsDead = false;
     }
@@ -1237,13 +1249,17 @@ public class PlayerMovement : NetworkBehaviour
             _sr.flipX = !FacingRight;
         }
 
+        // 원격 프록시(다른 사람 캐릭터)는 로컬 Rigidbody2D.linearVelocity 가 보간 중 갱신되지 않으므로
+        // 네트워크로 동기화된 NetVelocity 를 사용해 모든 화면에서 점프/달리기/등반 애니메이션과 효과음을 일치시킨다.
+        Vector2 syncVel = NetworkedAccessSafe ? NetVelocity : (_rb != null ? _rb.linearVelocity : Vector2.zero);
+
         // 2. 점프 / 착지 / 사망 및 리스폰 효과음 엣지 감지
         if (_rb != null && Runner != null && Runner.IsRunning)
         {
             bool grounded = IsGrounded;
             bool dead = IsDead;
             bool graceActive = !RespawnGrace.ExpiredOrNotRunning(Runner);
-            float vy = _rb.linearVelocity.y;
+            float vy = syncVel.y;
 
             if (!_visInitialized)
             {
@@ -1285,18 +1301,18 @@ public class PlayerMovement : NetworkBehaviour
             }
         }
 
-        // 3. 애니메이션 파라미터 갱신 (원격 플레이어와 로컬 플레이어 모두 실제 속도 기반으로 자연스럽게 재생)
+        // 3. 애니메이션 파라미터 갱신 (원격 플레이어와 로컬 플레이어 모두 네트워크 동기화 속도 기반으로 자연스럽게 재생)
         if (_anim != null && _rb != null)
         {
             if (IsClimbing)
             {
                 _anim.SetFloat("Speed", 0f);
-                float climbAnimSpeed = Mathf.Abs(_rb.linearVelocity.y) > 0.05f ? 1f : 0f;
+                float climbAnimSpeed = Mathf.Abs(syncVel.y) > 0.05f ? 1f : 0f;
                 _anim.SetFloat("ClimbSpeed", climbAnimSpeed);
             }
             else
             {
-                float hSpeed = Mathf.Abs(_rb.linearVelocity.x);
+                float hSpeed = Mathf.Abs(syncVel.x);
                 float animSpeed = hSpeed > 0.1f ? Mathf.Clamp01(hSpeed / speed) : 0f;
                 _anim.SetFloat("Speed", animSpeed);
                 _anim.SetFloat("ClimbSpeed", 0f);
@@ -1304,7 +1320,7 @@ public class PlayerMovement : NetworkBehaviour
 
             _anim.SetBool("IsGrounded", IsGrounded);
             _anim.SetBool("IsClimbing", IsClimbing);
-            _anim.SetFloat("YVelocity", IsClimbing ? 0f : _rb.linearVelocity.y);
+            _anim.SetFloat("YVelocity", IsClimbing ? 0f : syncVel.y);
         }
     }
 
