@@ -184,7 +184,7 @@ public class TutorialFlowController : MonoBehaviour
             EnsureGuideUI();
             _localPlayer = null;
             ResetMissions();
-            WireTutorialHintZones();
+            DisableLegacyTutorialHints();
             var ep = FindFirstObjectByType<EndPoint>();
             _targetScene = (ep != null && !string.IsNullOrEmpty(ep.nextSceneName)) ? ep.nextSceneName : defaultMainStage;
         }
@@ -197,34 +197,31 @@ public class TutorialFlowController : MonoBehaviour
         }
     }
 
-    private void WireTutorialHintZones()
+    // 안내(문구/키)는 신(新) 미션 시스템(브리핑 카드 + 사이드 목록 + 월드 화살표/글로우)이 담당한다.
+    // 구(舊) 힌트 시스템은 Hint_* 표지판의 '트리거 존 배너'와 '떠 있는 월드 키 라벨' 두 가지인데,
+    // 이 존들은 미션 흐름과 무관하게 플레이어가 지나가기만 하면 발동해 미션 브리핑 지점 도착 전에
+    // 안내가 미리 떠버리는 혼선을 유발했다. 표지판 스프라이트는 장식으로 남기고, 트리거 배너와
+    // 월드 라벨(동작)만 제거한다.
+    private void DisableLegacyTutorialHints()
     {
-        TutorialHintUI.EnsureInstance();
+        // 혹시 열려 있던 구 배너를 닫는다.
+        if (TutorialHintUI.Instance != null) TutorialHintUI.Instance.Hide();
+
         var hintsRoot = GameObject.Find("TutorialHints");
         if (hintsRoot == null) return;
 
         for (int i = 0; i < hintsRoot.transform.childCount; i++)
         {
             var child = hintsRoot.transform.GetChild(i).gameObject;
-            if (!child.activeInHierarchy) continue;
 
-            var col = child.GetComponent<Collider2D>();
-            if (col == null)
-            {
-                var box = child.AddComponent<BoxCollider2D>();
-                box.isTrigger = true;
-                box.size = new Vector2(5.5f, 4.5f);
-                box.offset = new Vector2(0f, -0.8f);
-            }
-            else
-            {
-                col.isTrigger = true;
-            }
+            // 런타임에 붙었을 수 있는 구 힌트 존과 떠 있는 월드 라벨 제거
+            var zone = child.GetComponent<TutorialHintZone>();
+            if (zone != null) Destroy(zone);
+            var label = child.transform.Find("DynamicKeyLabelCanvas");
+            if (label != null) Destroy(label.gameObject);
 
-            if (child.GetComponent<TutorialHintZone>() == null)
-            {
-                child.AddComponent<TutorialHintZone>();
-            }
+            // 트리거 콜라이더 비활성(배너 발동/통행 방해 방지). 표지판 스프라이트는 유지.
+            foreach (var col in child.GetComponents<Collider2D>()) col.enabled = false;
         }
     }
 
@@ -553,7 +550,7 @@ public class TutorialFlowController : MonoBehaviour
         {
             title   = "오른쪽으로 이동",
             prompt  = "오른쪽으로 이동하세요!",
-            keyText = () => MoveKey(MovementKeybinds.Act.Left) + " / " + MoveKey(MovementKeybinds.Act.Right) + "   좌우 이동",
+            keyText = () => "좌우 이동 :  <color=#FAD16B>" + TutorialHintUI.FormatActionPair(MovementKeybinds.Act.Left, MovementKeybinds.Act.Right) + "</color>",
             briefWhen = null,
             goal    = MoveTarget,
             isDone  = () => { var t = MoveTarget(); return t.HasValue && AllPlayers(p => p.transform.position.x >= t.Value.x - 0.6f); }
@@ -563,7 +560,7 @@ public class TutorialFlowController : MonoBehaviour
         {
             title   = "점프",
             prompt  = "점프해 보세요!",
-            keyText = () => MoveKey(MovementKeybinds.Act.Jump) + "   점프",
+            keyText = () => "점프 :  <color=#FAD16B>" + TutorialHintUI.FormatSingleAction(MovementKeybinds.Act.Jump) + "</color>  (길게 누르면 높이 점프)",
             briefWhen = null,
             goal    = () => null,   // 플레이어 머리 위
             isDone  = () => AllPlayers(p => _jumped.Contains(p))
@@ -573,7 +570,7 @@ public class TutorialFlowController : MonoBehaviour
         {
             title   = "사다리 오르기",
             prompt  = "사다리를 타고 올라가세요!",
-            keyText = () => MoveKey(MovementKeybinds.Act.Up) + " / " + MoveKey(MovementKeybinds.Act.Down) + "   오르내리기",
+            keyText = () => "사다리 이동 :  <color=#FAD16B>" + TutorialHintUI.FormatActionPair(MovementKeybinds.Act.Up, MovementKeybinds.Act.Down) + "</color>",
             travelTarget = LadderBriefSpot,   // 점프 후: 사다리 브리핑 지점 지면에 글로우를 도착할 때까지 표시
             showGlow = true,
             briefWhen = () => { var t = LadderTarget(); return t.HasValue && AllPlayers(p => p.transform.position.x >= t.Value.x - ladderBriefLead); },
