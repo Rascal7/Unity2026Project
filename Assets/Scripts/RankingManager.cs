@@ -129,20 +129,60 @@ public class RankingManager : MonoBehaviour
         return result;
     }
 
-    // 씬의 PlayerNameTag에서 닉네임 수집
+    // 씬의 PlayerNameTag 및 SessionPlayerItem에서 역할(여우/토끼) 또는 권한(Host/Client) 순으로 닉네임 수집
     private System.Tuple<string, string> ResolvePlayerNames()
     {
+        string foxOrHostName = null;
+        string rabbitOrClientName = null;
+        var extraNames = new List<string>();
+
         var tags = FindObjectsByType<PlayerNameTag>(UnityEngine.FindObjectsSortMode.None);
-        var names = new List<string>();
         foreach (var tag in tags)
         {
-            if (tag != null && !string.IsNullOrWhiteSpace(tag.Nickname))
-                names.Add(tag.Nickname.Trim());
+            if (tag == null || string.IsNullOrWhiteSpace(tag.Nickname)) continue;
+            string nick = tag.Nickname.Trim();
+            var pm = tag.GetComponent<PlayerMovement>();
+            if (pm != null)
+            {
+                if (pm.IsFox && string.IsNullOrEmpty(foxOrHostName))
+                {
+                    foxOrHostName = nick;
+                    continue;
+                }
+                if (pm.IsRabbit && string.IsNullOrEmpty(rabbitOrClientName))
+                {
+                    rabbitOrClientName = nick;
+                    continue;
+                }
+            }
+            extraNames.Add(nick);
         }
-        names.Sort(System.StringComparer.Ordinal);
 
-        string p1 = names.Count > 0 ? names[0] : PlayerPrefs.GetString("PlayerName", "Player1");
-        string p2 = names.Count > 1 ? names[1] : "Player2";
+        if (string.IsNullOrEmpty(foxOrHostName) && extraNames.Count > 0)
+        {
+            foxOrHostName = extraNames[0];
+            extraNames.RemoveAt(0);
+        }
+        if (string.IsNullOrEmpty(rabbitOrClientName) && extraNames.Count > 0)
+        {
+            rabbitOrClientName = extraNames[0];
+            extraNames.RemoveAt(0);
+        }
+
+        string p1 = !string.IsNullOrEmpty(foxOrHostName)
+            ? foxOrHostName
+            : (!string.IsNullOrEmpty(rabbitOrClientName) ? rabbitOrClientName : PlayerPrefs.GetString("PlayerName", "Player1"));
+
+        string p2;
+        if (!string.IsNullOrEmpty(foxOrHostName) && !string.IsNullOrEmpty(rabbitOrClientName))
+        {
+            p2 = rabbitOrClientName;
+        }
+        else
+        {
+            p2 = "Solo";
+        }
+
         return System.Tuple.Create(p1, p2);
     }
 
@@ -466,9 +506,6 @@ public class RankingManager : MonoBehaviour
 
     string FormatTime(double time)
     {
-        int min = (int)time / 60;
-        int sec = (int)time % 60;
-        int ms = (int)((time - (int)time) * 100);
-        return string.Format("{0:00}:{1:00}.{2:00}", min, sec, ms);
+        return RunManager.FormatTime((float)time);
     }
 }

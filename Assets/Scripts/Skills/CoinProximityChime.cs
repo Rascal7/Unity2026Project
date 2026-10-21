@@ -99,12 +99,7 @@ public class CoinProximityChime : MonoBehaviour
     private void RefreshLists()
     {
         _coins = FindObjectsByType<CoinItem>(FindObjectsSortMode.None);
-        _local = null;
-        foreach (var pm in FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None))
-        {
-            NetworkObject no = pm.Object;
-            if (no != null && no.IsValid && no.HasInputAuthority) { _local = pm; break; }
-        }
+        _local = PlayerMovement.GetLocalPlayer();
     }
 
     private void Notify(CoinItem coin)

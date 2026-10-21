@@ -25,6 +25,8 @@ public class SaveSlotData
     public float checkpointX = 0f;
     public float checkpointY = 0f;
     public bool hasCheckpoint = false;    // 현재 스테이지에 저장된 체크포인트가 있는지
+    public int checkpointStageShards = 0; // 체크포인트 시점에 현재 스테이지에서 획득한 조각 수
+    public string[] checkpointCoinKeys = new string[0]; // 체크포인트 이전에 먹은 조각 위치 키 목록
 
     // 무결성 검증용 HMAC-SHA256 서명 (메모장 등 외부 변조 방지)
     public string hash = "";
@@ -121,6 +123,11 @@ public static class SaveDataManager
     /// </summary>
     public static string ComputeHash(SaveSlotData data)
     {
+        return ComputeHashInternal(data, includeShards: true);
+    }
+
+    private static string ComputeHashInternal(SaveSlotData data, bool includeShards)
+    {
         if (data == null) return string.Empty;
         var sb = new System.Text.StringBuilder();
         sb.Append(data.slotIndex).Append('|')
@@ -139,6 +146,20 @@ public static class SaveDataManager
             {
                 if (i > 0) sb.Append(',');
                 sb.Append(data.segmentTimes[i].ToString("F3", System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        if (includeShards)
+        {
+            sb.Append('|').Append(data.totalCollectedShards);
+            if (data.segmentShards != null && data.segmentShards.Length > 0)
+            {
+                sb.Append('|');
+                for (int i = 0; i < data.segmentShards.Length; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    sb.Append(data.segmentShards[i]);
+                }
             }
         }
 
@@ -225,6 +246,14 @@ public static class SaveDataManager
             string expectedHash = ComputeHash(data);
             if (!string.Equals(data.hash, expectedHash, StringComparison.OrdinalIgnoreCase))
             {
+                // 구버전 해시(조각 필드 포함 전)와 일치하는지 확인하여 정상 구버전 세이브는 새 해시로 자동 마이그레이션
+                string legacyHash = ComputeHashInternal(data, includeShards: false);
+                if (string.Equals(data.hash, legacyHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    SaveSlot(data);
+                    return;
+                }
+
                 Debug.LogError($"<color=red>[SaveSecurity] 슬롯 {slotIndex} 세이브 데이터 위변조 감지! 무결성 검증 실패 (해시 불일치).</color>");
                 data.isCorrupted = true;
                 data.hasData = false;
@@ -351,6 +380,8 @@ public static class SaveDataManager
         // 새 스테이지 진입이므로 중간 체크포인트 정보는 초기화 (처음부터 시작)
         data.stageElapsed = 0f;
         data.hasCheckpoint = false;
+        data.checkpointStageShards = 0;
+        data.checkpointCoinKeys = new string[0];
         SaveSlot(data);
         Debug.Log($"<color=cyan>[SaveDataManager]</color> 진행+기록 저장: {data.stageDisplayName} / 누적 {data.totalPlayTime:0.00}s / 조각 {data.totalCollectedShards}개");
     }
@@ -366,6 +397,9 @@ public static class SaveDataManager
             data.slotIndex = slot;
         }
 
+        int hudCollected = ShardCounterHUD.Instance != null ? ShardCounterHUD.Instance.CollectedCount : 0;
+        int stageShards = Mathf.Max(RunManager.CurrentStageCollectedShards, hudCollected);
+
         data.stageName = stageName;
         data.stageDisplayName = GetStageDisplayName(stageName);
         data.totalPlayTime = accumulatedSeconds < 0f ? 0f : accumulatedSeconds;
@@ -377,8 +411,10 @@ public static class SaveDataManager
         data.checkpointX = checkpointPos.x;
         data.checkpointY = checkpointPos.y;
         data.hasCheckpoint = true;
+        data.checkpointStageShards = stageShards;
+        data.checkpointCoinKeys = RunManager.GetCollectedCoinKeysArray();
         SaveSlot(data);
-        Debug.Log($"<color=cyan>[SaveDataManager]</color> 체크포인트 저장: {stageName} / 누적 {data.totalPlayTime:0.00}s / 구간 {data.stageElapsed:0.00}s @ ({checkpointPos.x:0.0},{checkpointPos.y:0.0})");
+        Debug.Log($"<color=cyan>[SaveDataManager]</color> 체크포인트 저장: {stageName} / 누적 {data.totalPlayTime:0.00}s / 구간 {data.stageElapsed:0.00}s / 구간 조각 {stageShards}개 @ ({checkpointPos.x:0.0},{checkpointPos.y:0.0})");
     }
 
     public static string GetStageDisplayName(string stageName)
@@ -401,12 +437,16 @@ public static class SaveDataManager
     }
 
     /// <summary>
-    /// 세이브 파일이 위치한 폴더를 윈도우 파일 탐색기(Explorer)로 직접 엽니다.
+    /// 세이브 파일이 위치한 폴더를 OS 파일 탐색기로 엽니다.
     /// </summary>
     public static void OpenSaveFolder()
     {
         EnsureDirectoryExists();
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
         string path = SaveDirectory.Replace('/', '\\');
         System.Diagnostics.Process.Start("explorer.exe", path);
+#else
+        Application.OpenURL("file://" + SaveDirectory);
+#endif
     }
 }

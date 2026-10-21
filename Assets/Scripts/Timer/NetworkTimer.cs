@@ -1,14 +1,14 @@
 using Fusion;
 using UnityEngine;
 
-// Ŭ���� Ÿ���� "��¥ �ҽ�".
-// ȣ��Ʈ�� tick ������ Runner.DeltaTime �� �����ϰ�, [Networked] ������ �� �Ǿ ����ȭ�Ѵ�.
-// ȭ�� ǥ�ô� TimerManager �� �� ���� �о ó���Ѵ�. (TimerManager �� UI ���ε��� ���)
+// 클리어 타임의 "진짜 소스".
+// 호스트가 tick 단위로 Runner.DeltaTime 을 누적하고, [Networked] 속성으로 양 피어에 동기화한다.
+// 화면 표시는 TimerManager 가 이 값을 읽어서 처리한다. (TimerManager 는 UI 바인딩만 담당)
 //
-// Phase(�ܰ�)�� �� �Ǿ ���� ���� ȭ���� ���� �Ѵ�:
-//   0 Running       : ���� �� (Ÿ�̸� ��)
-//   1 AwaitingChoice: �߰� �������� �� ���� �� [�κ�]/[����] ���� ��� (ȣ��Ʈ�� ����)
-//   2 Finished      : ���� �� ���� �� �ջ� �ð� Ȯ��, �ڵ� �κ� ����
+// Phase(단계)로 양 피어가 같은 결과 화면을 보게 한다:
+//   0 Running       : 진행 중 (타이머 틱)
+//   1 AwaitingChoice: 중간 스테이지 끝 도달 시 [로비]/[계속] 선택 대기 (호스트가 결정)
+//   2 Finished      : 최종 끝 도달 시 합산 시간 확정, 자동 로비 복귀
 public class NetworkTimer : NetworkBehaviour
 {
     public static NetworkTimer Instance { get; private set; }
@@ -21,7 +21,7 @@ public class NetworkTimer : NetworkBehaviour
     [Networked] public float ElapsedTime { get; private set; }
     [Networked] public NetworkBool IsRunning { get; private set; }
     [Networked] public NetworkBool IsFinished { get; private set; }
-    [Networked] public float FinalTime { get; private set; }   // Phase�� ���� �����ð�(�߰�) �Ǵ� �ջ�ð�(����)
+    [Networked] public float FinalTime { get; private set; }   // Phase에 따라 구간시간(중간) 또는 합산시간(최종)
     [Networked] public int Phase { get; private set; }
     [Networked] public float IntroRemaining { get; private set; }   // seconds left on STAGE intro before the run starts
 
@@ -46,7 +46,7 @@ public class NetworkTimer : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
-        // ȣ��Ʈ�� ���� ����(����). Ŭ���̾�Ʈ�� [Networked] �� ���� ���� �״�� ���.
+        // 호스트만 값을 변경(누적). 클라이언트는 [Networked] 로 복제된 값을 그대로 사용.
         // STAGE intro: hold the timer at 0, count the intro down, then begin the run.
         if (Phase == PhaseIntro)
         {
@@ -68,7 +68,7 @@ public class NetworkTimer : NetworkBehaviour
             ElapsedTime += Runner.DeltaTime;
     }
 
-    // ---------- ȣ��Ʈ ���� ���� ----------
+    // ---------- 호스트 전용 제어 ----------
 
     public void StartTimer()
     {
@@ -102,19 +102,19 @@ public class NetworkTimer : NetworkBehaviour
         }
     }
 
-    // �߰� �������� ��: Ÿ�̸� ���� + �� ���� �ð� Ȯ�� + ���� ��� �ܰ��.
-    // ��ȯ�� = �� �������� ���� �ð�.
+    // 중간 스테이지 끝: 타이머 멈춤 + 이 구간 시간 확정 + 선택 대기 단계로.
+    // 반환값 = 이 스테이지 구간 시간.
     public float PauseForChoice()
     {
         if (!HasStateAuthority) return FinalTime;
         if (Phase != PhaseRunning) return FinalTime;
         IsRunning = false;
-        FinalTime = ElapsedTime;   // �� �������� ���� �ð�
+        FinalTime = ElapsedTime;   // 이 스테이지 구간 시간
         Phase = PhaseAwaitingChoice;
         return FinalTime;
     }
 
-    // ���� ��: �ջ� �ð�(totalSeconds)�� Ȯ���ϰ� ���� �ܰ��.
+    // 중간 결과 확정 후 보너스 반영 동기화
     public void SyncStageChoiceBonus(float rawSegmentTime)
     {
         if (!HasStateAuthority) return;
@@ -163,7 +163,7 @@ public class NetworkTimer : NetworkBehaviour
         RunManager.ApplySyncedResultStats(stageShards, stageTotalShards, totalRunShards, rawSegmentTime);
     }
 
-    // (����ȣȯ) ���� �ڵ尡 �θ��� �ܼ� ����. �����ð� Ȯ����.
+    // (하위호환) 예전 코드가 부르면 단순 정지. 구간시간 확정만.
     public float StopTimer()
     {
         return PauseForChoice();

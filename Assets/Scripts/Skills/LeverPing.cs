@@ -129,12 +129,7 @@ public class LeverPing : MonoBehaviour
 
     private static PlayerMovement LocalPlayer()
     {
-        foreach (var pm in FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None))
-        {
-            NetworkObject no = pm.Object;
-            if (no != null && no.IsValid && no.HasInputAuthority) return pm;
-        }
-        return null;
+        return PlayerMovement.GetLocalPlayer();
     }
 
     // ---------- 핑 1개 ----------

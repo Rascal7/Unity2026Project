@@ -7,14 +7,37 @@ using UnityEngine;
 /// </summary>
 public class CoinItem : Revealable
 {
+    public static readonly System.Collections.Generic.List<CoinItem> ActiveShards = new System.Collections.Generic.List<CoinItem>();
+
     [Tooltip("획득 조각 수")]
     public int value = 1;
     [Tooltip("켜면 Sniff 없이 처음부터 보이고 먹을 수 있다 (킁킁 스킬이 없는 1스테이지용)")]
     public bool alwaysVisible;
 
     private bool _collectedByPlayer;
+    private bool _despawnSilently;
+
+    private void Awake()
+    {
+        if (!ActiveShards.Contains(this))
+            ActiveShards.Add(this);
+    }
+
+    private void OnDestroy()
+    {
+        ActiveShards.Remove(this);
+    }
 
     protected override void Apply(bool revealed) => base.Apply(revealed || alwaysVisible);
+
+    /// <summary>체크포인트 이어하기 시 이미 획득했던 조각을 효과음 없이 조용히 제거한다.</summary>
+    public void DespawnAsAlreadyCollected(NetworkRunner runner)
+    {
+        _despawnSilently = true;
+        _collectedByPlayer = true;
+        if (runner != null && Object != null)
+            runner.Despawn(Object);
+    }
 
     private void OnTriggerEnter2D(Collider2D other)
     {
@@ -24,15 +47,16 @@ public class CoinItem : Revealable
         if (_collectedByPlayer) return;
 
         _collectedByPlayer = true;
-        RunManager.RecordShardCollected(value);
+        RunManager.RecordShardCollected(value, transform.position);
         Debug.Log($"<color=yellow>[Coin]</color> 구슬 조각 획득! (+{value}, 클리어 타임 -{value * RunManager.ShardTimeBonusSeconds:0}초 보너스)");
         Runner.Despawn(Object);
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
+        ActiveShards.Remove(this);
         // 인게임 중 조각이 획득되어 Despawn 될 때 모든 피어에서 코인 획득 효과음 + 반짝임 이펙트 재생
-        if (runner != null && runner.IsRunning && gameObject.scene.isLoaded)
+        if (!_despawnSilently && runner != null && runner.IsRunning && gameObject.scene.isLoaded)
         {
             SfxPlayer.Coin();
             var fx = SkillFxLibrary.Instance;

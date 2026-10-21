@@ -506,6 +506,19 @@ public class TutorialFlowController : MonoBehaviour
         if (_playersFrame == Time.frameCount) return _playersBuf;
         _playersFrame = Time.frameCount;
         _playersBuf.Clear();
+        var active = PlayerMovement.ActivePlayers();
+        if (active.Count > 0)
+        {
+            for (int i = 0; i < active.Count; i++)
+            {
+                var p = active[i];
+                if (p == null || p.GetComponent<Rigidbody2D>() == null) continue;
+                if (p.gameObject.name.Contains("Spawner")) continue;
+                _playersBuf.Add(p);
+            }
+            return _playersBuf;
+        }
+
         foreach (var p in FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None))
         {
             if (p == null) continue;
@@ -666,22 +679,8 @@ public class TutorialFlowController : MonoBehaviour
             (_localPlayer.Object == null || _localPlayer.Object.IsValid))
             return _localPlayer;
 
-        _localPlayer = null;
-        PlayerMovement cand = null;
-        foreach (var p in FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None))
-        {
-            if (p == null) continue;
-            if (p.GetComponent<Rigidbody2D>() == null) continue;
-            if (p.gameObject.name.Contains("Spawner")) continue;
-            if (p.Object != null && p.Object.IsValid)
-            {
-                if (p.Object.HasInputAuthority) { _localPlayer = p; return p; }
-                if (p.Object.HasStateAuthority && cand == null) cand = p;
-            }
-            else if (cand == null) cand = p;
-        }
-        _localPlayer = cand;
-        return cand;
+        _localPlayer = PlayerMovement.GetLocalPlayer();
+        return _localPlayer;
     }
 
     // 키 라벨이 눌린 순간 밝게 확대 → 서서히 원복.
@@ -764,34 +763,26 @@ public class TutorialFlowController : MonoBehaviour
         SaveDataManager.SaveProgressWithTime(sceneName, RunManager.AccumulatedTime);
         HideAll();
 
-        int idx = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{sceneName}.unity");
-        if (runner != null && runner.IsServer && idx >= 0)
-        {
-            Debug.Log($"<color=lime>[Tutorial]</color> 호스트: 본 스테이지 로드 → {sceneName}");
-            runner.LoadScene(SceneRef.FromIndex(idx));
-        }
-        else
-        {
-            Debug.Log($"<color=lime>[Tutorial]</color> 솔로: 본 스테이지 로드 → {sceneName}");
-            SceneManager.LoadScene(sceneName);
-        }
+        Debug.Log($"<color=lime>[Tutorial]</color> 본 스테이지 로드 → {sceneName}");
+        BasicLauncher.LoadNetworkOrLocalScene(sceneName);
     }
 
-    private async void OnLobby()
+    private void OnLobby()
     {
         if (_busy) return;
         _busy = true;
+        CheckpointManager.ResetCheckpoint();
+        RunManager.ResetRun();
         BasicLauncher.MarkVoluntaryExit();
         HideAll();
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        foreach (var runner in FindObjectsByType<NetworkRunner>(FindObjectsSortMode.None))
+        if (BasicLauncher.Instance != null)
         {
-            if (runner == null) continue;
-            try { await runner.Shutdown(); } catch (Exception e) { Debug.LogException(e); }
-            if (runner != null) Destroy(runner.gameObject);
+            BasicLauncher.Instance.ExitGame();
+            return;
         }
 
         SceneManager.LoadScene(lobbySceneName);

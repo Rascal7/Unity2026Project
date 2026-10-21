@@ -69,7 +69,15 @@ public class EndPoint : MonoBehaviour
         if (_completedAt < 0f)
         {
             _labelGroup.alpha = 1f;
-            if (reached >= total) _completedAt = Time.time;
+            if (reached >= total)
+            {
+                _completedAt = Time.time;
+                if (!isTriggered && NetworkTimer.Instance == null && TutorialFlowController.Instance != null)
+                {
+                    isTriggered = true;
+                    TutorialFlowController.Instance.ShowTutorialComplete(nextSceneName);
+                }
+            }
         }
 
         if (reached == _shownReached && total == _shownTotal) return;
@@ -99,40 +107,17 @@ public class EndPoint : MonoBehaviour
         if (sr != null) top = sr.bounds.max.y;
         else if (_col != null) top = _col.bounds.max.y;
 
-        var go = new GameObject("ReachedLabel", typeof(RectTransform), typeof(Canvas), typeof(CanvasGroup));
-        go.transform.SetParent(transform, true);
-        go.transform.position = new Vector3(transform.position.x, top + labelHeight, 0f);
-        go.transform.rotation = Quaternion.identity;
-        Vector3 ls = transform.lossyScale;
-        go.transform.localScale = new Vector3(0.01f / Mathf.Max(0.0001f, Mathf.Abs(ls.x)) * Mathf.Sign(ls.x),
-                                              0.01f / Mathf.Max(0.0001f, Mathf.Abs(ls.y)) * Mathf.Sign(ls.y), 1f);
-
-        var canvas = go.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.WorldSpace;
-        canvas.sortingOrder = 200;
-        ((RectTransform)go.transform).sizeDelta = new Vector2(200f, 60f);
-        _labelGroup = go.GetComponent<CanvasGroup>();
-        _labelGroup.alpha = 0f;
-
-        var textGo = new GameObject("Text", typeof(RectTransform), typeof(Text), typeof(Outline));
-        textGo.transform.SetParent(go.transform, false);
-        var rt = (RectTransform)textGo.transform;
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
-
-        _label = textGo.GetComponent<Text>();
-        _label.font = LobbyUITheme.PixelFont;
-        _label.fontSize = 52;
-        _label.alignment = TextAnchor.MiddleCenter;
-        _label.horizontalOverflow = HorizontalWrapMode.Overflow;
-        _label.verticalOverflow = VerticalWrapMode.Overflow;
-        _label.raycastTarget = false;
-        _label.color = LobbyUITheme.Gold;
-
-        var outline = textGo.GetComponent<Outline>();
-        outline.effectColor = LobbyUITheme.GoldDeep;
-        outline.effectDistance = new Vector2(3f, -3f);
+        WorldCountLabel.Create(
+            transform,
+            "ReachedLabel",
+            top,
+            labelHeight,
+            new Vector2(200f, 60f),
+            52,
+            3f,
+            0f,
+            out _label,
+            out _labelGroup);
     }
 
     private void OnTriggerEnter2D(Collider2D other)
@@ -148,7 +133,9 @@ public class EndPoint : MonoBehaviour
             return;
         }
 
-        var runner = FindFirstObjectByType<NetworkRunner>();
+        var runner = BasicLauncher.Instance != null && BasicLauncher.Instance.Runner != null
+            ? BasicLauncher.Instance.Runner
+            : FindFirstObjectByType<NetworkRunner>();
         var nt = NetworkTimer.Instance;
         // NetworkTimer 가 존재하면 타이머 스테이지(인트로/러닝 포함). 튜토리얼은 타이머를 스폰하지 않으므로 nt == null.
         bool timerStage = (nt != null);
@@ -171,10 +158,7 @@ public class EndPoint : MonoBehaviour
         }
 
 
-        // 타이머 없음 = 튜토리얼: 완료 화면 표시.
-        // 멀티플레이에서 씬 전환은 호스트 권한이므로 클라이언트는 호스트에 위임(트리거 무시).
-        // 솔로(러너 없음)는 아래 로직이 SceneManager 폴백으로 진행된다.
-        if (runner != null && !runner.IsServer) return;
+        // 타이머 없음 = 튜토리얼: 완료 화면 표시 (호스트와 클라이언트 모두 UI 표시).
         isTriggered = true;
 
         if (TutorialFlowController.Instance != null)
@@ -184,19 +168,11 @@ public class EndPoint : MonoBehaviour
             return;
         }
 
-        // 폴백: 컨트롤러가 없으면 기존처럼 즉시 이동
+        // 폴백: 컨트롤러가 없으면 기존처럼 즉시 이동 (멀티플레이에서는 호스트만 씬 전환)
+        if (runner != null && !runner.IsServer) return;
         Debug.Log($"<color=cyan>[EndPoint]</color> (타이머 없음) 즉시 이동: {nextSceneName}");
         CheckpointManager.ResetCheckpoint();
         SaveDataManager.SaveProgressWithTime(nextSceneName, RunManager.AccumulatedTime);
-        int idx = GetSceneIndex(nextSceneName);
-        if (runner != null && runner.IsServer && idx >= 0)
-            runner.LoadScene(SceneRef.FromIndex(idx));
-        else
-            UnityEngine.SceneManagement.SceneManager.LoadScene(nextSceneName);
-    }
-
-    private int GetSceneIndex(string sceneName)
-    {
-        return UnityEngine.SceneManagement.SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{sceneName}.unity");
+        BasicLauncher.LoadNetworkOrLocalScene(nextSceneName);
     }
 }

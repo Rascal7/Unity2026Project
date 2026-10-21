@@ -1,19 +1,19 @@
 using UnityEngine;
-using TMPro; // TextMeshPro ����� ���� �ʼ�
+using TMPro; // TextMeshPro 사용을 위해 필수
 
 public class TimerManager : MonoBehaviour
 {
     public static TimerManager Instance;
 
     [Header("Status")]
-    public float elapsedTime = 0f;    // ���� �ð� (�� ����)
+    public float elapsedTime = 0f;    // 경과 시간 (초 단위)
     public bool isTimerRunning = false;
 
-    private TextMeshProUGUI timerText; // ȭ�鿡 �ð��� ǥ���� UI
+    private TextMeshProUGUI timerText; // 화면에 시간을 표시할 UI
 
     private void Awake()
     {
-        // �̱��� ����: ���� �ٲ� �ϳ��� �����ϰ� ����
+        // 싱글톤 패턴: 씬이 바뀌어도 하나만 유지하게 설정
         if (Instance == null)
         {
             Instance = this;
@@ -27,14 +27,10 @@ public class TimerManager : MonoBehaviour
 
     private void Update()
     {
-        // ��Ʈ��ũ Ÿ�̸Ӱ� ������ �� ���� ǥ�� (�� �Ǿ� ���ϰ�)
+        // 네트워크 타이머가 있으면 그 값을 표시 (양 피어 동일값)
         var nt = NetworkTimer.Instance;
         if (nt != null)
         {
-            // Cumulative display: previous stages (RunManager.AccumulatedTime) + this stage's elapsed.
-            // - Finished: FinalTime already is the full total (AccumulatedTime was reset right after).
-            // - AwaitingChoice: the just-finished segment is already folded into AccumulatedTime, so don't add ElapsedTime.
-            // - Intro/Running: show accumulated + current elapsed (intro holds elapsed at 0).
             float shown;
             if (nt.IsFinished) shown = nt.FinalTime;
             else if (nt.Phase == NetworkTimer.PhaseAwaitingChoice) shown = nt.FinalTime;  // 이 스테이지 확정 기록
@@ -43,7 +39,7 @@ public class TimerManager : MonoBehaviour
             return;
         }
 
-        // ����: ��Ʈ��ũ Ÿ�̸Ӱ� ���� ��(������ �ܵ� ���� ��) ���� ����
+        // 폴백: 네트워크 타이머가 없을 때(에디터 단독 실행 등) 로컬 누적
         if (isTimerRunning)
         {
             elapsedTime += Time.deltaTime;
@@ -51,15 +47,11 @@ public class TimerManager : MonoBehaviour
         }
     }
 
-    // �� ���� �ð��� 00:00.00 �������� ȭ�鿡 ǥ��
+    // 초 단위 시간을 00:00.00 형식으로 화면에 표시
     public void SetDisplayTime(float t)
     {
         if (timerText == null) return;
-        if (t < 0f) t = 0f;
-        int minutes = Mathf.FloorToInt(t / 60f);
-        int seconds = Mathf.FloorToInt(t % 60f);
-        int centiseconds = Mathf.FloorToInt((t * 100f) % 100f);
-        timerText.text = string.Format("{0:00}:{1:00}.{2:00}", minutes, seconds, centiseconds);
+        timerText.text = RunManager.FormatTime(t);
     }
 
     // 새로운 씬이 로드될 때마다 해당 씬의 UI를 찾아 연결하는 함수
@@ -76,11 +68,7 @@ public class TimerManager : MonoBehaviour
     {
         if (timerText != null)
         {
-            // 00:00.00 ���� (��:��.�и���)
-            int minutes = Mathf.FloorToInt(elapsedTime / 60);
-            int seconds = Mathf.FloorToInt(elapsedTime % 60);
-            float milliseconds = (elapsedTime % 1) * 100;
-            timerText.text = string.Format("{0:00}:{1:00}.{2:00}", minutes, seconds, milliseconds);
+            timerText.text = RunManager.FormatTime(elapsedTime);
         }
     }
 
@@ -89,12 +77,12 @@ public class TimerManager : MonoBehaviour
     public void StopTimer()
     {
         isTimerRunning = false;
-        UpdateTimerUI(); // ���� ������ elapsedTime�� ȭ�鿡 �״�� �ݿ�(���尪�� ǥ�ð� ��ġ)
+        UpdateTimerUI(); // 정지 시점의 elapsedTime을 화면에 그대로 반영(필드값과 표시값 일치)
     }
 
     public void ResetTimer()
     {
         elapsedTime = 0f;
-        UpdateTimerUI(); // 00:00.00 ���� �ʱ�ȭ
+        UpdateTimerUI(); // 00:00.00 으로 초기화
     }
 }

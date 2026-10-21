@@ -236,9 +236,9 @@ public class AuthManager : MonoBehaviour
         yield return PostJson(IDTOOLKIT + "update?key=" + WEB_API_KEY, upBody, null, _ => { });
 
         // 4) 닉네임 예약 + 프로필 저장 (RTDB)
-        yield return PutJson(RtdbUrl("nicknames/" + NickKey(nickname)), "\"" + Esc(uid) + "\"", null, _ => { });
+        yield return PutJson(RtdbUrl("nicknames/" + NickKey(nickname), idToken), "\"" + Esc(uid) + "\"", null, _ => { });
         string profile = "{\"nickname\":\"" + Esc(nickname) + "\",\"email\":\"" + Esc(email) + "\"}";
-        yield return PutJson(RtdbUrl("users/" + uid), profile, null, _ => { });
+        yield return PutJson(RtdbUrl("users/" + uid, idToken), profile, null, _ => { });
 
         // 5) 인증메일 발송
         yield return SendOobRoutine("VERIFY_EMAIL", null, idToken, null, e => Debug.LogWarning("[Auth] 인증메일 발송 경고: " + e));
@@ -337,10 +337,14 @@ public class AuthManager : MonoBehaviour
     //  HTTP 헬퍼
     // ==================================================================
 
-    private string RtdbUrl(string path)
+    private string RtdbUrl(string path, string authToken = null)
     {
         string b = RTDB_BASE.EndsWith("/") ? RTDB_BASE : RTDB_BASE + "/";
-        return b + path + ".json";
+        string url = b + path + ".json";
+        string tok = !string.IsNullOrEmpty(authToken) ? authToken : _idToken;
+        if (!string.IsNullOrEmpty(tok))
+            url += "?auth=" + UnityWebRequest.EscapeURL(tok);
+        return url;
     }
 
     private IEnumerator PostJson(string url, string json, Action<string> onOk, Action<string> onErr)
@@ -365,6 +369,7 @@ public class AuthManager : MonoBehaviour
         using (UnityWebRequest req = UnityWebRequest.Put(url, System.Text.Encoding.UTF8.GetBytes(json)))
         {
             req.SetRequestHeader("Content-Type", "application/json");
+            req.timeout = 15;
             yield return req.SendWebRequest();
             if (req.result == UnityWebRequest.Result.Success) onOk?.Invoke(req.downloadHandler.text);
             else onErr?.Invoke(req.error);
@@ -375,6 +380,7 @@ public class AuthManager : MonoBehaviour
     {
         using (UnityWebRequest req = UnityWebRequest.Get(url))
         {
+            req.timeout = 15;
             yield return req.SendWebRequest();
             if (req.result == UnityWebRequest.Result.Success) onOk?.Invoke(req.downloadHandler.text);
             else onErr?.Invoke(req.error);
