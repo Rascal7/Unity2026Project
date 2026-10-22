@@ -429,9 +429,15 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
                 var physicsSim2D = runnerGO.AddComponent<RunnerSimulatePhysics2D>();
                 physicsSim2D.ClientPhysicsSimulation = ClientPhysicsSimulation.SimulateAlways;
 
+                // Photon Voice 음성 채팅 클라이언트 연동
+                var voiceClient = runnerGO.AddComponent<Photon.Voice.Fusion.FusionVoiceClient>();
+                voiceClient.UseFusionAppSettings = true;
+                voiceClient.UseFusionAuthValues = true;
+
                 _runner.ProvideInput = true;
                 _runner.RemoveCallbacks(this);
                 _runner.AddCallbacks(this);
+                _runner.AddCallbacks(voiceClient);
 
                 var spawner = FindFirstObjectByType<Spawner>();
                 if (spawner != null)
