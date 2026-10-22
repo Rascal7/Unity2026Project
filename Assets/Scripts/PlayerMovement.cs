@@ -177,6 +177,8 @@ public class PlayerMovement : NetworkBehaviour
     public float fallDeathMargin = 10f;
     [Tooltip("리스폰 직후 무적 시간(초). 같은 지점에서 반복 사망하는 것을 막는다.")]
     public float respawnGraceSeconds = 0.5f;
+    [Tooltip("사망 후 리스폰까지 대기 시간(데스타이머, 초).")]
+    public float deathDuration = 0.5f;
 
     // 낙사선은 스테이지 지형에 따라 달라지므로 씬 단위로 한 번만 계산해 캐시한다.
     private static string _fallLineScene;
@@ -188,7 +190,8 @@ public class PlayerMovement : NetworkBehaviour
     // 네트워크 동기화 상태
     [Networked] private NetworkBool IsClimbing { get; set; }
     [Networked] private NetworkBool IsGrounded { get; set; }
-    [Networked] private NetworkBool IsDead { get; set; }
+    [Networked] public NetworkBool IsDead { get; set; }
+    [Networked] private TickTimer DeathTimer { get; set; }
     [Networked] private Vector2 NetVelocity { get; set; }
     [Networked] private TickTimer RespawnGrace { get; set; }
 
@@ -249,6 +252,35 @@ public class PlayerMovement : NetworkBehaviour
     public int SniffCounter => SniffCount;
     public int PowerSpendCounter => PowerSpendCount;
     public bool IsPoweredJump => PoweredJump;
+    public bool IsPlayerDead => NetworkedAccessSafe && IsDead;
+
+    /// <summary>
+    /// 로컬 플레이어(내 캐릭터)가 사망 상태인지 여부. 화면 회색 연출 등에 사용.
+    /// </summary>
+    public static bool IsAnyLocalPlayerDead()
+    {
+        var players = ActivePlayers();
+        bool hasInputAuthPlayer = false;
+        for (int i = 0; i < players.Count; i++)
+        {
+            var p = players[i];
+            if (p == null || p.Object == null) continue;
+            if (p.Object.HasInputAuthority)
+            {
+                hasInputAuthPlayer = true;
+                if (p.IsDead) return true;
+            }
+        }
+        if (!hasInputAuthPlayer)
+        {
+            for (int i = 0; i < players.Count; i++)
+            {
+                var p = players[i];
+                if (p != null && p.IsDead) return true;
+            }
+        }
+        return false;
+    }
     // 튜토리얼 안내용 접근자: [Networked] 값은 Spawned()~Despawned() 사이, 오브젝트가 유효할 때만 접근 가능.
     // 연결 끊김/디스폰 직후에도 안전하도록 Object 유효성까지 함께 확인한다. (NetworkedAccessSafe)
     private bool NetworkedAccessSafe => _spawned && Object != null && Object.IsValid;
@@ -360,6 +392,23 @@ public class PlayerMovement : NetworkBehaviour
         {
             _respawnRequested = false;
             Respawn();
+        }
+
+        // 사망 중일 때는 움직임 정지 및 데스타이머 완료 시 리스폰
+        if (IsDead)
+        {
+            if (_rb != null)
+            {
+                _rb.linearVelocity = Vector2.zero;
+                _rb.gravityScale = 0f;
+            }
+            NetVelocity = Vector2.zero;
+
+            if (Object.HasStateAuthority && DeathTimer.Expired(Runner))
+            {
+                Respawn();
+            }
+            return;
         }
 
         // 인트로 중에도 PrevButtons 는 갱신한다. (인트로 내내 누르고 있던 키가 시작 순간 발동하지 않게)
@@ -1082,7 +1131,23 @@ public class PlayerMovement : NetworkBehaviour
     private void MarkDead()
     {
         IsDead = true;
-        _respawnRequested = true; // 실제 리스폰은 FixedUpdateNetwork 안에서
+        if (deathDuration > 0f)
+        {
+            DeathTimer = TickTimer.CreateFromSeconds(Runner, deathDuration);
+            _respawnRequested = false;
+        }
+        else
+        {
+            DeathTimer = TickTimer.None;
+            _respawnRequested = true;
+        }
+
+        if (_rb != null)
+        {
+            _rb.linearVelocity = Vector2.zero;
+            _rb.gravityScale = 0f;
+        }
+        NetVelocity = Vector2.zero;
     }
 
     /// <summary>
@@ -1203,9 +1268,14 @@ public class PlayerMovement : NetworkBehaviour
         else
             transform.position = pos;
 
-        _rb.linearVelocity = Vector2.zero;
+        if (_rb != null)
+        {
+            _rb.linearVelocity = Vector2.zero;
+            _rb.gravityScale = _originalGravity;
+        }
         NetVelocity = Vector2.zero;
         RespawnGrace = TickTimer.CreateFromSeconds(Runner, respawnGraceSeconds);
+        DeathTimer = TickTimer.None;
         IsDead = false;
     }
 
@@ -1271,12 +1341,19 @@ public class PlayerMovement : NetworkBehaviour
             }
             else
             {
-                // 사망 -> 리스폰 무적 타이머가 새로 켜진 순간 (또는 IsDead 상승 엣지)
-                if ((dead && !_prevDeadVis) || (graceActive && !_prevRespawnGraceVis))
+                // 사망 시작 엣지
+                if (dead && !_prevDeadVis)
                 {
                     if (Object != null && Object.HasInputAuthority)
                     {
                         SfxPlayer.Death();
+                    }
+                }
+                // 리스폰 시작 엣지 (무적 타이머 활성화)
+                else if (graceActive && !_prevRespawnGraceVis)
+                {
+                    if (Object != null && Object.HasInputAuthority)
+                    {
                         SfxPlayer.Respawn();
                     }
                 }
