@@ -156,7 +156,7 @@ public class GameEndController : MonoBehaviour
         {
             float bonusSec = shards * RunManager.ShardTimeBonusSeconds;
             string denom = totalShards > 0 ? $"/{totalShards}" : "";
-            shardInfo = $"\n<size=34><color=#8CFFAA>✦ 구슬 조각 {shards}{denom}개 획득  (-{bonusSec:0.0}초 단축 적용!)</color></size>";
+            shardInfo = $"\n<size=34><color=#8CFFAA>◆ 구슬 조각 {shards}{denom}개 획득  (-{bonusSec:0.0}초 단축 적용!)</color></size>";
         }
         else if (totalShards > 0)
         {
@@ -239,7 +239,7 @@ public class GameEndController : MonoBehaviour
         if (totalShards > 0)
         {
             float bonusTotal = totalShards * RunManager.ShardTimeBonusSeconds;
-            acc += $"<color=#8CFFAA>구슬 조각 보너스  ✦ {totalShards}개 (-{bonusTotal:0.0}초 단축 반영)</color>\n";
+            acc += $"<color=#8CFFAA>구슬 조각 보너스  ◆ {totalShards}개 (-{bonusTotal:0.0}초 단축 반영)</color>\n";
             _finalList.text = acc;
             yield return new WaitForSecondsRealtime(0.40f);
         }

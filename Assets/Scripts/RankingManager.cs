@@ -389,7 +389,8 @@ public class RankingManager : MonoBehaviour
                     if (has)
                     {
                         var data = ranks[i];
-                        string shardBadge = data.shards > 0 ? $"  <color=#FFD94D>[✦{data.shards}]</color>" : "";
+                        // ✦(U+2726)은 NotoSansKR 폰트에 없어 깨진 네모로 표시됨 → 폰트에 있는 ◆로 교체
+                        string shardBadge = data.shards > 0 ? $"  <color=#FFD94D>[◆{data.shards}]</color>" : "";
                         players = $"{data.player1} & {data.player2}{shardBadge}";
                         time = FormatTime(data.clearTime);
                     }

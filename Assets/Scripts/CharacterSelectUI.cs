@@ -2,6 +2,7 @@ using Fusion;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 /// <summary>
 /// 캐릭터 선택 화면 UI 컨트롤러.
@@ -37,6 +38,7 @@ public class CharacterSelectUI : MonoBehaviour
     public static CharacterSelectUI Instance { get; private set; }
 
     private int _currentSelectedIndex = -1;
+    private int _readyVisualState = int.MinValue;   // 준비 버튼 마지막 비주얼 상태(중복 스타일링 방지)
 
     // 세션 아이템 폴링 및 실시간 동기화 주기
     private const float ItemPollInterval = 0.15f;
@@ -118,7 +120,7 @@ public class CharacterSelectUI : MonoBehaviour
 
         // 초기 시각 상태 적용
         UpdateCharacterSelectionUI(-1);
-        UpdateReadyUI(false);
+        UpdateReadyUI(false, false);
         RefreshAllPlayersUI();
     }
 
@@ -149,6 +151,9 @@ public class CharacterSelectUI : MonoBehaviour
         {
             // 1) 숲 픽셀 아트 전체 배경 적용
             LobbyUITheme.ApplyBackground(canvas.transform);
+
+            // 픽셀아트 UI가 또렷하게 보이도록 픽셀 퍼펙트(정수 좌표 스냅)
+            canvas.pixelPerfect = true;
 
             // 캔버스 스케일러 통일 (1920x1080)
             var scaler = canvas.GetComponent<CanvasScaler>();
@@ -191,6 +196,7 @@ public class CharacterSelectUI : MonoBehaviour
                 var subTmp = subGo.GetComponent<TextMeshProUGUI>();
                 if (titleTmp != null && titleTmp.font != null) subTmp.font = titleTmp.font;
                 LobbyUITheme.StyleSubtitle(subTmp, "원하는 캐릭터를 선택하고 준비를 완료하세요", 22f);
+                EmphasizeSubtitleOutline(subTmp);
             }
             else
             {
@@ -200,7 +206,11 @@ public class CharacterSelectUI : MonoBehaviour
                 srt.pivot = new Vector2(0.5f, 1f);
                 srt.anchoredPosition = new Vector2(0f, -135f);
                 var subTmp = subObj.GetComponent<TextMeshProUGUI>();
-                if (subTmp != null) LobbyUITheme.StyleSubtitle(subTmp, "원하는 캐릭터를 선택하고 준비를 완료하세요", 22f);
+                if (subTmp != null)
+                {
+                    LobbyUITheme.StyleSubtitle(subTmp, "원하는 캐릭터를 선택하고 준비를 완료하세요", 22f);
+                    EmphasizeSubtitleOutline(subTmp);
+                }
             }
         }
 
@@ -212,7 +222,117 @@ public class CharacterSelectUI : MonoBehaviour
         if (readyButton != null)
         {
             LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Stone, notReadyTextString, 30);
+            // 준비 버튼 글씨는 전용 머티리얼(아웃라인 0)로 둬서, 공유 폰트 머티리얼에 남은
+            // 아웃라인 오염(타이틀/부제의 outlineWidth 설정)으로 글씨가 번지는 것을 막는다.
+            var rtmp = readyButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (rtmp != null && rtmp.fontSharedMaterial != null)
+            {
+                var m = new Material(rtmp.fontSharedMaterial);
+                m.SetFloat(TMPro.ShaderUtilities.ID_OutlineWidth, 0f);
+                m.DisableKeyword(TMPro.ShaderUtilities.Keyword_Outline);
+                rtmp.fontMaterial = m;
+            }
         }
+
+        // 5) 좌측 상단 '로비로' 뒤로가기 버튼 (세션 종료 후 로비로 복귀)
+        BuildBackToLobbyButton();
+    }
+
+    private bool _leaving;
+
+    // 캐릭터 선택 화면에서 로비로 돌아가는 버튼을 좌측 하단에 생성한다.
+    // 스타일: 우측 상단 톱니바퀴(옵션) 버튼과 동일한 팔레트 — 중간 밝기 갈색 배경 + 짙은 갈색
+    //         픽셀 외곽선 + 금색 화살표(kenney_game-icons arrowLeft 1x). 각진 모서리, 그라데이션 없음.
+    //  - Hover : 배경을 조금 밝은 갈색으로, 화살표를 더 선명한 금색으로
+    //  - Pressed: 배경을 조금 어둡게 + 내용 2px 눌림(픽셀 느낌)
+    private void BuildBackToLobbyButton()
+    {
+        if (transform.Find("BackToLobbyButton") != null) return; // 중복 생성 방지
+
+        // 옵션(톱니바퀴) 버튼과 동일 계열 색상값
+        Color outlineCol = new Color(0.180f, 0.110f, 0.086f, 1f); // #2E1C16 짙은 갈색 외곽선
+        Color bgNormal   = new Color(0.416f, 0.278f, 0.165f, 1f); // #6A472A 중간 밝기 갈색(=OptBorder)
+        Color bgHover    = new Color(0.520f, 0.360f, 0.220f, 1f); // 조금 밝은 갈색
+        Color bgPressed  = new Color(0.310f, 0.200f, 0.120f, 1f); // 조금 어두운 갈색
+        Color fgNormal   = new Color(0.980f, 0.820f, 0.416f, 1f); // #FAD16A 금색 화살표(=OptGold)
+        Color fgHover    = new Color(1.000f, 0.902f, 0.627f, 1f); // #FFE6A0 더 선명한 금색(=OptGoldHi)
+
+        // 루트 = 짙은 갈색 픽셀 외곽선(전체를 외곽선색으로 채우고 Face를 안쪽에 둬 각진 테두리로)
+        var go = new GameObject("BackToLobbyButton", typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(transform, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(0f, 0f);   // 좌측 하단
+        rt.pivot = new Vector2(0f, 0f);
+        rt.anchoredPosition = new Vector2(44f, 92f);         // Status:Host(바닥 ~30px) 위로 띄움
+        rt.sizeDelta = new Vector2(92f, 92f);                // 톱니바퀴(옵션) 버튼과 동일 크기
+        var border = go.GetComponent<Image>();
+        border.color = outlineCol;             // 외곽선 = 유일한 레이캐스트 타깃(상태 변화 없음)
+
+        // Face = 안쪽 배경 (외곽선 두께 3px 만큼 inset)
+        var faceGo = new GameObject("Face", typeof(RectTransform), typeof(Image));
+        faceGo.transform.SetParent(go.transform, false);
+        var faceRt = faceGo.GetComponent<RectTransform>();
+        faceRt.anchorMin = Vector2.zero; faceRt.anchorMax = Vector2.one;
+        faceRt.offsetMin = new Vector2(3f, 3f); faceRt.offsetMax = new Vector2(-3f, -3f);
+        var faceImg = faceGo.GetComponent<Image>();
+        faceImg.color = bgNormal;
+        faceImg.raycastTarget = false;
+
+        // Content = 눌림 시 아래로 내려가는 전경 홀더
+        var contentGo = new GameObject("Content", typeof(RectTransform));
+        contentGo.transform.SetParent(faceGo.transform, false);
+        var contentRt = contentGo.GetComponent<RectTransform>();
+        contentRt.anchorMin = Vector2.zero; contentRt.anchorMax = Vector2.one;
+        contentRt.offsetMin = Vector2.zero; contentRt.offsetMax = Vector2.zero;
+
+        // Icon = kenney_game-icons arrowLeft 2x (흰색 스프라이트를 금색으로 틴트)
+        // 톱니바퀴 버튼과 동일하게 버튼의 ~70%를 차지하도록 앵커 기반 배치
+        var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+        iconGo.transform.SetParent(contentGo.transform, false);
+        var iconRt = iconGo.GetComponent<RectTransform>();
+        iconRt.anchorMin = new Vector2(0.16f, 0.16f);
+        iconRt.anchorMax = new Vector2(0.84f, 0.84f);
+        iconRt.offsetMin = Vector2.zero; iconRt.offsetMax = Vector2.zero;
+        var iconImg = iconGo.GetComponent<Image>();
+        iconImg.sprite = Resources.Load<Sprite>("Icons/arrowLeft2x");
+        iconImg.color = fgNormal;
+        iconImg.preserveAspect = true;
+        iconImg.raycastTarget = false;
+
+        // 클릭 처리(Button) — 비주얼 전환은 PixelBackButton 이 담당하므로 None
+        var btn = go.GetComponent<Button>();
+        btn.transition = Selectable.Transition.None;
+        btn.targetGraphic = border;
+        btn.onClick.AddListener(OnClickBackToLobby);
+
+        // 상태별 비주얼(기본/호버/눌림) — 외곽선은 고정이라 border 는 넘기지 않음(null)
+        var vis = go.AddComponent<PixelBackButton>();
+        vis.bg = faceImg; vis.border = null; vis.content = contentRt;
+        vis.foreground = new Graphic[] { iconImg };
+        vis.bgNormal = bgNormal; vis.bgHover = bgHover; vis.bgPressed = bgPressed;
+        vis.fgNormal = fgNormal; vis.fgHover = fgHover;
+        vis.pressDrop = 2f;
+    }
+
+    // 로비 복귀: 네트워크 세션을 정상 종료(자발적 이탈 표시)한 뒤 Lobby 씬 로드.
+    private async void OnClickBackToLobby()
+    {
+        if (_leaving) return;
+        _leaving = true;
+
+        BasicLauncher.MarkVoluntaryExit();
+
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        if (runner != null)
+        {
+            Debug.Log("<color=orange>[CharacterSelect]</color> 네트워크 세션 종료 중...");
+            await runner.Shutdown();
+        }
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        UnityEngine.SceneManagement.SceneManager.LoadScene("Lobby");
     }
 
     private void StyleCharacterCard(string path, int cardIndex, string defaultTitle, string spritePath)
@@ -350,7 +470,7 @@ public class CharacterSelectUI : MonoBehaviour
             Debug.Log($"<color=lime>[UI]</color> 레디 버튼 클릭! 현재 상태: {myItem.IsReady} -> {!myItem.IsReady}");
             bool nextReadyState = !myItem.IsReady;
             myItem.RPC_SetReady(nextReadyState);
-            UpdateReadyUI(nextReadyState);
+            UpdateReadyUI(nextReadyState, myItem.SelectedCharacterIndex >= 0);
         }
         else
         {
@@ -526,7 +646,7 @@ public class CharacterSelectUI : MonoBehaviour
         }
 
         // 5. 내 레디 버튼 비주얼 갱신
-        UpdateReadyUI(myReady);
+        UpdateReadyUI(myReady, myIndex >= 0);
 
         // 6. 상단 서브타이틀에 양쪽 플레이어 현황 종합 표시
         UpdateStatusSubtitle(myIndex, myReady, remoteItem != null, remoteIndex, remoteReady);
@@ -616,7 +736,20 @@ public class CharacterSelectUI : MonoBehaviour
         subTmp.text = $"원하는 캐릭터를 선택하고 준비를 완료하세요\n<size=19>{myStr}   |   {remoteStr}</size>";
     }
 
-    private void UpdateReadyUI(bool isReady)
+    // 부제 문구가 배경 위에서 또렷하게 보이도록 테두리(TMP 아웃라인)를 강하게 적용.
+    // 주의: tmp.outlineWidth 는 '공유 폰트 머티리얼'을 수정해 같은 폰트의 다른 텍스트(준비 버튼 등)까지
+    //       번지게 만든다. 반드시 '전용 머티리얼 인스턴스'에만 적용한다.
+    private static void EmphasizeSubtitleOutline(TextMeshProUGUI tmp)
+    {
+        if (tmp == null || tmp.fontSharedMaterial == null) return;
+        var mat = new Material(tmp.fontSharedMaterial);
+        mat.EnableKeyword(TMPro.ShaderUtilities.Keyword_Outline);
+        mat.SetColor(TMPro.ShaderUtilities.ID_OutlineColor, new Color32(0x3B, 0x29, 0x1C, 0xFF));
+        mat.SetFloat(TMPro.ShaderUtilities.ID_OutlineWidth, 0.30f);
+        tmp.fontMaterial = mat;
+    }
+
+    private void UpdateReadyUI(bool isReady, bool hasSelection)
     {
         if (readyButton == null)
         {
@@ -625,18 +758,83 @@ public class CharacterSelectUI : MonoBehaviour
             if (readyObj != null) readyButton = readyObj.GetComponent<Button>();
         }
 
-        if (readyButton != null)
+        if (readyButton == null) return;
+
+        // Update()가 0.15초마다 호출 → 상태가 그대로면 다시 스타일링하지 않는다(버튼 깜빡임 방지).
+        int stateCode = (isReady ? 2 : 0) | (hasSelection ? 1 : 0);
+        if (stateCode == _readyVisualState) return;
+        _readyVisualState = stateCode;
+
+        // Hover(밝게)/Pressed(어둡게)는 StylePixelButton 의 ColorTint 로 자동 처리된다.
+        if (isReady)
         {
-            if (isReady)
-            {
-                // 준비 완료: 선명한 그린 3D 픽셀 버튼
-                LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Green, readyTextString, 30);
-            }
-            else
-            {
-                // 준비 전: 스톤 3D 픽셀 버튼
-                LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Stone, notReadyTextString, 30);
-            }
+            // 준비 완료: 밝은 초록 3D 픽셀 버튼
+            LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Green, readyTextString, 30);
         }
+        else if (hasSelection)
+        {
+            // 캐릭터 선택 후 · 준비 전: 금색(머스터드) 활성 버튼
+            LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Gold, notReadyTextString, 30);
+        }
+        else
+        {
+            // 캐릭터 미선택: 회색 비활성 스타일
+            LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Stone, notReadyTextString, 30);
+        }
+
+        // 비활성(미선택/접속 지연) 상태에서 '밝은 회색'으로 흐려져 깜빡이지 않도록
+        // disabledColor 를 불투명 흰색으로 둬서 버튼 면 색이 그대로(솔리드 회색) 보이게 한다.
+        var cols = readyButton.colors;
+        cols.disabledColor = Color.white;
+        readyButton.colors = cols;
+
+        // 캐릭터를 선택하기 전에는 준비 버튼을 비활성화(호버/눌림 없이 클릭 불가).
+        readyButton.interactable = isReady || hasSelection;
+    }
+}
+
+/// <summary>
+/// 뒤로가기 버튼의 기본/호버/눌림 상태 비주얼을 직접 제어한다.
+/// (배경색·외곽선색·전경색 + 눌림 시 1~2px 픽셀 눌림 오프셋)
+/// </summary>
+public class PixelBackButton : MonoBehaviour,
+    IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler
+{
+    public Image bg;
+    public Image border;
+    public Graphic[] foreground;
+    public RectTransform content;
+
+    public Color bgNormal, bgHover, bgPressed;
+    public Color borderNormal, borderHover;
+    public Color fgNormal, fgHover;
+    public float pressDrop = 2f;
+
+    private Vector2 _home;
+    private bool _hover, _down;
+
+    private void OnEnable()
+    {
+        if (content != null) _home = content.anchoredPosition;
+        Apply();
+    }
+
+    public void OnPointerEnter(PointerEventData e) { _hover = true; Apply(); }
+    public void OnPointerExit(PointerEventData e) { _hover = false; _down = false; Apply(); }
+    public void OnPointerDown(PointerEventData e) { _down = true; Apply(); }
+    public void OnPointerUp(PointerEventData e) { _down = false; Apply(); }
+
+    private void Apply()
+    {
+        if (bg != null) bg.color = _down ? bgPressed : (_hover ? bgHover : bgNormal);
+        if (border != null) border.color = _hover ? borderHover : borderNormal;
+
+        Color fg = _hover ? fgHover : fgNormal;
+        if (foreground != null)
+            for (int i = 0; i < foreground.Length; i++)
+                if (foreground[i] != null) foreground[i].color = fg;
+
+        if (content != null)
+            content.anchoredPosition = _home + (_down ? new Vector2(0f, -pressDrop) : Vector2.zero);
     }
 }
