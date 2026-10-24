@@ -773,8 +773,13 @@ public class CharacterSelectUI : MonoBehaviour
             LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Stone, notReadyTextString, 30);
         }
 
+        // 비활성(미선택/접속 지연) 상태에서 '밝은 회색'으로 흐려져 깜빡이지 않도록
+        // disabledColor 를 불투명 흰색으로 둬서 버튼 면 색이 그대로(솔리드 회색) 보이게 한다.
+        var cols = readyButton.colors;
+        cols.disabledColor = Color.white;
+        readyButton.colors = cols;
+
         // 캐릭터를 선택하기 전에는 준비 버튼을 비활성화(호버/눌림 없이 클릭 불가).
-        // StylePixelButton 의 disabledColor 로 자동으로 회색 비활성처럼 보인다.
         readyButton.interactable = isReady || hasSelection;
     }
 }

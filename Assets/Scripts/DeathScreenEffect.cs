@@ -54,8 +54,10 @@ public class DeathScreenEffect : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        EnsureCameraPostProcessing();
         ResetEffect();
+        // 새 씬은 기본적으로 포스트프로세싱을 꺼 둔다(픽셀아트가 블릿으로 흐려지는 것 방지).
+        // 죽음 연출이 필요할 때만 Update 에서 켠다.
+        SetCameraPostProcessing(false);
     }
 
     private void BuildVolume()
@@ -149,30 +151,29 @@ public class DeathScreenEffect : MonoBehaviour
         return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
     }
 
-    private void EnsureCameraPostProcessing()
+    // 포스트프로세싱(채도 감소 그레이스케일)은 죽음 연출이 실제로 보일 때만 켠다.
+    // 항상 켜두면 URP 가 중간 타깃으로 블릿하면서 픽셀아트가 전체적으로 흐려진다.
+    private void SetCameraPostProcessing(bool on)
     {
         Camera cam = Camera.main;
         if (cam == null) cam = FindFirstObjectByType<Camera>();
-        if (cam != null)
-        {
-            var addData = cam.GetUniversalAdditionalCameraData();
-            if (addData != null && !addData.renderPostProcessing)
-            {
-                addData.renderPostProcessing = true;
-            }
-        }
+        if (cam == null) return;
+        var addData = cam.GetUniversalAdditionalCameraData();
+        if (addData != null && addData.renderPostProcessing != on)
+            addData.renderPostProcessing = on;
     }
 
     private void Update()
     {
-        EnsureCameraPostProcessing();
-
         bool isDead = PlayerMovement.IsAnyLocalPlayerDead();
         float target = isDead ? 1f : 0f;
 
         // 사망 시 빠르게 회색으로 전환 (약 0.08~0.1초), 리스폰 시 부드럽게 복구 (약 0.3초)
         float speed = isDead ? 12f : 3.5f;
         _intensity = Mathf.MoveTowards(_intensity, target, Time.unscaledDeltaTime * speed);
+
+        // 연출이 실제로 보일 때(강도 > 0)만 포스트프로세싱을 켜 둔다. 평상시엔 꺼서 화면을 또렷하게.
+        SetCameraPostProcessing(_intensity > 0.001f);
 
         // URP Post-Processing ColorAdjustments 채도/대비 제어
         if (_colorAdjustments != null)
