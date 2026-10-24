@@ -545,7 +545,7 @@ public class SaveFileUI : MonoBehaviour
                 {
                     int displayShards = data.totalCollectedShards + (data.hasCheckpoint ? Mathf.Max(0, data.checkpointStageShards) : 0);
                     string shardStr = displayShards > 0
-                        ? $"   <color=#74D974><b>✦ 조각 {displayShards}개</b></color>"
+                        ? $"   <color=#74D974><b>◆ 조각 {displayShards}개</b></color>"
                         : "";
                     row.slotInfoText.text = $"<color=#FAD16B><b>{data.stageDisplayName}</b></color>{shardStr}   <color=#FAF2E3>{data.updatedTime}</color>";
                 }
