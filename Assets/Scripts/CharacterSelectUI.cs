@@ -245,7 +245,7 @@ public class CharacterSelectUI : MonoBehaviour
         rt.anchorMin = rt.anchorMax = new Vector2(0f, 0f);   // 좌측 하단
         rt.pivot = new Vector2(0f, 0f);
         rt.anchoredPosition = new Vector2(44f, 92f);         // Status:Host(바닥 ~30px) 위로 띄움
-        rt.sizeDelta = new Vector2(64f, 64f);
+        rt.sizeDelta = new Vector2(92f, 92f);                // 톱니바퀴(옵션) 버튼과 동일 크기
         var border = go.GetComponent<Image>();
         border.color = outlineCol;             // 외곽선 = 유일한 레이캐스트 타깃(상태 변화 없음)
 
@@ -266,15 +266,16 @@ public class CharacterSelectUI : MonoBehaviour
         contentRt.anchorMin = Vector2.zero; contentRt.anchorMax = Vector2.one;
         contentRt.offsetMin = Vector2.zero; contentRt.offsetMax = Vector2.zero;
 
-        // Icon = kenney_game-icons arrowLeft (흰색 스프라이트를 금색으로 틴트)
+        // Icon = kenney_game-icons arrowLeft 2x (흰색 스프라이트를 금색으로 틴트)
+        // 톱니바퀴 버튼과 동일하게 버튼의 ~70%를 차지하도록 앵커 기반 배치
         var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
         iconGo.transform.SetParent(contentGo.transform, false);
         var iconRt = iconGo.GetComponent<RectTransform>();
-        iconRt.anchorMin = iconRt.anchorMax = iconRt.pivot = new Vector2(0.5f, 0.5f);
-        iconRt.sizeDelta = new Vector2(38f, 38f);
-        iconRt.anchoredPosition = Vector2.zero;
+        iconRt.anchorMin = new Vector2(0.16f, 0.16f);
+        iconRt.anchorMax = new Vector2(0.84f, 0.84f);
+        iconRt.offsetMin = Vector2.zero; iconRt.offsetMax = Vector2.zero;
         var iconImg = iconGo.GetComponent<Image>();
-        iconImg.sprite = Resources.Load<Sprite>("Icons/arrowLeft");
+        iconImg.sprite = Resources.Load<Sprite>("Icons/arrowLeft2x");
         iconImg.color = fgNormal;
         iconImg.preserveAspect = true;
         iconImg.raycastTarget = false;
