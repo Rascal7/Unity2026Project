@@ -38,6 +38,7 @@ public class CharacterSelectUI : MonoBehaviour
     public static CharacterSelectUI Instance { get; private set; }
 
     private int _currentSelectedIndex = -1;
+    private int _readyVisualState = int.MinValue;   // 준비 버튼 마지막 비주얼 상태(중복 스타일링 방지)
 
     // 세션 아이템 폴링 및 실시간 동기화 주기
     private const float ItemPollInterval = 0.15f;
@@ -150,6 +151,9 @@ public class CharacterSelectUI : MonoBehaviour
         {
             // 1) 숲 픽셀 아트 전체 배경 적용
             LobbyUITheme.ApplyBackground(canvas.transform);
+
+            // 픽셀아트 UI가 또렷하게 보이도록 픽셀 퍼펙트(정수 좌표 스냅)
+            canvas.pixelPerfect = true;
 
             // 캔버스 스케일러 통일 (1920x1080)
             var scaler = canvas.GetComponent<CanvasScaler>();
@@ -755,6 +759,11 @@ public class CharacterSelectUI : MonoBehaviour
         }
 
         if (readyButton == null) return;
+
+        // Update()가 0.15초마다 호출 → 상태가 그대로면 다시 스타일링하지 않는다(버튼 깜빡임 방지).
+        int stateCode = (isReady ? 2 : 0) | (hasSelection ? 1 : 0);
+        if (stateCode == _readyVisualState) return;
+        _readyVisualState = stateCode;
 
         // Hover(밝게)/Pressed(어둡게)는 StylePixelButton 의 ColorTint 로 자동 처리된다.
         if (isReady)
