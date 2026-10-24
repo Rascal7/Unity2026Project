@@ -119,7 +119,7 @@ public class CharacterSelectUI : MonoBehaviour
 
         // 초기 시각 상태 적용
         UpdateCharacterSelectionUI(-1);
-        UpdateReadyUI(false);
+        UpdateReadyUI(false, false);
         RefreshAllPlayersUI();
     }
 
@@ -192,6 +192,7 @@ public class CharacterSelectUI : MonoBehaviour
                 var subTmp = subGo.GetComponent<TextMeshProUGUI>();
                 if (titleTmp != null && titleTmp.font != null) subTmp.font = titleTmp.font;
                 LobbyUITheme.StyleSubtitle(subTmp, "원하는 캐릭터를 선택하고 준비를 완료하세요", 22f);
+                EmphasizeSubtitleOutline(subTmp);
             }
             else
             {
@@ -201,7 +202,11 @@ public class CharacterSelectUI : MonoBehaviour
                 srt.pivot = new Vector2(0.5f, 1f);
                 srt.anchoredPosition = new Vector2(0f, -135f);
                 var subTmp = subObj.GetComponent<TextMeshProUGUI>();
-                if (subTmp != null) LobbyUITheme.StyleSubtitle(subTmp, "원하는 캐릭터를 선택하고 준비를 완료하세요", 22f);
+                if (subTmp != null)
+                {
+                    LobbyUITheme.StyleSubtitle(subTmp, "원하는 캐릭터를 선택하고 준비를 완료하세요", 22f);
+                    EmphasizeSubtitleOutline(subTmp);
+                }
             }
         }
 
@@ -451,7 +456,7 @@ public class CharacterSelectUI : MonoBehaviour
             Debug.Log($"<color=lime>[UI]</color> 레디 버튼 클릭! 현재 상태: {myItem.IsReady} -> {!myItem.IsReady}");
             bool nextReadyState = !myItem.IsReady;
             myItem.RPC_SetReady(nextReadyState);
-            UpdateReadyUI(nextReadyState);
+            UpdateReadyUI(nextReadyState, myItem.SelectedCharacterIndex >= 0);
         }
         else
         {
@@ -627,7 +632,7 @@ public class CharacterSelectUI : MonoBehaviour
         }
 
         // 5. 내 레디 버튼 비주얼 갱신
-        UpdateReadyUI(myReady);
+        UpdateReadyUI(myReady, myIndex >= 0);
 
         // 6. 상단 서브타이틀에 양쪽 플레이어 현황 종합 표시
         UpdateStatusSubtitle(myIndex, myReady, remoteItem != null, remoteIndex, remoteReady);
@@ -717,7 +722,15 @@ public class CharacterSelectUI : MonoBehaviour
         subTmp.text = $"원하는 캐릭터를 선택하고 준비를 완료하세요\n<size=19>{myStr}   |   {remoteStr}</size>";
     }
 
-    private void UpdateReadyUI(bool isReady)
+    // 부제 문구가 배경 위에서 또렷하게 보이도록 테두리(TMP 아웃라인)를 강하게 적용.
+    private static void EmphasizeSubtitleOutline(TextMeshProUGUI tmp)
+    {
+        if (tmp == null) return;
+        tmp.outlineColor = new Color32(0x3B, 0x29, 0x1C, 0xFF); // 짙은 갈색(테마) 불투명
+        tmp.outlineWidth = 0.30f;                               // 기본(0.18)보다 또렷하게
+    }
+
+    private void UpdateReadyUI(bool isReady, bool hasSelection)
     {
         if (readyButton == null)
         {
@@ -726,18 +739,27 @@ public class CharacterSelectUI : MonoBehaviour
             if (readyObj != null) readyButton = readyObj.GetComponent<Button>();
         }
 
-        if (readyButton != null)
+        if (readyButton == null) return;
+
+        // Hover(밝게)/Pressed(어둡게)는 StylePixelButton 의 ColorTint 로 자동 처리된다.
+        if (isReady)
         {
-            if (isReady)
-            {
-                // 준비 완료: 선명한 그린 3D 픽셀 버튼
-                LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Green, readyTextString, 30);
-            }
-            else
-            {
-                // 준비 전: 스톤 3D 픽셀 버튼
-                LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Stone, notReadyTextString, 30);
-            }
+            // 준비 완료: 채도를 낮춘 올리브 그린(차분·세련) + 체크 아이콘
+            LobbyUITheme.StylePixelButtonCustom(readyButton,
+                new Color32(0x78, 0x8D, 0x50, 0xFF),   // 배경: 올리브 그린 #788D50
+                new Color32(0x3B, 0x29, 0x1C, 0xFF),   // 외곽선/그림자: 짙은 갈색 #3B291C
+                new Color32(0xFF, 0xF0, 0xC4, 0xFF),   // 텍스트: 크림 #FFF0C4
+                "✓ " + readyTextString, 30);
+        }
+        else if (hasSelection)
+        {
+            // 캐릭터 선택 후 · 준비 전: 금색(머스터드) 활성 버튼
+            LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Gold, notReadyTextString, 30);
+        }
+        else
+        {
+            // 캐릭터 미선택: 기존 회색(비활성) 스타일 유지
+            LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Stone, notReadyTextString, 30);
         }
     }
 }
