@@ -218,6 +218,16 @@ public class CharacterSelectUI : MonoBehaviour
         if (readyButton != null)
         {
             LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Stone, notReadyTextString, 30);
+            // 준비 버튼 글씨는 전용 머티리얼(아웃라인 0)로 둬서, 공유 폰트 머티리얼에 남은
+            // 아웃라인 오염(타이틀/부제의 outlineWidth 설정)으로 글씨가 번지는 것을 막는다.
+            var rtmp = readyButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (rtmp != null && rtmp.fontSharedMaterial != null)
+            {
+                var m = new Material(rtmp.fontSharedMaterial);
+                m.SetFloat(TMPro.ShaderUtilities.ID_OutlineWidth, 0f);
+                m.DisableKeyword(TMPro.ShaderUtilities.Keyword_Outline);
+                rtmp.fontMaterial = m;
+            }
         }
 
         // 5) 좌측 상단 '로비로' 뒤로가기 버튼 (세션 종료 후 로비로 복귀)
@@ -723,11 +733,16 @@ public class CharacterSelectUI : MonoBehaviour
     }
 
     // 부제 문구가 배경 위에서 또렷하게 보이도록 테두리(TMP 아웃라인)를 강하게 적용.
+    // 주의: tmp.outlineWidth 는 '공유 폰트 머티리얼'을 수정해 같은 폰트의 다른 텍스트(준비 버튼 등)까지
+    //       번지게 만든다. 반드시 '전용 머티리얼 인스턴스'에만 적용한다.
     private static void EmphasizeSubtitleOutline(TextMeshProUGUI tmp)
     {
-        if (tmp == null) return;
-        tmp.outlineColor = new Color32(0x3B, 0x29, 0x1C, 0xFF); // 짙은 갈색(테마) 불투명
-        tmp.outlineWidth = 0.30f;                               // 기본(0.18)보다 또렷하게
+        if (tmp == null || tmp.fontSharedMaterial == null) return;
+        var mat = new Material(tmp.fontSharedMaterial);
+        mat.EnableKeyword(TMPro.ShaderUtilities.Keyword_Outline);
+        mat.SetColor(TMPro.ShaderUtilities.ID_OutlineColor, new Color32(0x3B, 0x29, 0x1C, 0xFF));
+        mat.SetFloat(TMPro.ShaderUtilities.ID_OutlineWidth, 0.30f);
+        tmp.fontMaterial = mat;
     }
 
     private void UpdateReadyUI(bool isReady, bool hasSelection)
