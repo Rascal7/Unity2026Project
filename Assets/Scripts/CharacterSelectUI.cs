@@ -213,6 +213,51 @@ public class CharacterSelectUI : MonoBehaviour
         {
             LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Stone, notReadyTextString, 30);
         }
+
+        // 5) 좌측 상단 '로비로' 뒤로가기 버튼 (세션 종료 후 로비로 복귀)
+        BuildBackToLobbyButton();
+    }
+
+    private bool _leaving;
+
+    // 캐릭터 선택 화면에서 로비로 돌아가는 버튼을 좌측 상단에 생성한다.
+    private void BuildBackToLobbyButton()
+    {
+        if (transform.Find("BackToLobbyButton") != null) return; // 중복 생성 방지
+
+        var go = new GameObject("BackToLobbyButton", typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(transform, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(0f, 1f);
+        rt.pivot = new Vector2(0f, 1f);
+        rt.anchoredPosition = new Vector2(40f, -40f);
+        rt.sizeDelta = new Vector2(220f, 64f);
+
+        var btn = go.GetComponent<Button>();
+        LobbyUITheme.StylePixelButton(btn, LobbyUITheme.ButtonType.Stone, "← 로비로", 26);
+        btn.onClick.AddListener(OnClickBackToLobby);
+    }
+
+    // 로비 복귀: 네트워크 세션을 정상 종료(자발적 이탈 표시)한 뒤 Lobby 씬 로드.
+    private async void OnClickBackToLobby()
+    {
+        if (_leaving) return;
+        _leaving = true;
+
+        BasicLauncher.MarkVoluntaryExit();
+
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        if (runner != null)
+        {
+            Debug.Log("<color=orange>[CharacterSelect]</color> 네트워크 세션 종료 중...");
+            await runner.Shutdown();
+        }
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        UnityEngine.SceneManagement.SceneManager.LoadScene("Lobby");
     }
 
     private void StyleCharacterCard(string path, int cardIndex, string defaultTitle, string spritePath)
