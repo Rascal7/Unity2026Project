@@ -744,12 +744,8 @@ public class CharacterSelectUI : MonoBehaviour
         // Hover(밝게)/Pressed(어둡게)는 StylePixelButton 의 ColorTint 로 자동 처리된다.
         if (isReady)
         {
-            // 준비 완료: 채도를 낮춘 올리브 그린(차분·세련) + 체크 아이콘
-            LobbyUITheme.StylePixelButtonCustom(readyButton,
-                new Color32(0x78, 0x8D, 0x50, 0xFF),   // 배경: 올리브 그린 #788D50
-                new Color32(0x3B, 0x29, 0x1C, 0xFF),   // 외곽선/그림자: 짙은 갈색 #3B291C
-                new Color32(0xFF, 0xF0, 0xC4, 0xFF),   // 텍스트: 크림 #FFF0C4
-                "✓ " + readyTextString, 30);
+            // 준비 완료: 밝은 초록 3D 픽셀 버튼
+            LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Green, readyTextString, 30);
         }
         else if (hasSelection)
         {
@@ -758,9 +754,13 @@ public class CharacterSelectUI : MonoBehaviour
         }
         else
         {
-            // 캐릭터 미선택: 기존 회색(비활성) 스타일 유지
+            // 캐릭터 미선택: 회색 비활성 스타일
             LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Stone, notReadyTextString, 30);
         }
+
+        // 캐릭터를 선택하기 전에는 준비 버튼을 비활성화(호버/눌림 없이 클릭 불가).
+        // StylePixelButton 의 disabledColor 로 자동으로 회색 비활성처럼 보인다.
+        readyButton.interactable = isReady || hasSelection;
     }
 }
 
