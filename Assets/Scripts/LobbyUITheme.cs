@@ -422,8 +422,20 @@ public static class LobbyUITheme
         tmp.color = Gold;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.enableVertexGradient = false;
-        tmp.outlineWidth = 0.22f;
-        tmp.outlineColor = GoldDeep;
+        ApplyOutlineInstance(tmp, 0.22f, GoldDeep);
+    }
+
+    // TMP 의 tmp.outlineWidth 는 '공유 폰트 머티리얼'을 수정해 같은 폰트의 다른 텍스트(버튼·이름 등)까지
+    // 아웃라인이 입혀져 획이 겹쳐 보이게 만든다. 반드시 이 텍스트 '전용 머티리얼 인스턴스'에만 적용한다.
+    private static void ApplyOutlineInstance(TextMeshProUGUI tmp, float width, Color color)
+    {
+        if (tmp == null || tmp.fontSharedMaterial == null) return;
+        var mat = new Material(tmp.fontSharedMaterial);
+        mat.EnableKeyword(TMPro.ShaderUtilities.Keyword_Outline);
+        mat.SetColor(TMPro.ShaderUtilities.ID_OutlineColor, color);
+        mat.SetFloat(TMPro.ShaderUtilities.ID_OutlineWidth, width);
+        tmp.fontMaterial = mat;
+        tmp.UpdateMeshPadding();
     }
 
     public static void StyleSubtitle(TextMeshProUGUI tmp, string text = null, float fontSize = 24f)
@@ -441,8 +453,7 @@ public static class LobbyUITheme
         tmp.fontSize = fontSize;
         tmp.color = Parch;
         tmp.alignment = TextAlignmentOptions.Center;
-        tmp.outlineWidth = 0.18f;
-        tmp.outlineColor = new Color(0.10f, 0.06f, 0.02f, 0.85f);
+        ApplyOutlineInstance(tmp, 0.18f, new Color(0.10f, 0.06f, 0.02f, 0.85f));
     }
 
     public static bool IsAllAscii(string s)
