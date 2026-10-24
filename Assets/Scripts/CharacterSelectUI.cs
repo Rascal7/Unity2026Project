@@ -2,6 +2,7 @@ using Fusion;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 /// <summary>
 /// 캐릭터 선택 화면 UI 컨트롤러.
@@ -221,86 +222,77 @@ public class CharacterSelectUI : MonoBehaviour
     private bool _leaving;
 
     // 캐릭터 선택 화면에서 로비로 돌아가는 버튼을 좌측 상단에 생성한다.
-    // 테마 톤의 골드 U턴(리턴) 화살표 아이콘: 위쪽은 오른쪽으로 갔다가 아래쪽은 왼쪽으로 꺾여 왼쪽 화살표.
+    // 스타일: 짙은 갈색 배경 + 금색 외곽선 + 밝은 베이지 화살표(kenney_game-icons arrowLeft 1x).
+    //  - Hover : 배경을 청록색으로 밝게, 금색 외곽선은 더 선명하게, 화살표도 밝게
+    //  - Pressed: 배경을 더 어둡게 + 내용 1~2px 눌림(픽셀 느낌)
     private void BuildBackToLobbyButton()
     {
         if (transform.Find("BackToLobbyButton") != null) return; // 중복 생성 방지
 
+        // 상태별 색상 팔레트
+        Color bgNormal     = new Color(0.20f, 0.12f, 0.06f, 1f); // 짙은 갈색
+        Color bgHover      = new Color(0.20f, 0.55f, 0.58f, 1f); // 청록(기본과 확실히 구분)
+        Color bgPressed    = new Color(0.12f, 0.33f, 0.35f, 1f); // 조금 더 어둡게
+        Color borderNormal = LobbyUITheme.Gold;                  // 금색 외곽선
+        Color borderHover  = new Color(1f, 0.90f, 0.55f, 1f);    // 더 선명한 금색
+        Color fgNormal     = new Color(0.96f, 0.91f, 0.80f, 1f); // 밝은 베이지
+        Color fgHover      = Color.white;                        // 더 밝게
+
+        // 루트 = 금색 외곽선(전체를 금색으로 채우고 Face를 안쪽에 둬 테두리로 보이게)
         var go = new GameObject("BackToLobbyButton", typeof(RectTransform), typeof(Image), typeof(Button));
         go.transform.SetParent(transform, false);
         var rt = go.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(0f, 1f);
+        rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
         rt.pivot = new Vector2(0f, 1f);
         rt.anchoredPosition = new Vector2(44f, -44f);
-        rt.sizeDelta = new Vector2(68f, 68f);
+        rt.sizeDelta = new Vector2(64f, 64f);
+        var border = go.GetComponent<Image>();
+        border.color = borderNormal;           // 외곽선 = 유일한 레이캐스트 타깃
 
-        var img = go.GetComponent<Image>();
-        img.sprite = MakeReturnArrowSprite();   // 흰색 알파 모양 → 색은 Image.color 로 입힘
-        img.color = LobbyUITheme.Gold;          // 테마 골드
-        img.preserveAspect = true;
-        img.raycastTarget = true;
+        // Face = 안쪽 배경 (외곽선 두께 3px 만큼 inset)
+        var faceGo = new GameObject("Face", typeof(RectTransform), typeof(Image));
+        faceGo.transform.SetParent(go.transform, false);
+        var faceRt = faceGo.GetComponent<RectTransform>();
+        faceRt.anchorMin = Vector2.zero; faceRt.anchorMax = Vector2.one;
+        faceRt.offsetMin = new Vector2(3f, 3f); faceRt.offsetMax = new Vector2(-3f, -3f);
+        var faceImg = faceGo.GetComponent<Image>();
+        faceImg.color = bgNormal;
+        faceImg.raycastTarget = false;
 
-        // 밝은 하늘 배경 위에서 또렷하게 보이도록 어두운 외곽선
-        var outline = go.AddComponent<Outline>();
-        outline.effectColor = new Color(0.13f, 0.08f, 0.02f, 0.95f);
-        outline.effectDistance = new Vector2(2.5f, -2.5f);
+        // Content = 눌림 시 아래로 내려가는 전경 홀더
+        var contentGo = new GameObject("Content", typeof(RectTransform));
+        contentGo.transform.SetParent(faceGo.transform, false);
+        var contentRt = contentGo.GetComponent<RectTransform>();
+        contentRt.anchorMin = Vector2.zero; contentRt.anchorMax = Vector2.one;
+        contentRt.offsetMin = Vector2.zero; contentRt.offsetMax = Vector2.zero;
 
+        // Icon = kenney_game-icons arrowLeft (흰색 스프라이트를 베이지로 틴트)
+        var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+        iconGo.transform.SetParent(contentGo.transform, false);
+        var iconRt = iconGo.GetComponent<RectTransform>();
+        iconRt.anchorMin = iconRt.anchorMax = iconRt.pivot = new Vector2(0.5f, 0.5f);
+        iconRt.sizeDelta = new Vector2(38f, 38f);
+        iconRt.anchoredPosition = Vector2.zero;
+        var iconImg = iconGo.GetComponent<Image>();
+        iconImg.sprite = Resources.Load<Sprite>("Icons/arrowLeft");
+        iconImg.color = fgNormal;
+        iconImg.preserveAspect = true;
+        iconImg.raycastTarget = false;
+
+        // 클릭 처리(Button) — 비주얼 전환은 PixelBackButton 이 담당하므로 None
         var btn = go.GetComponent<Button>();
-        btn.targetGraphic = img;
-        btn.transition = Selectable.Transition.ColorTint;
-        var cb = btn.colors;
-        cb.normalColor = Color.white;                       // Image.color(Gold) 그대로
-        cb.highlightedColor = new Color(1.3f, 1.3f, 1.3f);  // 호버 시 밝게
-        cb.pressedColor = new Color(0.8f, 0.8f, 0.8f);
-        cb.fadeDuration = 0.05f;
-        btn.colors = cb;
+        btn.transition = Selectable.Transition.None;
+        btn.targetGraphic = border;
         btn.onClick.AddListener(OnClickBackToLobby);
-    }
 
-    // 로비로 돌아가는 U턴 리턴 화살표 스프라이트(흰색 알파 실루엣)를 픽셀아트로 생성해 캐시한다.
-    private static Sprite _returnArrowSprite;
-    private static Sprite MakeReturnArrowSprite()
-    {
-        if (_returnArrowSprite != null) return _returnArrowSprite;
-
-        const int W = 72, H = 56, TH = 9;
-        var tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
-        tex.filterMode = FilterMode.Point;
-        tex.wrapMode = TextureWrapMode.Clamp;
-
-        var px = new Color32[W * H];
-        var clear = new Color32(255, 255, 255, 0);
-        var fill = new Color32(255, 255, 255, 255);
-        for (int i = 0; i < px.Length; i++) px[i] = clear;
-
-        System.Action<int, int, int, int> rect = (x0, y0, x1, y1) =>
-        {
-            for (int y = Mathf.Max(0, y0); y <= Mathf.Min(H - 1, y1); y++)
-                for (int x = Mathf.Max(0, x0); x <= Mathf.Min(W - 1, x1); x++)
-                    px[y * W + x] = fill;
-        };
-
-        // 위쪽 가로줄 (오른쪽으로 진행)
-        rect(18, 40, 60, 40 + TH - 1);
-        // 오른쪽 세로 연결 (아래로 꺾임)
-        rect(60 - TH + 1, 16, 60, 40 + TH - 1);
-        // 아래쪽 가로줄 (왼쪽으로 진행)
-        rect(24, 16, 56, 16 + TH - 1);
-        // 왼쪽 화살촉(왼쪽을 가리킴): 팁 x=6, 밑변 x=22
-        int cy = 16 + (TH - 1) / 2;   // 아래줄 세로 중심
-        int xTip = 6, xBase = 22, maxHalf = 13;
-        for (int x = xTip; x <= xBase; x++)
-        {
-            int half = Mathf.RoundToInt((float)(x - xTip) / (xBase - xTip) * maxHalf);
-            for (int y = cy - half; y <= cy + half; y++)
-                if (y >= 0 && y < H && x >= 0 && x < W) px[y * W + x] = fill;
-        }
-
-        tex.SetPixels32(px);
-        tex.Apply();
-        _returnArrowSprite = Sprite.Create(tex, new Rect(0, 0, W, H), new Vector2(0.5f, 0.5f), 100f);
-        return _returnArrowSprite;
+        // 상태별 비주얼(기본/호버/눌림)
+        var vis = go.AddComponent<PixelBackButton>();
+        vis.bg = faceImg; vis.border = border; vis.content = contentRt;
+        vis.foreground = new Graphic[] { iconImg };
+        vis.bgNormal = bgNormal; vis.bgHover = bgHover; vis.bgPressed = bgPressed;
+        vis.borderNormal = borderNormal; vis.borderHover = borderHover;
+        vis.fgNormal = fgNormal; vis.fgHover = fgHover;
+        vis.pressDrop = 2f;
     }
 
     // 로비 복귀: 네트워크 세션을 정상 종료(자발적 이탈 표시)한 뒤 Lobby 씬 로드.
@@ -747,5 +739,51 @@ public class CharacterSelectUI : MonoBehaviour
                 LobbyUITheme.StylePixelButton(readyButton, LobbyUITheme.ButtonType.Stone, notReadyTextString, 30);
             }
         }
+    }
+}
+
+/// <summary>
+/// 뒤로가기 버튼의 기본/호버/눌림 상태 비주얼을 직접 제어한다.
+/// (배경색·외곽선색·전경색 + 눌림 시 1~2px 픽셀 눌림 오프셋)
+/// </summary>
+public class PixelBackButton : MonoBehaviour,
+    IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler
+{
+    public Image bg;
+    public Image border;
+    public Graphic[] foreground;
+    public RectTransform content;
+
+    public Color bgNormal, bgHover, bgPressed;
+    public Color borderNormal, borderHover;
+    public Color fgNormal, fgHover;
+    public float pressDrop = 2f;
+
+    private Vector2 _home;
+    private bool _hover, _down;
+
+    private void OnEnable()
+    {
+        if (content != null) _home = content.anchoredPosition;
+        Apply();
+    }
+
+    public void OnPointerEnter(PointerEventData e) { _hover = true; Apply(); }
+    public void OnPointerExit(PointerEventData e) { _hover = false; _down = false; Apply(); }
+    public void OnPointerDown(PointerEventData e) { _down = true; Apply(); }
+    public void OnPointerUp(PointerEventData e) { _down = false; Apply(); }
+
+    private void Apply()
+    {
+        if (bg != null) bg.color = _down ? bgPressed : (_hover ? bgHover : bgNormal);
+        if (border != null) border.color = _hover ? borderHover : borderNormal;
+
+        Color fg = _hover ? fgHover : fgNormal;
+        if (foreground != null)
+            for (int i = 0; i < foreground.Length; i++)
+                if (foreground[i] != null) foreground[i].color = fg;
+
+        if (content != null)
+            content.anchoredPosition = _home + (_down ? new Vector2(0f, -pressDrop) : Vector2.zero);
     }
 }
