@@ -221,6 +221,7 @@ public class CharacterSelectUI : MonoBehaviour
     private bool _leaving;
 
     // 캐릭터 선택 화면에서 로비로 돌아가는 버튼을 좌측 상단에 생성한다.
+    // 테마 톤의 골드 U턴(리턴) 화살표 아이콘: 위쪽은 오른쪽으로 갔다가 아래쪽은 왼쪽으로 꺾여 왼쪽 화살표.
     private void BuildBackToLobbyButton()
     {
         if (transform.Find("BackToLobbyButton") != null) return; // 중복 생성 방지
@@ -231,12 +232,75 @@ public class CharacterSelectUI : MonoBehaviour
         rt.anchorMin = new Vector2(0f, 1f);
         rt.anchorMax = new Vector2(0f, 1f);
         rt.pivot = new Vector2(0f, 1f);
-        rt.anchoredPosition = new Vector2(40f, -40f);
-        rt.sizeDelta = new Vector2(220f, 64f);
+        rt.anchoredPosition = new Vector2(44f, -44f);
+        rt.sizeDelta = new Vector2(68f, 68f);
+
+        var img = go.GetComponent<Image>();
+        img.sprite = MakeReturnArrowSprite();   // 흰색 알파 모양 → 색은 Image.color 로 입힘
+        img.color = LobbyUITheme.Gold;          // 테마 골드
+        img.preserveAspect = true;
+        img.raycastTarget = true;
+
+        // 밝은 하늘 배경 위에서 또렷하게 보이도록 어두운 외곽선
+        var outline = go.AddComponent<Outline>();
+        outline.effectColor = new Color(0.13f, 0.08f, 0.02f, 0.95f);
+        outline.effectDistance = new Vector2(2.5f, -2.5f);
 
         var btn = go.GetComponent<Button>();
-        LobbyUITheme.StylePixelButton(btn, LobbyUITheme.ButtonType.Stone, "← 로비로", 26);
+        btn.targetGraphic = img;
+        btn.transition = Selectable.Transition.ColorTint;
+        var cb = btn.colors;
+        cb.normalColor = Color.white;                       // Image.color(Gold) 그대로
+        cb.highlightedColor = new Color(1.3f, 1.3f, 1.3f);  // 호버 시 밝게
+        cb.pressedColor = new Color(0.8f, 0.8f, 0.8f);
+        cb.fadeDuration = 0.05f;
+        btn.colors = cb;
         btn.onClick.AddListener(OnClickBackToLobby);
+    }
+
+    // 로비로 돌아가는 U턴 리턴 화살표 스프라이트(흰색 알파 실루엣)를 픽셀아트로 생성해 캐시한다.
+    private static Sprite _returnArrowSprite;
+    private static Sprite MakeReturnArrowSprite()
+    {
+        if (_returnArrowSprite != null) return _returnArrowSprite;
+
+        const int W = 72, H = 56, TH = 9;
+        var tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Point;
+        tex.wrapMode = TextureWrapMode.Clamp;
+
+        var px = new Color32[W * H];
+        var clear = new Color32(255, 255, 255, 0);
+        var fill = new Color32(255, 255, 255, 255);
+        for (int i = 0; i < px.Length; i++) px[i] = clear;
+
+        System.Action<int, int, int, int> rect = (x0, y0, x1, y1) =>
+        {
+            for (int y = Mathf.Max(0, y0); y <= Mathf.Min(H - 1, y1); y++)
+                for (int x = Mathf.Max(0, x0); x <= Mathf.Min(W - 1, x1); x++)
+                    px[y * W + x] = fill;
+        };
+
+        // 위쪽 가로줄 (오른쪽으로 진행)
+        rect(18, 40, 60, 40 + TH - 1);
+        // 오른쪽 세로 연결 (아래로 꺾임)
+        rect(60 - TH + 1, 16, 60, 40 + TH - 1);
+        // 아래쪽 가로줄 (왼쪽으로 진행)
+        rect(24, 16, 56, 16 + TH - 1);
+        // 왼쪽 화살촉(왼쪽을 가리킴): 팁 x=6, 밑변 x=22
+        int cy = 16 + (TH - 1) / 2;   // 아래줄 세로 중심
+        int xTip = 6, xBase = 22, maxHalf = 13;
+        for (int x = xTip; x <= xBase; x++)
+        {
+            int half = Mathf.RoundToInt((float)(x - xTip) / (xBase - xTip) * maxHalf);
+            for (int y = cy - half; y <= cy + half; y++)
+                if (y >= 0 && y < H && x >= 0 && x < W) px[y * W + x] = fill;
+        }
+
+        tex.SetPixels32(px);
+        tex.Apply();
+        _returnArrowSprite = Sprite.Create(tex, new Rect(0, 0, W, H), new Vector2(0.5f, 0.5f), 100f);
+        return _returnArrowSprite;
     }
 
     // 로비 복귀: 네트워크 세션을 정상 종료(자발적 이탈 표시)한 뒤 Lobby 씬 로드.
