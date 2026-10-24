@@ -370,12 +370,13 @@ public static class LobbyUITheme
             legacyText.text = textContent;
             legacyText.raycastTarget = false;
 
-            if (textColor == Parch || textColor == Color.white)
+            // 레거시 동적 폰트(한글 Sunflower)에 UI Outline 을 붙이면, 폰트 아틀라스가 재생성될 때
+            // 글자 메시가 겹쳐 보이는(고스팅) 문제가 있다. 색 대비로 충분히 읽히므로 아웃라인은
+            // 사용하지 않고, 과거에 붙었을 수 있는 Outline/Shadow 도 제거한다.
+            foreach (var eff in legacyText.GetComponents<Shadow>())
             {
-                var outl = legacyText.GetComponent<Outline>();
-                if (outl == null) outl = legacyText.gameObject.AddComponent<Outline>();
-                outl.effectColor = new Color(0.08f, 0.08f, 0.08f, 0.85f);
-                outl.effectDistance = new Vector2(2f, -2f);
+                if (Application.isPlaying) Object.Destroy(eff);
+                else Object.DestroyImmediate(eff);
             }
         }
 
