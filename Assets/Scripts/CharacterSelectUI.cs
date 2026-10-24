@@ -221,33 +221,33 @@ public class CharacterSelectUI : MonoBehaviour
 
     private bool _leaving;
 
-    // 캐릭터 선택 화면에서 로비로 돌아가는 버튼을 좌측 상단에 생성한다.
-    // 스타일: 짙은 갈색 배경 + 금색 외곽선 + 밝은 베이지 화살표(kenney_game-icons arrowLeft 1x).
-    //  - Hover : 배경을 청록색으로 밝게, 금색 외곽선은 더 선명하게, 화살표도 밝게
-    //  - Pressed: 배경을 더 어둡게 + 내용 1~2px 눌림(픽셀 느낌)
+    // 캐릭터 선택 화면에서 로비로 돌아가는 버튼을 좌측 하단에 생성한다.
+    // 스타일: 우측 상단 톱니바퀴(옵션) 버튼과 동일한 팔레트 — 중간 밝기 갈색 배경 + 짙은 갈색
+    //         픽셀 외곽선 + 금색 화살표(kenney_game-icons arrowLeft 1x). 각진 모서리, 그라데이션 없음.
+    //  - Hover : 배경을 조금 밝은 갈색으로, 화살표를 더 선명한 금색으로
+    //  - Pressed: 배경을 조금 어둡게 + 내용 2px 눌림(픽셀 느낌)
     private void BuildBackToLobbyButton()
     {
         if (transform.Find("BackToLobbyButton") != null) return; // 중복 생성 방지
 
-        // 상태별 색상 팔레트
-        Color bgNormal     = new Color(0.20f, 0.12f, 0.06f, 1f); // 짙은 갈색
-        Color bgHover      = new Color(0.20f, 0.55f, 0.58f, 1f); // 청록(기본과 확실히 구분)
-        Color bgPressed    = new Color(0.12f, 0.33f, 0.35f, 1f); // 조금 더 어둡게
-        Color borderNormal = LobbyUITheme.Gold;                  // 금색 외곽선
-        Color borderHover  = new Color(1f, 0.90f, 0.55f, 1f);    // 더 선명한 금색
-        Color fgNormal     = new Color(0.96f, 0.91f, 0.80f, 1f); // 밝은 베이지
-        Color fgHover      = Color.white;                        // 더 밝게
+        // 옵션(톱니바퀴) 버튼과 동일 계열 색상값
+        Color outlineCol = new Color(0.180f, 0.110f, 0.086f, 1f); // #2E1C16 짙은 갈색 외곽선
+        Color bgNormal   = new Color(0.416f, 0.278f, 0.165f, 1f); // #6A472A 중간 밝기 갈색(=OptBorder)
+        Color bgHover    = new Color(0.520f, 0.360f, 0.220f, 1f); // 조금 밝은 갈색
+        Color bgPressed  = new Color(0.310f, 0.200f, 0.120f, 1f); // 조금 어두운 갈색
+        Color fgNormal   = new Color(0.980f, 0.820f, 0.416f, 1f); // #FAD16A 금색 화살표(=OptGold)
+        Color fgHover    = new Color(1.000f, 0.902f, 0.627f, 1f); // #FFE6A0 더 선명한 금색(=OptGoldHi)
 
-        // 루트 = 금색 외곽선(전체를 금색으로 채우고 Face를 안쪽에 둬 테두리로 보이게)
+        // 루트 = 짙은 갈색 픽셀 외곽선(전체를 외곽선색으로 채우고 Face를 안쪽에 둬 각진 테두리로)
         var go = new GameObject("BackToLobbyButton", typeof(RectTransform), typeof(Image), typeof(Button));
         go.transform.SetParent(transform, false);
         var rt = go.GetComponent<RectTransform>();
-        rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
-        rt.pivot = new Vector2(0f, 1f);
-        rt.anchoredPosition = new Vector2(44f, -44f);
+        rt.anchorMin = rt.anchorMax = new Vector2(0f, 0f);   // 좌측 하단
+        rt.pivot = new Vector2(0f, 0f);
+        rt.anchoredPosition = new Vector2(44f, 92f);         // Status:Host(바닥 ~30px) 위로 띄움
         rt.sizeDelta = new Vector2(64f, 64f);
         var border = go.GetComponent<Image>();
-        border.color = borderNormal;           // 외곽선 = 유일한 레이캐스트 타깃
+        border.color = outlineCol;             // 외곽선 = 유일한 레이캐스트 타깃(상태 변화 없음)
 
         // Face = 안쪽 배경 (외곽선 두께 3px 만큼 inset)
         var faceGo = new GameObject("Face", typeof(RectTransform), typeof(Image));
@@ -266,7 +266,7 @@ public class CharacterSelectUI : MonoBehaviour
         contentRt.anchorMin = Vector2.zero; contentRt.anchorMax = Vector2.one;
         contentRt.offsetMin = Vector2.zero; contentRt.offsetMax = Vector2.zero;
 
-        // Icon = kenney_game-icons arrowLeft (흰색 스프라이트를 베이지로 틴트)
+        // Icon = kenney_game-icons arrowLeft (흰색 스프라이트를 금색으로 틴트)
         var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
         iconGo.transform.SetParent(contentGo.transform, false);
         var iconRt = iconGo.GetComponent<RectTransform>();
@@ -285,12 +285,11 @@ public class CharacterSelectUI : MonoBehaviour
         btn.targetGraphic = border;
         btn.onClick.AddListener(OnClickBackToLobby);
 
-        // 상태별 비주얼(기본/호버/눌림)
+        // 상태별 비주얼(기본/호버/눌림) — 외곽선은 고정이라 border 는 넘기지 않음(null)
         var vis = go.AddComponent<PixelBackButton>();
-        vis.bg = faceImg; vis.border = border; vis.content = contentRt;
+        vis.bg = faceImg; vis.border = null; vis.content = contentRt;
         vis.foreground = new Graphic[] { iconImg };
         vis.bgNormal = bgNormal; vis.bgHover = bgHover; vis.bgPressed = bgPressed;
-        vis.borderNormal = borderNormal; vis.borderHover = borderHover;
         vis.fgNormal = fgNormal; vis.fgHover = fgHover;
         vis.pressDrop = 2f;
     }
