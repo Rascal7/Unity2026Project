@@ -802,7 +802,7 @@ public class SettingsMenuUI : MonoBehaviour
     private UnityEngine.UI.ScrollRect _contentScroll; // 콘텐츠 스크롤
     private Transform _viewport;                      // 스크롤 뷰포트(마스크)
     private GameObject _resetConfirm;                 // 기본값 복원 확인창
-    private const float CONTROLS_H = 540f;            // 조작 탭 콘텐츠 높이(뷰포트보다 커서 스크롤됨)
+    private const float CONTROLS_H = 660f;            // 조작 탭 콘텐츠 높이(뷰포트보다 커서 스크롤됨)
 
     private readonly System.Collections.Generic.List<BindEntry> _binds = new System.Collections.Generic.List<BindEntry>();
 
@@ -1505,10 +1505,18 @@ public class SettingsMenuUI : MonoBehaviour
                           () => SkillKeybinds.GetSlotKey(s), kc => SkillKeybinds.SetSlotKey(s, kc));
         }
 
+        // ===== 음성 대화 단축키 =====
+        float vy = -436f;
+        AddTMPLabel(CP, "음성 대화", 22, OptHeader, 0f, IN_L, vy, 240f, 26f, TMPro.TextAlignmentOptions.MidlineLeft);
+        MakeDivider(CP, 0f, vy - 30f, IN_W);
+        AddTMPLabel(CP, "푸시투톡 키", 19, OptText, 0f, IN_L, vy - 42f, 120f, 36f, TMPro.TextAlignmentOptions.MidlineLeft);
+        AddKeycapBind(CP, CTRL_X, vy - 43f, 156f, 34f, "푸시투톡",
+                      () => VoiceChatSettings.PushToTalkKey, kc => { VoiceChatSettings.PushToTalkKey = kc; RefreshVoiceModeUI(); });
+
         // 기본값으로 복원 (확인창 띄움) + 안내문
-        var resetBtn = MakeTMPButton(CP, "기본값으로 복원", 0f, -446f, 248f, 44f, OptBtnFace, 22f);
+        var resetBtn = MakeTMPButton(CP, "기본값으로 복원", 0f, vy - 100f, 248f, 44f, OptBtnFace, 22f);
         resetBtn.onClick.AddListener(() => { if (_resetConfirm != null) _resetConfirm.SetActive(true); });
-        _rebindHintText = AddTMPLabel(CP, "설정할 키를 눌러 변경하세요", 16, OptHint, 0.5f, 0f, -500f, IN_W, 22f, TMPro.TextAlignmentOptions.Center);
+        _rebindHintText = AddTMPLabel(CP, "설정할 키를 눌러 변경하세요", 16, OptHint, 0.5f, 0f, vy - 154f, IN_W, 22f, TMPro.TextAlignmentOptions.Center);
     }
 
     // TMP 텍스트를 쓰는 픽셀 버튼 (음향 탭 컨트롤과 글씨체 통일).
@@ -1593,6 +1601,8 @@ public class SettingsMenuUI : MonoBehaviour
         {
             MovementKeybinds.ResetToDefaults();
             SkillKeybinds.ResetToDefaults();
+            VoiceChatSettings.ResetToDefaults();
+            RefreshVoiceModeUI();
             _awaitingBind = -1;
             RefreshBinds();
             _resetConfirm.SetActive(false);
@@ -1855,9 +1865,12 @@ public class SettingsMenuUI : MonoBehaviour
         var meterBg = A.Find("MicMeterBg");
         SetRT(meterBg, 0f, AUD_CTRL_X, CtrlY(452f, AUD_SLH), AUD_SW, AUD_SLH);
 
+        // ===== 음성 채팅 (Photon Voice) 설정 =====
+        SetupVoiceModeSection(A, -490f);
+
         // 그룹이 늘어 뷰포트(COL_H)보다 길어졌으므로 내용 높이를 늘려 스크롤되게 한다
         var apRt = _audioPanel.GetComponent<RectTransform>();
-        if (apRt != null) apRt.sizeDelta = new Vector2(COL_W, 500f);
+        if (apRt != null) apRt.sizeDelta = new Vector2(COL_W, 640f);
         if (meterBg != null)
         {
             var fill = meterBg.Find("MicMeterFill");
@@ -1919,6 +1932,80 @@ public class SettingsMenuUI : MonoBehaviour
     private Slider _bgmSlider, _sfxSlider;
     private TMPro.TMP_Text _bgmValueText, _sfxValueText;
     private Button _bgMuteButton;
+
+    private Button _voiceModeAlwaysBtn;
+    private Button _voiceModePttBtn;
+    private TMPro.TMP_Text _voiceModeHintText;
+
+    private void SetupVoiceModeSection(Transform A, float startY)
+    {
+        SetAudioDivider("VoiceGroupLine", startY, IN_W);
+
+        var voiceHead = MakeAudioLabel("VoiceGroupHeader", "음성 채팅");
+        SetRT(voiceHead.transform, 0f, IN_L, startY - 14f, IN_W, 26f);
+        AlignTMP(voiceHead.transform, TMPro.TextAlignmentOptions.MidlineLeft);
+        SetTMP(voiceHead.transform, "음성 채팅 (Photon Voice)", 22f, OptHeader);
+        SetAudioDivider("VoiceGroupSubLine", startY - 44f, IN_W);
+
+        var modeLabel = MakeAudioLabel("VoiceModeLabel", "송출 방식");
+        SetRT(modeLabel.transform, 0f, IN_L, startY - 60f, AUD_LBL_W, AUD_RLH);
+        SetTMP(modeLabel.transform, "송출 방식", 19f, OptText);
+
+        const float btnW = 120f, btnH = AUD_RLH, gap = 10f;
+        float btnY = startY - 60f;
+
+        if (_voiceModeAlwaysBtn == null)
+        {
+            _voiceModeAlwaysBtn = MakeTMPButton(A, "상시 송출", AUD_CTRL_X, btnY, btnW, btnH, OptBtnFace, 18f);
+            _voiceModeAlwaysBtn.onClick.AddListener(() =>
+            {
+                VoiceChatSettings.Mode = VoiceChatSettings.TransmitMode.Always;
+                RefreshVoiceModeUI();
+            });
+        }
+        SetRT(_voiceModeAlwaysBtn.transform, 0f, AUD_CTRL_X, btnY, btnW, btnH);
+
+        if (_voiceModePttBtn == null)
+        {
+            _voiceModePttBtn = MakeTMPButton(A, "푸시투톡", AUD_CTRL_X + btnW + gap, btnY, btnW, btnH, OptBtnFace, 18f);
+            _voiceModePttBtn.onClick.AddListener(() =>
+            {
+                VoiceChatSettings.Mode = VoiceChatSettings.TransmitMode.PushToTalk;
+                RefreshVoiceModeUI();
+            });
+        }
+        SetRT(_voiceModePttBtn.transform, 0f, AUD_CTRL_X + btnW + gap, btnY, btnW, btnH);
+
+        if (_voiceModeHintText == null)
+        {
+            _voiceModeHintText = MakeAudioLabel("VoiceModeHint", "");
+        }
+        SetRT(_voiceModeHintText.transform, 0f, IN_L, startY - 104f, IN_W, 24f);
+        SetTMP(_voiceModeHintText.transform, null, 15f, OptHint);
+
+        RefreshVoiceModeUI();
+    }
+
+    private void RefreshVoiceModeUI()
+    {
+        bool isAlways = (VoiceChatSettings.Mode == VoiceChatSettings.TransmitMode.Always);
+        if (_voiceModeAlwaysBtn != null)
+        {
+            var img = _voiceModeAlwaysBtn.GetComponent<Image>();
+            if (img != null) img.color = isAlways ? OptBtnSel : OptBtnFace;
+        }
+        if (_voiceModePttBtn != null)
+        {
+            var img = _voiceModePttBtn.GetComponent<Image>();
+            if (img != null) img.color = isAlways ? OptBtnFace : OptBtnSel;
+        }
+        if (_voiceModeHintText != null)
+        {
+            _voiceModeHintText.text = isAlways
+                ? "마이크로 말하면 음성을 자동 감지하여 항상 팀원에게 전달됩니다. (기본)"
+                : $"'{SkillKeybinds.KeyLabel(VoiceChatSettings.PushToTalkKey)}' 키를 누르고 있는 동안만 마이크가 송출됩니다. (조작 탭에서 변경)";
+        }
+    }
 
     private void EnsureBgmControls()
     {
