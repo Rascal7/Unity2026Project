@@ -926,6 +926,12 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
 
     private static void AddModalOutline(GameObject go, Color color, float dist)
     {
+        // 레거시 동적 Smooth 폰트(Sunflower 본문/버튼)에 UI Outline 을 붙이면 폰트 아틀라스가
+        // 재생성될 때 글자가 겹쳐 보이는(고스팅) 문제가 있다. 아웃라인은 픽셀 폰트(BoldPixels,
+        // 타이틀)에만 적용하고, 그 외(본문/버튼) 텍스트에는 붙이지 않는다.
+        var txt = go.GetComponent<Text>();
+        if (txt != null && txt.font != null && !txt.font.name.Contains("BoldPixels")) return;
+
         var o = go.AddComponent<Outline>();
         o.effectColor = color;
         o.effectDistance = new Vector2(dist, -dist);
