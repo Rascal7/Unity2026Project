@@ -284,6 +284,14 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         string currentScene = SceneManager.GetActiveScene().name;
         Debug.Log($"<color=cyan>[Spawner]</color> 플레이어 {player} 참가! 현재 씬: {currentScene}");
 
+        // 방 정원(2명) 초과 접속 시도 차단
+        if (System.Linq.Enumerable.Count(runner.ActivePlayers) > 2)
+        {
+            Debug.LogWarning($"<color=red>[Spawner]</color> 방 정원(2명) 초과 플레이어({player}) 접속 차단 -> 연결 해제");
+            runner.Disconnect(player);
+            return;
+        }
+
         // 1. 캐릭터 선택 씬에서 새 플레이어가 들어온 경우
         if (currentScene == "CharacterSelect")
         {

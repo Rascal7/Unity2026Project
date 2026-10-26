@@ -4,6 +4,8 @@ using UnityEngine.SceneManagement;
 
 public class SessionPlayerItem : NetworkBehaviour
 {
+    public const int REQUIRED_PLAYERS = 2;
+
     [Networked, OnChangedRender(nameof(OnIndexChanged))]
     public int SelectedCharacterIndex { get; set; } 
     [Networked, OnChangedRender(nameof(OnReadyChanged))]
@@ -104,30 +106,43 @@ public class SessionPlayerItem : NetworkBehaviour
             if (item.SelectedCharacterIndex == -1) allCharactersSelected = false;
         }
 
-        int targetCount = Mathf.Max(1, System.Linq.Enumerable.Count(runner.ActivePlayers));
-        if (allItems.Length < targetCount) return false;
+        // 반드시 정확히 2명의 플레이어가 참가해 있어야 함 (혼자서 시작하거나 2명 초과 방지)
+        int activeCount = System.Linq.Enumerable.Count(runner.ActivePlayers);
+        if (activeCount != REQUIRED_PLAYERS) return false;
 
-        if (readyCount >= targetCount && allCharactersSelected)
+        if (allItems.Length != REQUIRED_PLAYERS) return false;
+
+        var selectedIndices = new System.Collections.Generic.HashSet<int>();
+        foreach (var item in allItems)
         {
-            _lastSceneLoadTime = Time.unscaledTime;
-            if (runner.SessionInfo != null && runner.SessionInfo.IsValid)
+            if (item != null && item.SelectedCharacterIndex != -1)
             {
-                runner.SessionInfo.IsOpen = false;
+                selectedIndices.Add(item.SelectedCharacterIndex);
             }
-            Debug.Log($"<color=green>[출발]</color> 전원 준비 완료 ({readyCount}/{targetCount})! 방 입장을 잠그고 세이브 파일 선택 씬({nextSceneName})으로 이동합니다.");
-            int sceneIndex = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{nextSceneName}.unity");
-            if (sceneIndex >= 0)
-            {
-                runner.LoadScene(SceneRef.FromIndex(sceneIndex));
-            }
-            else
-            {
-                runner.LoadScene(nextSceneName, LoadSceneMode.Single);
-            }
-            return true;
         }
 
-        return false;
+        // 2명 모두 서로 다른 캐릭터를 선택했는지 확인 (여우 0, 토끼 1)
+        if (!allCharactersSelected || selectedIndices.Count != REQUIRED_PLAYERS) return false;
+
+        // 2명 모두 준비 완료(Ready) 상태인지 확인
+        if (readyCount != REQUIRED_PLAYERS) return false;
+
+        _lastSceneLoadTime = Time.unscaledTime;
+        if (runner.SessionInfo != null && runner.SessionInfo.IsValid)
+        {
+            runner.SessionInfo.IsOpen = false;
+        }
+        Debug.Log($"<color=green>[출발]</color> 2인 전원 준비 완료 ({readyCount}/{REQUIRED_PLAYERS})! 방 입장을 잠그고 세이브 파일 선택 씬({nextSceneName})으로 이동합니다.");
+        int sceneIndex = SceneUtility.GetBuildIndexByScenePath($"Assets/Scenes/{nextSceneName}.unity");
+        if (sceneIndex >= 0)
+        {
+            runner.LoadScene(SceneRef.FromIndex(sceneIndex));
+        }
+        else
+        {
+            runner.LoadScene(nextSceneName, LoadSceneMode.Single);
+        }
+        return true;
     }
 
     public void OnIndexChanged()

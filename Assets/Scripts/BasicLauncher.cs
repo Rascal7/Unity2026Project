@@ -991,6 +991,12 @@ public class BasicLauncher : MonoBehaviour, INetworkRunnerCallbacks
                 request.Refuse();
                 return;
             }
+            if (System.Linq.Enumerable.Count(runner.ActivePlayers) >= MAX_PLAYERS)
+            {
+                Debug.LogWarning($"[Launcher] 방 정원({MAX_PLAYERS}명)이 초과되어 새로운 참가 요청을 거부합니다.");
+                request.Refuse();
+                return;
+            }
         }
         request.Accept();
     }

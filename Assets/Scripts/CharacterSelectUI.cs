@@ -733,7 +733,11 @@ public class CharacterSelectUI : MonoBehaviour
             ? $"<color=#5CE1E6>[상대방]</color> {CharName(remoteIdx)} [{ReadyTag(remoteReady)}]"
             : "<color=#8C7B6B>[상대방] 접속 대기 중...</color>";
 
-        subTmp.text = $"원하는 캐릭터를 선택하고 준비를 완료하세요\n<size=19>{myStr}   |   {remoteStr}</size>";
+        string guideStr = hasRemote
+            ? "원하는 캐릭터를 선택하고 준비를 완료하세요 (2인 준비 완료 시 시작)"
+            : "2인 협동 전용 게임입니다. 상대방이 접속해야 시작할 수 있습니다.";
+
+        subTmp.text = $"{guideStr}\n<size=19>{myStr}   |   {remoteStr}</size>";
     }
 
     // 부제 문구가 배경 위에서 또렷하게 보이도록 테두리(TMP 아웃라인)를 강하게 적용.

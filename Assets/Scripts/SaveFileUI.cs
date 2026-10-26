@@ -571,6 +571,16 @@ public class SaveFileUI : MonoBehaviour
             return;
         }
 
+        // 2인 협동 필수 검사: 파트너가 없는 상태에서 단독 진행 차단
+        if (runner != null && runner.IsRunning)
+        {
+            if (System.Linq.Enumerable.Count(runner.ActivePlayers) < 2)
+            {
+                ShowNoticeModal("2인 협동 전용 게임입니다.\n파트너 플레이어가 방에 접속해 있어야 시작할 수 있습니다.");
+                return;
+            }
+        }
+
         var slotData = SaveDataManager.GetSlot(slotIndex);
         if (_currentAction == SlotActionType.LoadGame && slotData != null && slotData.isCorrupted)
         {

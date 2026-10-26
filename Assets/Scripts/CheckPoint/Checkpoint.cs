@@ -59,7 +59,7 @@ public class Checkpoint : MonoBehaviour
     private void RefreshLabel()
     {
         var players = PlayerMovement.ActivePlayers();
-        int total = players.Count;
+        int total = Mathf.Max(2, players.Count);
         if (total == 0) { _labelGroup.alpha = 0f; return; } // 아직 캐릭터가 스폰되지 않음
 
         int reached = 0;

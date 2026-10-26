@@ -1351,6 +1351,17 @@ public class PlayerMovement : NetworkBehaviour
     {
         var players = ActivePlayers();
         if (players.Count == 0) return reached.Count > 0; // 네트워크 없이 돌리는 경우
+
+        var runner = BasicLauncher.Instance != null && BasicLauncher.Instance.Runner != null
+            ? BasicLauncher.Instance.Runner
+            : UnityEngine.Object.FindFirstObjectByType<Fusion.NetworkRunner>();
+
+        // 2인 협동 전용: 멀티플레이 진행 중에는 반드시 2명이 모두 존재하고 골에 도달해야 함
+        if (runner != null && runner.IsRunning)
+        {
+            if (players.Count < 2) return false;
+        }
+
         foreach (var p in players)
             if (!reached.Contains(p)) return false;
         return true;

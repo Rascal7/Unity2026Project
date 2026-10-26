@@ -9,8 +9,28 @@ using UnityEngine;
 /// </summary>
 public static class BuildScript
 {
-    [MenuItem("Tools/Build/1. Build Windows 64-bit (Game Only)")]
-    public static void BuildWindowsRelease()
+    [MenuItem("Tools/Build/★ Build All (Game + Installer) ★", priority = 0)]
+    public static void BuildAll()
+    {
+        Debug.Log("<color=cyan>[BuildScript]</color> === 전체 빌드 시작 (게임 빌드 → 설치 마법사 생성) ===");
+        bool success = BuildWindowsRelease(false);
+        if (success)
+        {
+            CompileInstaller();
+        }
+        else
+        {
+            Debug.LogError("<color=red>[BuildScript] 게임 빌드에 실패하여 설치 마법사 생성을 중단합니다.</color>");
+        }
+    }
+
+    [MenuItem("Tools/Build/1. Build Windows 64-bit (Game Only)", priority = 10)]
+    public static void MenuBuildWindowsRelease()
+    {
+        BuildWindowsRelease(true);
+    }
+
+    public static bool BuildWindowsRelease(bool revealInFinder = true)
     {
         string projectDir = Directory.GetCurrentDirectory();
         string buildDir = Path.Combine(projectDir, "Builds", "Windows");
@@ -30,7 +50,7 @@ public static class BuildScript
         if (scenes.Length == 0)
         {
             Debug.LogError("[BuildScript] Build Settings에 등록된 활성 씬이 없습니다!");
-            return;
+            return false;
         }
 
         // 프로젝트 버전 설정
@@ -56,22 +76,24 @@ public static class BuildScript
             Debug.Log($"출력 위치: {exePath}");
             Debug.Log($"소요 시간: {summary.totalTime:c}, 총 크기: {summary.totalSize / (1024 * 1024)} MB");
 
-            if (!Application.isBatchMode)
+            if (revealInFinder && !Application.isBatchMode)
             {
                 EditorUtility.RevealInFinder(exePath);
             }
+            return true;
         }
-        else if (summary.result == BuildResult.Failed)
+        else
         {
             Debug.LogError($"<color=red>✖ [BuildScript] 게임 빌드 실패! ✖</color> 총 에러 수: {summary.totalErrors}");
             if (Application.isBatchMode)
             {
                 EditorApplication.Exit(1);
             }
+            return false;
         }
     }
 
-    [MenuItem("Tools/Build/2. Compile Inno Setup (Create Setup.exe)")]
+    [MenuItem("Tools/Build/2. Compile Inno Setup (Create Setup.exe)", priority = 20)]
     public static void CompileInstaller()
     {
         string isccPath = FindIsccPath();
