@@ -34,6 +34,20 @@ public class PlayerMovement : NetworkBehaviour
     [Tooltip("최대 낙하 속도(양수). 카메라 낙하 룩어헤드(CameraFollow.fallSpeedForMaxLook)가 따라잡을 수 있도록 제한한다. 0 이면 제한 없음")]
     public float maxFallSpeed = 16f;
 
+    [Header("Corner Correction (모서리 보정)")]
+    [Tooltip("점프 중 머리가 천장 모서리에 이 거리(가로, 월드 단위) 이내로 걸리면 옆으로 밀어 통과시킨다. 0 이면 끔")]
+    public float ceilingCornerCorrection = 0.3f;
+    [Tooltip("공중에서 옆으로 가다 발이 발판 모서리에 이 높이 이내로 걸리면 위로 올려 발판에 올라서게 한다. 0 이면 끔")]
+    public float ledgeCornerCorrection = 0.25f;
+    [Tooltip("모서리 보정 탐색 간격(월드 단위). 작을수록 정밀하지만 검사가 늘어난다")]
+    public float cornerCorrectionStep = 0.05f;
+
+    [Header("Co-op Leash (공유 카메라 거리 제한)")]
+    [Tooltip("두 플레이어 사이 최대 가로 거리. 공유 카메라는 이 거리까지 줌아웃하고 그 이상은 서로 멀어지지 못한다. 0 이면 제한 없음")]
+    public float coopMaxDistanceX = 20f;
+    [Tooltip("두 플레이어 사이 최대 세로 거리. 위로 올라가거나 사다리로 내려가며 멀어지는 것만 막는다(낙하는 막지 않음). 0 이면 제한 없음")]
+    public float coopMaxDistanceY = 10f;
+
     // 캐릭터 스킬 종류 (챕터별). 프리팹에서 슬롯에 지정한다.
     // 주의: 프리팹에 정수로 직렬화되므로 새 값은 항상 끝에 추가한다.
     public enum CharacterSkill { None, FoxDash, FoxSniff, FoxShadow, RabbitCarrot, RabbitJump, RabbitStomp, FoxSwap, RabbitPowerUp }
@@ -168,6 +182,14 @@ public class PlayerMovement : NetworkBehaviour
     private Animator _anim;
     private SpriteRenderer _sr;
     private float _originalGravity;
+
+    // 모서리 보정용 몸통 박스 (Rigidbody2D 위치 기준 오프셋/크기)
+    private Collider2D _col;
+    private Vector2 _colOffset;
+    private Vector2 _colSize;
+    private ContactFilter2D _cornerFilter;
+    private static readonly System.Collections.Generic.List<Collider2D> _cornerHits = new System.Collections.Generic.List<Collider2D>(8);
+    private const float CornerSkin = 0.02f; // 맞닿아 있는 바닥/벽을 막힘으로 오인하지 않도록 박스를 이만큼 줄인다
 
     // 사망 및 리스폰 설정
     [Header("Death Settings")]
@@ -319,6 +341,15 @@ public class PlayerMovement : NetworkBehaviour
         _rb.interpolation = RigidbodyInterpolation2D.None;
         _originalGravity = _rb.gravityScale;
         _nrb = GetComponent<NetworkRigidbody2D>();
+
+        _col = GetComponent<Collider2D>();
+        if (_col != null)
+        {
+            _colOffset = (Vector2)_col.bounds.center - _rb.position;
+            _colSize = _col.bounds.size;
+        }
+        _cornerFilter = new ContactFilter2D { useTriggers = false };
+        _cornerFilter.SetLayerMask(groundLayer);
         fallDeathY = ResolveFallDeathY();
 
         // 클라이언트 물리 시뮬레이션(움직임 예측) 안전 보장
@@ -542,7 +573,132 @@ public class PlayerMovement : NetworkBehaviour
         if (fallCap > 0f && !IsClimbing && yVelocity < -fallCap)
             yVelocity = -fallCap;
 
+        ApplyCoopLeash(ref xVelocity, ref yVelocity);
+
+        if (!IsClimbing)
+        {
+            if (yVelocity > 0f)
+                TryCeilingCornerCorrection(yVelocity * Runner.DeltaTime, xVelocity);
+            // 일반 공중 이동은 낙하/정점에서만, 대시는 상승 여부와 관계없이 발판 모서리를 넘겨 준다.
+            if (!IsGrounded && Mathf.Abs(xVelocity) > 0.01f && (isDashing || yVelocity <= 0.5f)
+                && TryLedgeCornerCorrection(xVelocity * Runner.DeltaTime) && yVelocity < 0f)
+                yVelocity = 0f; // 올려 준 직후 다시 떨어져 모서리에 또 걸리지 않게
+        }
+
         _rb.linearVelocity = new Vector2(xVelocity, yVelocity);
+    }
+
+    /// <summary>
+    /// 공유 카메라 거리 제한: 다른 플레이어에게서 coopMaxDistance 이상 멀어지는 방향의 속도만 막는다.
+    /// 가까워지는 방향은 그대로 허용하므로, 이미 거리를 넘었더라도(리스폰 직후 등) 끌어당기지 않는다.
+    /// 세로는 상승과 사다리 하강만 막는다(중력 낙하를 멈추면 공중에 떠 버린다).
+    /// </summary>
+    private void ApplyCoopLeash(ref float vx, ref float vy)
+    {
+        if (coopMaxDistanceX <= 0f && coopMaxDistanceY <= 0f) return;
+        float dt = Runner.DeltaTime;
+        Vector2 me = _rb.position;
+        float wantX = vx, wantY = vy;
+
+        for (int i = 0; i < _registeredPlayers.Count; i++)
+        {
+            var p = _registeredPlayers[i];
+            if (p == null || p == this || !p.NetworkedAccessSafe || p.IsDead) continue;
+            Vector2 other = p._rb != null ? p._rb.position : (Vector2)p.transform.position;
+
+            vx = LimitLeashAxis(me.x, other.x, vx, coopMaxDistanceX, dt);
+            if (vy > 0f || IsClimbing)
+                vy = LimitLeashAxis(me.y, other.y, vy, coopMaxDistanceY, dt);
+        }
+
+        // 화면 가장자리 경고(LeashEdgeWarning)용: 막힌 방향과 시각을 남긴다. 비네트워크 연출 상태.
+        if (vx != wantX || vy != wantY)
+        {
+            _leashBlockedDir = new Vector2(vx != wantX ? Mathf.Sign(wantX) : 0f, vy != wantY ? Mathf.Sign(wantY) : 0f);
+            _leashBlockedAt = Time.time;
+        }
+    }
+
+    private Vector2 _leashBlockedDir;
+    private float _leashBlockedAt = -1f;
+
+    /// <summary>최근 holdSeconds 안에 거리 제한에 막혔으면 true 와 막힌 방향(x/y 각각 -1, 0, +1).</summary>
+    public bool IsLeashBlocked(float holdSeconds, out Vector2 dir)
+    {
+        dir = _leashBlockedDir;
+        return _leashBlockedAt >= 0f && Time.time - _leashBlockedAt <= holdSeconds;
+    }
+
+    private static float LimitLeashAxis(float me, float other, float vel, float max, float dt)
+    {
+        if (max <= 0f) return vel;
+        float next = me + vel * dt - other;
+        if (next > max && vel > 0f) return Mathf.Clamp((other + max - me) / dt, 0f, vel);
+        if (next < -max && vel < 0f) return Mathf.Clamp((other - max - me) / dt, vel, 0f);
+        return vel;
+    }
+
+    // 몸통 박스를 offset 만큼 옮긴 자리가 지형에 막혀 있는지. 사방을 CornerSkin 만큼 줄여 맞닿은 면은 무시한다.
+    private bool IsBodyBlocked(Vector2 offset)
+    {
+        Vector2 size = new Vector2(Mathf.Max(_colSize.x - CornerSkin * 2f, 0.01f), Mathf.Max(_colSize.y - CornerSkin * 2f, 0.01f));
+        int n = Physics2D.OverlapBox(_rb.position + _colOffset + offset, size, 0f, _cornerFilter, _cornerHits);
+        for (int i = 0; i < n; i++)
+        {
+            var h = _cornerHits[i];
+            if (h == null || h == _col || h.GetComponentInParent<PlayerMovement>() != null) continue;
+            // 일방통행 발판은 아래/옆에서 통과하므로 모서리 보정 대상이 아니다.
+            if (h.usedByEffector && h.TryGetComponent<PlatformEffector2D>(out var eff) && eff.useOneWay) continue;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 천장 모서리 보정: 이번 틱 상승으로 머리가 막히는데 옆으로 조금만 비키면 뚫려 있으면 그만큼 밀어 준다.
+    /// 좌우로 움직이는 중이면 그 방향으로만, 멈춰 있으면 양쪽을 가까운 순서로 찾는다.
+    /// </summary>
+    private void TryCeilingCornerCorrection(float rise, float vx)
+    {
+        if (ceilingCornerCorrection <= 0f || _col == null) return;
+        Vector2 up = new Vector2(0f, rise + CornerSkin);
+        if (!IsBodyBlocked(up)) return;
+
+        float step = Mathf.Max(cornerCorrectionStep, 0.01f);
+        int steps = Mathf.CeilToInt(ceilingCornerCorrection / step);
+        for (int i = 1; i <= steps; i++)
+        {
+            float d = Mathf.Min(i * step, ceilingCornerCorrection);
+            for (int s = -1; s <= 1; s += 2)
+            {
+                if ((s < 0 && vx > 0.01f) || (s > 0 && vx < -0.01f)) continue;
+                Vector2 side = new Vector2(s * d, 0f);
+                if (IsBodyBlocked(side) || IsBodyBlocked(side + up)) continue;
+                _rb.position += side;
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 발판 모서리 보정: 공중에서 옆으로 가다 발끝이 발판 모서리에 살짝 걸리면 그 높이만큼 올려 올라서게 한다.
+    /// </summary>
+    private bool TryLedgeCornerCorrection(float moveX)
+    {
+        if (ledgeCornerCorrection <= 0f || _col == null) return false;
+        Vector2 fwd = new Vector2(moveX + Mathf.Sign(moveX) * CornerSkin, 0f);
+        if (!IsBodyBlocked(fwd)) return false;
+
+        float step = Mathf.Max(cornerCorrectionStep, 0.01f);
+        int steps = Mathf.CeilToInt(ledgeCornerCorrection / step);
+        for (int i = 1; i <= steps; i++)
+        {
+            Vector2 lift = new Vector2(0f, Mathf.Min(i * step, ledgeCornerCorrection));
+            if (IsBodyBlocked(lift) || IsBodyBlocked(lift + fwd)) continue;
+            _rb.position += lift;
+            return true;
+        }
+        return false;
     }
 
     /// <summary>
@@ -1156,6 +1312,14 @@ public class PlayerMovement : NetworkBehaviour
     public static System.Collections.Generic.List<PlayerMovement> ActivePlayers()
     {
         var list = new System.Collections.Generic.List<PlayerMovement>(_registeredPlayers.Count);
+        GetActivePlayers(list);
+        return list;
+    }
+
+    /// <summary>ActivePlayers 의 비할당 버전. 매 프레임 호출하는 곳(공유 카메라)에서 쓴다.</summary>
+    public static void GetActivePlayers(System.Collections.Generic.List<PlayerMovement> list)
+    {
+        list.Clear();
         for (int i = _registeredPlayers.Count - 1; i >= 0; i--)
         {
             var p = _registeredPlayers[i];
@@ -1177,7 +1341,6 @@ public class PlayerMovement : NetworkBehaviour
                 list.Add(p);
             }
         }
-        return list;
     }
 
     /// <summary>
@@ -1279,16 +1442,21 @@ public class PlayerMovement : NetworkBehaviour
         IsDead = false;
     }
 
-    // ESC 메뉴의 "다시하기": 요청한 플레이어의 캐릭터만 마지막 체크포인트로 리스폰.
+    // ESC 메뉴의 "다시하기": 모든 플레이어를 마지막 체크포인트로 함께 리스폰.
+    // 공유 카메라/거리 제한 때문에 한 명만 돌아가면 서로 화면 밖으로 멀어지므로 사망과 같은 협동 규칙을 따른다.
     // 실제 리스폰은 StateAuthority(호스트)가 수행하므로, 입력 권한자가 호스트에 요청한다.
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_RequestRespawn()
     {
-        _respawnRequested = true; // FixedUpdateNetwork 에서 기존 Respawn() 경로로 처리
+        foreach (var p in ActivePlayers())
+        {
+            // FixedUpdateNetwork 에서 기존 Respawn() 경로로 처리
+            if (p.Object.HasStateAuthority) p._respawnRequested = true;
+        }
     }
 
     /// <summary>
-    /// 로컬 플레이어(입력 권한을 가진 내 캐릭터)를 마지막 체크포인트로 리스폰 요청한다.
+    /// 로컬 플레이어(입력 권한을 가진 내 캐릭터)의 요청으로 모든 플레이어를 마지막 체크포인트로 리스폰한다.
     /// 인게임에서 내 캐릭터가 없으면 아무 것도 하지 않는다(안전).
     /// </summary>
     public static bool RequestLocalRespawn()
